@@ -37,4 +37,18 @@ If I still have the time after these, I'd also like to experiment with
 incremental type checking and implementing some of the language server protocol
 functions.
 
+## Usage
+
+- `cargo test` runs tests.
+
+- `cargo run` type checks `Prelude.hs` and prints inferred types of top-level
+  definitions.
+
+- `./build` compiles the project to Wasm. After this step start a web server in
+  the `site` directory and navigate to the served address for the web
+  interface.
+
+  The web interface shows all compiler outputs in the page. Panics are only
+  shown in the JS console.
+
 [1]: https://www.haskell.org/onlinereport/haskell2010/
