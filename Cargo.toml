@@ -1,0 +1,38 @@
+[package]
+name = "h10"
+version = "0.1.0"
+authors = ["Ömer Sinan Ağacan <omeragacan@gmail.com>"]
+repository = "https://github.com/osa1/h10"
+license = "MIT"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "h10"
+path = "bin/h10.rs"
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+lazy_static = "1.4.0"
+lexgen = "0.15"
+lexgen_util = "0.15"
+rpds = "0.13"
+rustc-hash = "1.1"
+wasm-bindgen = "0.2"
+
+# wee_alloc causes a crash after 20-30 compilations in the browser. Since the
+# crate is completely safe Rust and the problem doesn't happen with the system
+# allocator, I'm assuming it's a wee_alloc bug. It also doesn't save much in
+# binary size, only around ~1%.
+# wee_alloc = "0.4"
+
+[profile.dev.package.lexgen]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 's'
+panic = 'abort'
