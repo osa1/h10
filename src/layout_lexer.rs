@@ -245,10 +245,9 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
 
         self.do_layout = matches!(
             ret.1,
-            Token::ReservedId(ReservedId::Do)
-                | Token::ReservedId(ReservedId::Of)
-                | Token::ReservedId(ReservedId::Where)
-                | Token::ReservedId(ReservedId::Let),
+            Token::ReservedId(
+                ReservedId::Do | ReservedId::Of | ReservedId::Where | ReservedId::Let
+            ),
         );
 
         Some(Ok(ret))
