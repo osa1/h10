@@ -373,8 +373,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                     _,
                     Token::VarId
                         | Token::Literal(_)
-                        | Token::Special(Special::LParen)
-                        | Token::Special(Special::LBracket),
+                        | Token::Special(Special::LParen | Special::LBracket),
                     _
                 ))
             )
@@ -384,6 +383,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // operators, left/right sections (operator at the beginning or end of an expression, instead
     // of infix), and comma-separated expressions (tuples).
     fn aexp0_parenthesized(&mut self) -> ParserResult<ParsedExp> {
+        if let Ok((l, Token::Special(Special::RParen), r)) = self.peek() {
+            return Ok(self.spanned(l, r, Exp_::Tuple(vec![])));
+        }
+
         if let Ok((
             l,
             token @ (Token::QVarSym

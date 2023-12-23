@@ -21,10 +21,12 @@ use rpds::List;
 
 pub type ParserResult<A> = Result<A, Error>;
 
+/// Parse a module. Handles layout.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedDecl>> {
     Parser::new(module_str, "<input>".into(), LayoutLexer::new(module_str)).module()
 }
 
+/// Parse a type with predicates. Does not handle layout.
 #[cfg(test)]
 pub fn parse_type(type_str: &str) -> ParserResult<(Vec<ParsedType>, ParsedType)> {
     Parser::new(
@@ -33,6 +35,12 @@ pub fn parse_type(type_str: &str) -> ParserResult<(Vec<ParsedType>, ParsedType)>
         crate::lexer::Lexer::new(type_str),
     )
     .type_with_context()
+}
+
+/// Parse an expression. Does not handle layout.
+#[cfg(test)]
+pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
+    Parser::new(exp_str, "<input>".into(), crate::lexer::Lexer::new(exp_str)).exp()
 }
 
 #[derive(Clone)]
@@ -426,11 +434,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn gcon_start(&mut self) -> bool {
         matches!(
             self.peek(),
-            Ok((
-                _,
-                Token::Special(Special::LParen) | Token::Special(Special::LBracket),
-                _
-            ))
+            Ok((_, Token::Special(Special::LParen | Special::LBracket), _))
         ) || self.qcon_start()
     }
 

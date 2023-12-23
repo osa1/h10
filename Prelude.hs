@@ -111,8 +111,7 @@ instance Monad Maybe where
 
 ($>) = flip (<$)
 
--- FIXME: Parse error on `()`
--- void x = () <$ x
+void x = () <$ x
 
 m >> k = m >>= \_ -> k
 

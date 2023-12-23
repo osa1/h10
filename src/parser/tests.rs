@@ -1,8 +1,9 @@
+use crate::ast;
 use crate::layout_lexer::LayoutLexer;
-use crate::parser::Parser;
+use crate::parser::{parse_exp, Parser};
 use crate::token::Token;
 
-fn tokens<'a>(input: &'a str) -> Vec<Token> {
+fn tokens(input: &str) -> Vec<Token> {
     LayoutLexer::new(input).map(|t| t.unwrap().1).collect()
 }
 
@@ -312,4 +313,14 @@ x = 1
     let ast = Parser::new_test(&pgm).module().unwrap();
     println!("{:#?}", ast);
     assert_eq!(ast.len(), 2);
+}
+
+#[test]
+fn unit() {
+    let exp = r#"()"#;
+    let ast = parse_exp(exp).unwrap();
+    match &ast.node {
+        ast::Exp_::Tuple(args) => assert!(args.is_empty()),
+        _ => panic!(),
+    }
 }
