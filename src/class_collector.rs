@@ -3,12 +3,13 @@ use crate::ast_to_ty::convert_ast_ty;
 use crate::class_env::{Class, ClassEnv, Instance, Pred};
 use crate::collections::{Map, TrieMap};
 use crate::id::Id;
+use crate::kind_inference::infer_fv_kinds;
 use crate::type_scheme::Scheme;
 use crate::typing::{Kind, TyRef};
 
 /// Creates the class environment for a module. The returned environment is not type checked, use
 /// `TI::ti_module` to type check it.
-pub fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> ClassEnv {
+pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> ClassEnv {
     let mut class_env: Map<Id, Class> = Default::default();
 
     // Collect classes.
@@ -91,7 +92,7 @@ pub fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> C
                     arg_kind,
                     supers: vec![], // added in the next pass
                     methods,
-                    instances: vec![], // add in the next pass
+                    instances: vec![], // added in the next pass
                 },
             );
 
@@ -145,17 +146,28 @@ pub fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> C
             ..
         }) = &decl.node
         {
-            // Convert types (preds in context, the head) to a type scheme.
-            let mut preds: Vec<Pred> = Default::default();
+            // Argument kiund of `ty_con`, expected kind of `ty`.
+            let ty_con_arg_kind = kinds.get(ty_con).unwrap().get_kind_arrow_star_kind();
+
+            let fv_kinds = infer_fv_kinds(kinds, context, ty, ty_con_arg_kind);
+
+            let fv_gens: Map<Id, u32> = fv_kinds
+                .iter()
+                .enumerate()
+                .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
+                .collect();
+
+            let kinds: Vec<Kind> = fv_kinds.into_values().collect();
 
             // TODO: Any restrictions on predicates here that we need to check?
+            let mut preds: Vec<Pred> = Default::default();
             for pred in context {
                 let (pred_con, pred_arg) = match split_pred(pred) {
                     Some(pred) => pred,
                     _ => panic!("Invalid instance context"),
                 };
 
-                let pred_ty = convert_ast_ty(&Default::default(), &Default::default(), pred_arg);
+                let pred_ty = convert_ast_ty(&Default::default(), &fv_gens, pred_arg);
 
                 preds.push(Pred {
                     class: pred_con,
@@ -163,11 +175,11 @@ pub fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> C
                 });
             }
 
-            let head = convert_ast_ty(&Default::default(), &Default::default(), ty);
+            let head = convert_ast_ty(&Default::default(), &fv_gens, ty);
 
             class_env.get_mut(ty_con).unwrap().instances.push(Instance {
                 class: ty_con.clone(),
-                kinds: vec![], // TODO
+                kinds,
                 context: preds,
                 head,
             });

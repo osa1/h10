@@ -13,7 +13,7 @@ use crate::class_env::{ClassEnv, Pred};
 use crate::collections::{Map, Set, TrieMap};
 use crate::dependency_analysis::{dependency_analysis, DependencyGroups};
 use crate::id::{self, Id};
-use crate::kind_inference::infer_type_kinds;
+use crate::kind_inference::{infer_fv_kinds, infer_type_kinds};
 use crate::token::Literal;
 use crate::type_scheme::Scheme;
 use crate::typing::{Kind, Ty, TyRef, TyVarRef};
@@ -388,7 +388,42 @@ impl TI {
     ) -> Result<(), String> {
         for decl in module {
             if let ast::Decl_::Instance(instance_decl) = &decl.node {
-                let groups = group_binds(&instance_decl.node.decls);
+                let ast::InstanceDecl_ {
+                    context: instance_context,
+                    ty_con: instance_ty_con,
+                    ty: instance_ty,
+                    decls: instance_decls,
+                } = &instance_decl.node;
+
+                // TODO: Add instance context to the class environment.
+
+                let ty_con_arg_kind = self
+                    .ty_kinds
+                    .get(instance_ty_con)
+                    .unwrap()
+                    .get_kind_arrow_star_kind();
+
+                let fv_kinds = infer_fv_kinds(
+                    &self.ty_kinds,
+                    instance_context,
+                    instance_ty,
+                    ty_con_arg_kind,
+                );
+
+                let fv_gens: Map<Id, u32> = fv_kinds
+                    .iter()
+                    .enumerate()
+                    .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
+                    .collect();
+
+                // Type of the instance, e.g. `Int` in `Show Int`.
+                let instance_ty: TyRef = convert_ast_ty(
+                    &Default::default(), // bound vars
+                    &fv_gens,            // free vars
+                    instance_ty,
+                );
+
+                let groups = group_binds(instance_decls);
                 for method in groups {
                     // Get the method's type from the class environment, substitute the instance's
                     // type for the class type argument.
@@ -402,14 +437,8 @@ impl TI {
                     // TODO: Kind check class type arg vs. instance type arg.
                     let class_method_scheme: &Scheme = self
                         .class_env
-                        .get_method_sig(&instance_decl.node.ty_con, instance_method_str)
+                        .get_method_sig(instance_ty_con, instance_method_str)
                         .unwrap();
-
-                    let instance_ty: TyRef = convert_ast_ty(
-                        &Default::default(), // bound vars
-                        &Default::default(), // free vars
-                        &instance_decl.node.ty,
-                    );
 
                     let instance_method_scheme: Scheme =
                         class_method_scheme.subst_gen(0, &instance_ty);

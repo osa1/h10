@@ -30,7 +30,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn split_fun_kind(&self) -> (Vec<Kind>, Kind) {
+    pub(crate) fn split_fun_kind(&self) -> (Vec<Kind>, Kind) {
         let mut args: Vec<Kind> = vec![];
         let mut ret = self;
 
@@ -43,6 +43,22 @@ impl Kind {
                 }
             }
         }
+    }
+
+    /// From a `k -> *` get `k`.
+    ///
+    /// Panics when the kind does not have the right shape.
+    ///
+    /// This is useful when getting the expected kind of a typeclass argument, e.g. when inferring
+    /// the kind of `m` in `Monad m`, we get the kind of `Monad` which is `(* -> *) -> *`, and this
+    /// function gives us the expected kind of `m` which is `* -> *`.
+    pub(crate) fn get_kind_arrow_star_kind(&self) -> &Kind {
+        if let Kind::Fun(arg, ret) = self {
+            if **ret == Kind::Star {
+                return arg;
+            }
+        }
+        panic!("Kind does not have shape `k -> *`: {:?}", self)
     }
 }
 

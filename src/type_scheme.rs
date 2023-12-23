@@ -59,7 +59,9 @@ impl Scheme {
         context: &[ast::RenamedType],
         ty: &ast::RenamedType,
     ) -> Self {
-        let fv_kinds: Vec<(Id, Kind)> = infer_fv_kinds(ty_kinds, context, ty).into_iter().collect();
+        let fv_kinds: Vec<(Id, Kind)> = infer_fv_kinds(ty_kinds, context, ty, &Kind::Star)
+            .into_iter()
+            .collect();
 
         let fv_gens: Map<Id, u32> = fv_kinds
             .iter()

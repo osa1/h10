@@ -68,7 +68,7 @@ use crate::id::{self, Id};
 use crate::typing;
 
 /// Infers kinds of type constructors.
-pub fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Kind> {
+pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Kind> {
     let types: Vec<TypeDecl> = collect_types(decls);
 
     // `ty_arg_kinds[i]` maps type arguments of `types[i]` to their kinds.
@@ -130,12 +130,16 @@ pub fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Kind> {
     normalize_kinds(&con_kinds, &state.unification_vars)
 }
 
-/// Given a type signature and the mapping from type constructors to kinds, infers kinds of free
-/// varibles in the type signature.
-pub fn infer_fv_kinds(
+/// Given a list of predicates and a type (e.g. to infer kinds of free variables in `preds => ty`)
+/// and the mapping from type constructors to kinds, infers kinds of free varibles in the
+/// predicates and type.
+///
+/// `expected_kind` is the expected kind of `ty`.
+pub(crate) fn infer_fv_kinds(
     con_kinds: &Map<Id, typing::Kind>,
-    sig_context: &[ast::RenamedType],
+    preds: &[ast::RenamedType],
     ty: &ast::RenamedType,
+    expected_kind: &typing::Kind,
 ) -> Map<Id, typing::Kind> {
     // The process is similar to kind inference for type constructors. Free variables are
     // initialized with unification variables. Types of terms have kind `*`. Unification constrains
@@ -144,7 +148,7 @@ pub fn infer_fv_kinds(
     let mut state = KindInferState::new();
 
     let mut fvs: Map<Id, Kind> = Default::default();
-    for pred in sig_context {
+    for pred in preds {
         collect_fvs(&mut state, pred, &mut fvs);
     }
     collect_fvs(&mut state, ty, &mut fvs);
@@ -154,7 +158,7 @@ pub fn infer_fv_kinds(
         .map(|(con, kind)| (con.clone(), Kind::from(kind)))
         .collect();
 
-    for pred in sig_context {
+    for pred in preds {
         unify_ty_kind(
             &mut state,
             &con_kinds,
@@ -171,7 +175,7 @@ pub fn infer_fv_kinds(
         &Default::default(),
         &fvs,
         ty,
-        &Kind::Star,
+        &Kind::from(expected_kind),
     );
 
     normalize_kinds(&fvs, &state.unification_vars)
@@ -202,11 +206,24 @@ fn collect_fvs(state: &mut KindInferState, ty: &ast::RenamedType, fvs: &mut Map<
 }
 
 /// Kinds with unification variables.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 enum Kind {
     Star,
     Fun(Box<Kind>, Box<Kind>),
     Var(KindVar),
+}
+
+impl std::fmt::Debug for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Kind::Star => write!(f, "*"),
+            Kind::Fun(k1, k2) => match &**k1 {
+                Kind::Star | Kind::Var(_) => write!(f, "{:?} -> {:?}", k1, k2),
+                Kind::Fun(_, _) => write!(f, "({:?}) -> {:?}", k1, k2),
+            },
+            Kind::Var(var) => write!(f, "_{}", var.0),
+        }
+    }
 }
 
 impl From<&typing::Kind> for Kind {
@@ -220,22 +237,6 @@ impl From<&typing::Kind> for Kind {
         }
     }
 }
-
-/*
-impl Kind {
-    fn drop_args(&self, mut args: usize) -> &Kind {
-        let mut kind = self;
-        while args != 0 {
-            match kind {
-                Kind::Fun(_, rest) => kind = rest,
-                Kind::Star | Kind::Var(_) => panic!("drop_args"),
-            }
-            args -= 1;
-        }
-        kind
-    }
-}
-*/
 
 /// A unification variable representing a kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
