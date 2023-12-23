@@ -1269,16 +1269,16 @@ fn prune_level(max_level: u32, ty: &TyRef) {
 
 /// One-way unification: unify variables in `ty1`. Does not update `ty2`.
 pub fn unify_left(ty_syns: &Map<Id, TypeSynonym>, ty1: &TyRef, ty2: &TyRef) -> Result<(), String> {
-    let ty1 = ty1.normalize();
-    let ty1_ = ty1.deref().clone();
+    let ty1: TyRef = deref_syn(ty_syns, &ty1.normalize());
+    let ty1_: Ty = ty1.deref().clone();
 
-    let ty2 = ty2.normalize();
-    let ty2_ = ty2.deref().clone();
+    let ty2: TyRef = deref_syn(ty_syns, &ty2.normalize());
+    let ty2_: Ty = ty2.deref().clone();
 
     match (ty1_, ty2_) {
         (Ty::App(l1, r1), Ty::App(l2, r2)) => {
-            unify(ty_syns, &l1, &l2)?;
-            unify(ty_syns, &r1, &r2)?;
+            unify_left(ty_syns, &l1, &l2)?;
+            unify_left(ty_syns, &r1, &r2)?;
             Ok(())
         }
 

@@ -60,7 +60,6 @@ class ToInt a where
   toInt :: a -> Int
   toInt _ = False
 "#;
-    // TODO: Expect to fail here.
     check_inferred_ty(pgm, "toInt", "ToInt a => a -> Int");
 }
 
@@ -76,11 +75,11 @@ class ToInt a where
 instance ToInt Bool where
   toInt False = True
 "#;
-    // TODO: Expect to fail here.
     check_inferred_ty(pgm, "toInt", "ToInt a => a -> Int");
 }
 
 #[test]
+#[should_panic]
 fn simple_typeclass_instance_method_fail_2() {
     let pgm = r#"
 data Maybe a = Nothing | Just a
@@ -92,7 +91,6 @@ instance Functor Maybe where
   fmap f (Just a) = Just a
   fmap f Nothing = Nothing
 "#;
-    // TODO: This should fail while checking the `fmap`.
     check_inferred_ty(pgm, "fmap", "Functor f => (a -> b) -> f a -> f b");
 }
 
