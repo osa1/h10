@@ -193,6 +193,23 @@ pub enum ValueDecl_<Id> {
 
 pub type Type<Id> = AstNode<Type_<Id>>;
 
+#[cfg(test)]
+impl<Id: std::fmt::Debug> Type<Id> {
+    pub fn arrow(&self) -> (&Type<Id>, &Type<Id>) {
+        match &self.node {
+            Type_::Arrow(ty1, ty2) => (&*ty1, &*ty2),
+            _ => panic!("Not arrow: {:?}", self),
+        }
+    }
+
+    pub fn var(&self) -> &Id {
+        match &self.node {
+            Type_::Var(id) => id,
+            _ => panic!("Not id: {:?}", self),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Type_<Id> {
     /// A tuple type with at least two elements: `(T1, T2, ...)`.

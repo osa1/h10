@@ -63,9 +63,12 @@ instance Functor Maybe where
   fmap _ Nothing = Nothing
   fmap f (Just a) = Just (f a)
 
+{-
+FIXME: Bug #5.
 instance Functor (Either a) where
   fmap _ (Left a) = Left a
   fmap f (Right b) = Right (f b)
+-}
 
 -- TODO: Functor []
 -- TODO: Functor ((->) r)

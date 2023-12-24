@@ -574,10 +574,10 @@ impl TI {
 
                                 // Instantiate the types at the current level, check that the
                                 // inferred type is at least as general as the explicit type.
-                                let (explicit_preds, explicit_ty) = sig.instantiate(level);
+                                let (explicit_preds, explicit_ty) = sig.instantiate(u32::MAX);
 
                                 // Example: explicit = `(a, b)`, inferred = `(int, bool)`.
-                                if unify_left(&self.ty_syns, &explicit_ty, binding_inferred_ty)
+                                if unify_left(&self.ty_syns, binding_inferred_ty, &explicit_ty)
                                     .is_err()
                                 {
                                     panic!(
@@ -1294,7 +1294,7 @@ pub fn unify_left(ty_syns: &Map<Id, TypeSynonym>, ty1: &TyRef, ty2: &TyRef) -> R
             assert_eq!(v1.link(), None);
             assert_eq!(v2.link(), None);
 
-            if v1_level > v2_level {
+            if v1_level >= v2_level {
                 return Err(format!(
                     "Unable to unify left variable {:?} (level = {}) with {:?} (level = {})",
                     v1, v1_level, v2, v2_level

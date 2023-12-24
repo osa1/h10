@@ -1,11 +1,36 @@
 use crate::ast;
+use crate::ast_to_ty::convert_ast_ty;
 use crate::class_env::Pred;
 use crate::collections::Set;
 use crate::id::Id;
 use crate::parser::{parse_module, parse_type};
 use crate::renaming::Renamer;
-use crate::type_inference::ti_module;
+use crate::type_inference::{ti_module, unify};
 use crate::type_scheme::Scheme;
+use crate::typing::{Kind, TyRef};
+
+#[test]
+fn unify_two_way_left() {
+    // An example test that checks unification result of a type variable. A bit too verbose, it
+    // would be good to simplify this and add more unification tests.
+    let mut renamer = Renamer::new();
+
+    let ty1_ast: ast::RenamedType = renamer.rename_type(&parse_type("a -> a").unwrap().1);
+    let a_id: Id = ty1_ast.arrow().0.var().clone();
+    let a_tyref = TyRef::new_var(Kind::Star, 0);
+    let ty1 = convert_ast_ty(
+        &[(a_id, a_tyref.clone())].into_iter().collect(),
+        &Default::default(),
+        &ty1_ast,
+    );
+
+    let ty2_ast: ast::RenamedType = renamer.rename_type(&parse_type("Int -> Int").unwrap().1);
+    let ty2 = convert_ast_ty(&Default::default(), &Default::default(), &ty2_ast);
+    let int_tyref = &ty2.split_fun_ty().0[0];
+
+    unify(&Default::default(), &ty1, &ty2).unwrap();
+    assert_eq!(&a_tyref.normalize(), int_tyref);
+}
 
 #[test]
 fn infer_id_explicit() {
@@ -92,6 +117,18 @@ instance Functor Maybe where
   fmap f Nothing = Nothing
 "#;
     check_inferred_ty(pgm, "fmap", "Functor f => (a -> b) -> f a -> f b");
+}
+
+#[test]
+#[should_panic]
+fn type_sig_mismatch_fail() {
+    let pgm = r#"
+data Maybe a = Nothing | Just a
+
+fmap :: (a -> b) -> Maybe a -> Maybe b
+fmap _ (Just a) = Just a
+"#;
+    check_inferred_ty(pgm, "fmap", "(a -> b) -> Maybe a -> Maybe b");
 }
 
 #[test]
