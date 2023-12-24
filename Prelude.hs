@@ -71,7 +71,9 @@ instance Functor [] where
   fmap _ [] = []
   fmap f (x : xs) = f x : fmap f xs
 
--- TODO: Functor ((->) r)
+instance Functor ((->) r) where
+  -- TODO: Allow simple patterns in instances, write this as `fmap = (.)`.
+  fmap f1 f2 = f1 . f2
 
 --------------------------------------------------------------------------------
 -- Applicative
@@ -89,7 +91,11 @@ instance Applicative Maybe where
   Nothing <*> _ = Nothing
 
 -- TODO: Applicative []
--- TODO: Applicative ((->) r)
+
+instance Applicative ((->) r) where
+  -- TODO: Support simple pattern bindings, write this as `pure = const`.
+  pure a = const a
+  (<*>) f g x = f x (g x)
 
 --------------------------------------------------------------------------------
 -- Monad
@@ -102,7 +108,9 @@ instance Monad Maybe where
   Nothing >>= _ = Nothing
 
 -- TODO: Monad []
--- TODO: Monad ((->) r)
+
+instance Monad ((->) r) where
+  f >>= k = \r -> k (f r) r
 
 --------------------------------------------------------------------------------
 -- Some utilities to demonstrate inferring predicates
@@ -115,5 +123,4 @@ void x = () <$ x
 
 m >> k = m >>= \_ -> k
 
--- FIXME: Panics with "predicate not in HNF: `Monad ((->) a)`
--- join x = x >> id
+join x = x >> id
