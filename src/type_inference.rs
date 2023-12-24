@@ -388,82 +388,92 @@ impl TI {
     ) -> Result<(), String> {
         for decl in module {
             if let ast::Decl_::Instance(instance_decl) = &decl.node {
-                let ast::InstanceDecl_ {
-                    context: instance_context,
-                    ty_con: instance_ty_con,
-                    ty: instance_ty,
-                    decls: instance_decls,
-                } = &instance_decl.node;
-
-                // TODO: Add instance context to the class environment.
-
-                let ty_con_arg_kind = self
-                    .ty_kinds
-                    .get(instance_ty_con)
-                    .unwrap()
-                    .get_kind_arrow_star_kind();
-
-                let fv_kinds = infer_fv_kinds(
-                    &self.ty_kinds,
-                    instance_context,
-                    instance_ty,
-                    ty_con_arg_kind,
-                );
-
-                let fv_gens: Map<Id, u32> = fv_kinds
-                    .iter()
-                    .enumerate()
-                    .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
-                    .collect();
-
-                // Type of the instance, e.g. `Int` in `Show Int`.
-                let instance_ty: TyRef = convert_ast_ty(
-                    &Default::default(), // bound vars
-                    &fv_gens,            // free vars
-                    instance_ty,
-                );
-
-                let groups = group_binds(instance_decls);
-                for method in groups {
-                    // Get the method's type from the class environment, substitute the instance's
-                    // type for the class type argument.
-                    let instance_method_id = match &method {
-                        BindingGroup::Pat(_) => panic!("Pattern binding in instance declaration"),
-                        BindingGroup::Fun(fun_binding) => fun_binding.id.clone(),
-                    };
-
-                    let instance_method_str: &str = instance_method_id.name().unwrap();
-
-                    // TODO: Kind check class type arg vs. instance type arg.
-                    let class_method_scheme: &Scheme = self
-                        .class_env
-                        .get_method_sig(instance_ty_con, instance_method_str)
-                        .unwrap();
-
-                    let instance_method_scheme: Scheme =
-                        class_method_scheme.subst_gen(0, &instance_ty);
-
-                    // Add the instance method type to the assumptions so that it will be checked
-                    // against the expected type.
-                    //
-                    // Note: The class method and the instance method have different ids.
-                    let old = sigs.insert(instance_method_id.clone(), instance_method_scheme);
-                    assert!(old.is_none());
-
-                    let binds = vec![method];
-                    self.ti_groups(
-                        0,                   // level
-                        &Default::default(), // type variables
-                        assumps,
-                        &sigs,
-                        &binds,
-                    )?;
-
-                    let old = sigs.remove(&instance_method_id);
-                    assert!(old.is_some());
-                }
+                self.ti_instance(instance_decl, assumps, &mut sigs)?;
             }
         }
+        Ok(())
+    }
+
+    fn ti_instance(
+        &mut self,
+        instance: &ast::RenamedInstanceDecl,
+        assumps: &mut TrieMap<Id, Scheme>,
+        sigs: &mut Map<Id, Scheme>,
+    ) -> Result<(), String> {
+        let ast::InstanceDecl_ {
+            context: instance_context,
+            ty_con: instance_ty_con,
+            ty: instance_ty,
+            decls: instance_decls,
+        } = &instance.node;
+
+        // TODO: Add instance context to the class environment.
+
+        let ty_con_arg_kind = self
+            .ty_kinds
+            .get(instance_ty_con)
+            .unwrap()
+            .get_kind_arrow_star_kind();
+
+        let fv_kinds = infer_fv_kinds(
+            &self.ty_kinds,
+            instance_context,
+            instance_ty,
+            ty_con_arg_kind,
+        );
+
+        let fv_gens: Map<Id, u32> = fv_kinds
+            .iter()
+            .enumerate()
+            .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
+            .collect();
+
+        // Type of the instance, e.g. `Int` in `Show Int`.
+        let instance_ty: TyRef = convert_ast_ty(
+            &Default::default(), // bound vars
+            &fv_gens,            // free vars
+            instance_ty,
+        );
+
+        let groups = group_binds(instance_decls);
+        for method in groups {
+            // Get the method's type from the class environment, substitute the instance's
+            // type for the class type argument.
+            let instance_method_id = match &method {
+                BindingGroup::Pat(_) => panic!("Pattern binding in instance declaration"),
+                BindingGroup::Fun(fun_binding) => fun_binding.id.clone(),
+            };
+
+            let instance_method_str: &str = instance_method_id.name().unwrap();
+
+            // TODO: Kind check class type arg vs. instance type arg.
+            let class_method_scheme: &Scheme = self
+                .class_env
+                .get_method_sig(instance_ty_con, instance_method_str)
+                .unwrap();
+
+            let instance_method_scheme: Scheme = class_method_scheme.subst_gen(0, &instance_ty);
+
+            // Add the instance method type to the assumptions so that it will be checked
+            // against the expected type.
+            //
+            // Note: The class method and the instance method have different ids.
+            let old = sigs.insert(instance_method_id.clone(), instance_method_scheme);
+            assert!(old.is_none());
+
+            let binds = vec![method];
+            self.ti_groups(
+                0,                   // level
+                &Default::default(), // type variables
+                assumps,
+                sigs,
+                &binds,
+            )?;
+
+            let old = sigs.remove(&instance_method_id);
+            assert!(old.is_some());
+        }
+
         Ok(())
     }
 
