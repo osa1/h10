@@ -1046,7 +1046,12 @@ impl TI {
                     }
                 }
 
-                todo!("Case expression at {}", exp.span)
+                // TODO: Does it matter which pairs of RHSs we unify?
+                for i in 0..rhs_tys.len() - 1 {
+                    unify(&self.ty_syns, &rhs_tys[i], &rhs_tys[i + 1])?;
+                }
+
+                Ok(rhs_tys.pop().unwrap())
             }
 
             ast::Exp_::If(e1, e2, e3) => {
