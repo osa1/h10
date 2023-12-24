@@ -6,7 +6,6 @@ use crate::id::Id;
 use crate::kind_inference::infer_fv_kinds;
 use crate::typing::{Kind, Ty, TyRef};
 
-use std::cmp::Ordering;
 use std::fmt;
 use std::ops::Deref;
 
@@ -114,31 +113,28 @@ impl Scheme {
         (self.preds.clone(), self.ty.clone())
     }
 
-    /// Substitute `ty` for the given quantified variable (`Ty::Gen`).
+    /// Substitute `ty` for the first quantified variable in `self`.
     ///
-    /// `ty` can't be a quantified variable`.
+    /// `ty_fv_kinds` is the kinds of the quantified variables in `ty`. These kinds will be added
+    /// as the first kinds in the resulting type scheme.
     ///
-    /// Does not check kinds, the removed gen and `ty` should have the same kind, otherwise the
-    /// resulting scheme will have a bad kind.
-    pub fn subst_gen(&self, gen: u32, ty: &TyRef) -> Self {
-        let num_gens = self.kinds.len();
-        assert!((gen as usize) < num_gens);
+    /// This does not check kinds, the removed gen and `ty` should have the same kind, otherwise
+    /// the resulting scheme will have a bad kind.
+    pub fn subst_gen_0(&self, ty_fv_kinds: &[Kind], ty: &TyRef) -> Self {
+        let num_new_gens = ty_fv_kinds.len() + self.kinds.len() - 1;
 
-        let mut gen_map: Vec<TyRef> = Vec::with_capacity(num_gens);
-        let mut new_kinds: Vec<Kind> = Vec::with_capacity(num_gens - 1);
-        for gen_ in 0..num_gens as u32 {
-            let new_gen = match gen_.cmp(&gen) {
-                Ordering::Less => {
-                    new_kinds.push(self.kinds[gen_ as usize].clone());
-                    TyRef::new_gen(gen_)
-                }
-                Ordering::Equal => ty.clone(),
-                Ordering::Greater => {
-                    new_kinds.push(self.kinds[gen_ as usize].clone());
-                    TyRef::new_gen(gen_ - 1)
-                }
-            };
-            gen_map.push(new_gen);
+        let mut new_kinds: Vec<Kind> = Vec::with_capacity(num_new_gens);
+        new_kinds.extend(ty_fv_kinds.iter().cloned());
+        new_kinds.extend(self.kinds.iter().skip(1).cloned());
+
+        let mut gen_map: Vec<TyRef> = Vec::with_capacity(self.kinds.len());
+
+        // Gen 0 -> ty
+        gen_map.push(ty.clone());
+
+        // Gen N -> Gen (N - 1 + new gens)
+        for i in 1..self.kinds.len() {
+            gen_map.push(TyRef::new_gen((ty_fv_kinds.len() + i) as u32 - 1));
         }
 
         Scheme {

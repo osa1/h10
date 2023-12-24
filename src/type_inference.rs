@@ -409,26 +409,34 @@ impl TI {
 
         // TODO: Add instance context to the class environment.
 
+        // Kind of the typeclass type constructor argument.
+        // E.g. in `Functor f`, `* -> *`.
         let ty_con_arg_kind = self
             .ty_kinds
             .get(instance_ty_con)
             .unwrap()
             .get_kind_arrow_star_kind();
 
-        let fv_kinds = infer_fv_kinds(
+        // Kinds of free varibles in instance type argument.
+        // E.g. in `Functor (Either a)`, `{a = *}`.
+        let fv_kinds: Map<Id, Kind> = infer_fv_kinds(
             &self.ty_kinds,
             instance_context,
             instance_ty,
             ty_con_arg_kind,
         );
 
+        // TODO: Shouldn't we sort the kinds based on fv id?
+        let fv_kinds_vec: Vec<Kind> = fv_kinds.values().cloned().collect();
+
+        // Maps free variables in `fv_kinds` to `Gen` indices.
         let fv_gens: Map<Id, u32> = fv_kinds
             .iter()
             .enumerate()
             .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
             .collect();
 
-        // Type of the instance, e.g. `Int` in `Show Int`.
+        // Type of the instance type, e.g. in `Functor (Either a)`, `Either a`.
         let instance_ty: TyRef = convert_ast_ty(
             &Default::default(), // bound vars
             &fv_gens,            // free vars
@@ -452,7 +460,8 @@ impl TI {
                 .get_method_sig(instance_ty_con, instance_method_str)
                 .unwrap();
 
-            let instance_method_scheme: Scheme = class_method_scheme.subst_gen(0, &instance_ty);
+            let instance_method_scheme: Scheme =
+                class_method_scheme.subst_gen_0(&fv_kinds_vec, &instance_ty);
 
             // Add the instance method type to the assumptions so that it will be checked
             // against the expected type.
