@@ -1,3 +1,4 @@
+use crate::collections::Set;
 use crate::id::{self, Id, IdKind};
 
 use std::cell::{Cell, RefCell};
@@ -126,31 +127,27 @@ impl Hash for TyVar {
 }
 
 impl TyRef {
-    pub fn new(ty: Ty) -> TyRef {
+    pub(crate) fn new(ty: Ty) -> TyRef {
         TyRef(Rc::new(ty))
     }
 
-    pub fn new_var(kind: Kind, level: u32) -> TyRef {
+    pub(crate) fn new_var(kind: Kind, level: u32) -> TyRef {
         TyRef::new(Ty::Var(TyVarRef::new(kind, level)))
     }
 
-    pub fn new_con(con: Id) -> TyRef {
+    pub(crate) fn new_con(con: Id) -> TyRef {
         TyRef::new(Ty::Con(con))
     }
 
-    pub fn new_gen(i: u32) -> TyRef {
+    pub(crate) fn new_gen(i: u32) -> TyRef {
         TyRef::new(Ty::Gen(i))
     }
 
-    pub fn new_app(ty1: TyRef, ty2: TyRef) -> TyRef {
+    pub(crate) fn new_app(ty1: TyRef, ty2: TyRef) -> TyRef {
         TyRef::new(Ty::App(ty1, ty2))
     }
 
-    pub fn ty(&self) -> Ty {
-        self.deref().clone()
-    }
-
-    pub fn contains_var(&self, var: &TyVarRef) -> bool {
+    pub(crate) fn contains_var(&self, var: &TyVarRef) -> bool {
         match &*self.normalize() {
             Ty::Var(var_) => var == var_,
             Ty::Con(_) => false,
@@ -159,7 +156,7 @@ impl TyRef {
         }
     }
 
-    pub fn normalize(&self) -> TyRef {
+    pub(crate) fn normalize(&self) -> TyRef {
         match self.deref().clone() {
             Ty::Var(var) => match var.link() {
                 Some(link) => {
@@ -174,7 +171,7 @@ impl TyRef {
         }
     }
 
-    pub fn split_fun_ty(&self) -> (Vec<TyRef>, TyRef) {
+    pub(crate) fn split_fun_ty(&self) -> (Vec<TyRef>, TyRef) {
         let mut ty: TyRef = self.clone();
 
         let mut args: Vec<TyRef> = vec![];
@@ -206,6 +203,27 @@ impl TyRef {
             Ty::Var(_) | Ty::Con(_) => self.clone(),
             Ty::App(ty1, ty2) => TyRef::new_app(ty1.subst_gens(gens), ty2.subst_gens(gens)),
             Ty::Gen(gen) => gens[*gen as usize].clone(),
+        }
+    }
+
+    pub(crate) fn vars(&self) -> Set<TyVarRef> {
+        let mut set: Set<TyVarRef> = Default::default();
+        self.vars_(&mut set);
+        set
+    }
+
+    fn vars_(&self, vars: &mut Set<TyVarRef>) {
+        match self.deref() {
+            Ty::Var(var) => {
+                vars.insert(var.clone());
+            }
+
+            Ty::App(ty1, ty2) => {
+                ty1.vars_(vars);
+                ty2.vars_(vars);
+            }
+
+            Ty::Con(_) | Ty::Gen(_) => {}
         }
     }
 }

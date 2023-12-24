@@ -243,10 +243,6 @@ impl ClassEnv {
 
         match self.instance_subgoals(ty_syns, pred) {
             Some(subgoals) => {
-                // TODO: Handle empty subgoals.
-                if subgoals.is_empty() {
-                    todo!();
-                }
                 for pred in subgoals {
                     preds.extend(self.to_hnf(ty_syns, &pred).into_iter());
                 }

@@ -67,7 +67,10 @@ instance Functor (Either a) where
   fmap _ (Left a) = Left a
   fmap f (Right b) = Right (f b)
 
--- TODO: Functor []
+instance Functor [] where
+  fmap _ [] = []
+  fmap f (x : xs) = f x : fmap f xs
+
 -- TODO: Functor ((->) r)
 
 --------------------------------------------------------------------------------

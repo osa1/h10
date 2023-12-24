@@ -1,4 +1,4 @@
-use crate::collections::Map;
+use crate::collections::{Map, Set};
 use crate::id::Id;
 use crate::type_inference::TypeSynonym;
 use crate::typing::{Ty, TyRef, TyVarRef};
@@ -34,8 +34,8 @@ pub(crate) fn unify(
             let v2_level = v2.level();
 
             // We've normalized the types, so the links must be followed to the end.
-            assert_eq!(v1.link(), None);
-            assert_eq!(v2.link(), None);
+            debug_assert_eq!(v1.link(), None);
+            debug_assert_eq!(v2.link(), None);
 
             // Links must increase in level so that we can follow them to find the actual level.
             if v1_level < v2_level {
@@ -48,12 +48,12 @@ pub(crate) fn unify(
         }
 
         (Ty::Var(v), _) => {
-            assert_eq!(v.link(), None);
+            debug_assert_eq!(v.link(), None);
             link_var(&v, &ty2)
         }
 
         (_, Ty::Var(v)) => {
-            assert_eq!(v.link(), None);
+            debug_assert_eq!(v.link(), None);
             link_var(&v, &ty1)
         }
 
@@ -75,6 +75,16 @@ pub(crate) fn unify_left(
     ty1: &TyRef,
     ty2: &TyRef,
 ) -> Result<(), String> {
+    let fixed_vars = ty2.vars();
+    unify_left_(ty_syns, &fixed_vars, ty1, ty2)
+}
+
+fn unify_left_(
+    ty_syns: &Map<Id, TypeSynonym>,
+    fixed_vars: &Set<TyVarRef>,
+    ty1: &TyRef,
+    ty2: &TyRef,
+) -> Result<(), String> {
     let ty1: TyRef = deref_syn(ty_syns, &ty1.normalize());
     let ty1_: Ty = ty1.deref().clone();
 
@@ -83,8 +93,8 @@ pub(crate) fn unify_left(
 
     match (ty1_, ty2_) {
         (Ty::App(l1, r1), Ty::App(l2, r2)) => {
-            unify_left(ty_syns, &l1, &l2)?;
-            unify_left(ty_syns, &r1, &r2)?;
+            unify_left_(ty_syns, fixed_vars, &l1, &l2)?;
+            unify_left_(ty_syns, fixed_vars, &r1, &r2)?;
             Ok(())
         }
 
@@ -97,14 +107,18 @@ pub(crate) fn unify_left(
             let v2_level = v2.level();
 
             // We've normalized the types, so the links must be followed to the end.
-            assert_eq!(v1.link(), None);
-            assert_eq!(v2.link(), None);
+            debug_assert_eq!(v1.link(), None);
+            debug_assert_eq!(v2.link(), None);
 
-            if v1_level >= v2_level {
+            if v1_level > v2_level {
                 return Err(format!(
                     "Unable to unify left variable {:?} (level = {}) with {:?} (level = {})",
                     v1, v1_level, v2, v2_level
                 ));
+            }
+
+            if fixed_vars.contains(&v1) {
+                return Err(format!("Left variable is fixed: {}", v1));
             }
 
             link_var(&v1, &ty2)?;
@@ -113,7 +127,10 @@ pub(crate) fn unify_left(
         }
 
         (Ty::Var(v), _) => {
-            assert_eq!(v.link(), None);
+            debug_assert_eq!(v.link(), None);
+            if fixed_vars.contains(&v) {
+                return Err(format!("Left variable is fixed: {}", v));
+            }
             link_var(&v, &ty2)
         }
 
