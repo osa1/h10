@@ -20,6 +20,7 @@ mod token;
 mod type_inference;
 mod type_scheme;
 mod typing;
+mod unification;
 pub mod utils;
 
 use crate::type_scheme::Scheme;

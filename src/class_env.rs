@@ -1,9 +1,9 @@
 use crate::collections::Map;
 use crate::id::Id;
-use crate::type_inference::{unify_left, TypeSynonym};
+use crate::type_inference::TypeSynonym;
 use crate::type_scheme::{instantiate_scheme, Scheme};
-use crate::typing::Kind;
-use crate::typing::{Ty, TyRef, TyVarRef};
+use crate::typing::{Kind, Ty, TyRef, TyVarRef};
+use crate::unification::unify_left;
 
 use std::ops::Deref;
 
