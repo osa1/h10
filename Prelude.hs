@@ -72,8 +72,7 @@ instance Functor [] where
   fmap f (x : xs) = f x : fmap f xs
 
 instance Functor ((->) r) where
-  -- TODO: Allow simple patterns in instances, write this as `fmap = (.)`.
-  fmap f1 f2 = f1 . f2
+  fmap = (.)
 
 --------------------------------------------------------------------------------
 -- Applicative
@@ -83,11 +82,9 @@ class Functor f => Applicative f where
   (<*>) :: f (a -> b) -> f a -> f b
 
 instance Applicative Maybe where
-  -- TODO: Support "simple pattern bindings" (H2010 4.4.3.2) in instances to
-  -- allow `pure = Just`.
-  pure a = Just a
+  pure = Just
 
-  Just f <*> m = fmap f m
+  Just f  <*> m = fmap f m
   Nothing <*> _ = Nothing
 
 instance Applicative [] where
@@ -95,8 +92,7 @@ instance Applicative [] where
   fs <*> xs = concat (fmap (\f -> fmap f xs) fs)
 
 instance Applicative ((->) r) where
-  -- TODO: Support simple pattern bindings, write this as `pure = const`.
-  pure a = const a
+  pure = const
   (<*>) f g x = f x (g x)
 
 --------------------------------------------------------------------------------

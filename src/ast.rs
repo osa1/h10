@@ -439,6 +439,16 @@ pub struct Alt_<Id> {
 
 pub type Pat<Id> = AstNode<Pat_<Id>>;
 
+impl<Id> Pat<Id> {
+    /// If the pattern is just a variable, get the variable.
+    pub(crate) fn simple_pat_var(&self) -> Option<&Id> {
+        match &self.node {
+            Pat_::Var(var) => Some(var),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Pat_<Id> {
     Var(Id),

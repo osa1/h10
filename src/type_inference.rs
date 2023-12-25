@@ -449,7 +449,10 @@ impl TI {
             // Get the method's type from the class environment, substitute the instance's
             // type for the class type argument.
             let instance_method_id = match &method {
-                BindingGroup::Pat(_) => panic!("Pattern binding in instance declaration"),
+                BindingGroup::Pat(pat) => match pat.pat.simple_pat_var() {
+                    Some(var) => var.clone(),
+                    None => panic!("Pattern binding in instance declaration"),
+                },
                 BindingGroup::Fun(fun_binding) => fun_binding.id.clone(),
             };
 
@@ -678,26 +681,21 @@ impl TI {
         let mut group_assumps = assumps.clone();
 
         match group {
-            BindingGroup::Pat(PatBinding {
-                pat:
-                    ast::AstNode {
-                        node: ast::Pat_::Var(_),
-                        ..
-                    },
-                rhs,
-            }) => self.ti_rhs(level, ty_vars, &group_assumps, rhs, preds),
-
             BindingGroup::Pat(PatBinding { pat, rhs }) => {
-                let pat_ty = self.ti_pat(
-                    level,
-                    pat,
-                    &mut group_assumps,
-                    &explicit_tys.keys().cloned().collect(),
-                    preds,
-                )?;
-                let rhs_ty = self.ti_rhs(level, ty_vars, &group_assumps, rhs, preds)?;
-                unify(&self.ty_syns, &pat_ty, &rhs_ty)?;
-                Ok(rhs_ty)
+                if pat.simple_pat_var().is_some() {
+                    self.ti_rhs(level, ty_vars, &group_assumps, rhs, preds)
+                } else {
+                    let pat_ty = self.ti_pat(
+                        level,
+                        pat,
+                        &mut group_assumps,
+                        &explicit_tys.keys().cloned().collect(),
+                        preds,
+                    )?;
+                    let rhs_ty = self.ti_rhs(level, ty_vars, &group_assumps, rhs, preds)?;
+                    unify(&self.ty_syns, &pat_ty, &rhs_ty)?;
+                    Ok(rhs_ty)
+                }
             }
 
             BindingGroup::Fun(FunBindingGroup { id: _, defs }) => {
