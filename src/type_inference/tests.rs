@@ -226,6 +226,36 @@ bimapBoth = bimap toggle toggle
     );
 }
 
+#[test]
+fn infer_higher_kinded_ty_var() {
+    let pgm = r#"
+class Functor f where
+  fmap :: (a -> b) -> f a -> f b
+
+data Bool = False | True
+
+not False = True
+not True = False
+
+class Eq a where
+  (==) :: a -> a -> Bool
+
+-- FIXME
+-- g1 :: (Eq (f Bool), Functor f) => f Bool -> Bool
+-- g1 xs = fmap not xs == xs
+
+g2 xs = fmap not xs == xs
+
+-- Try with lambda
+g3 = \xs -> fmap not xs == xs
+"#;
+
+    let ty = "(Eq (f Bool), Functor f) => f Bool -> Bool";
+    // check_inferred_ty(pgm, "g1", ty);
+    check_inferred_ty(pgm, "g2", ty);
+    check_inferred_ty(pgm, "g3", ty);
+}
+
 fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     let pgm = parse_module(pgm).unwrap();
 

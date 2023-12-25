@@ -34,7 +34,6 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 let arg = if self.skip_token(Token::Special(Special::LParen)) {
                     // qtycls ( tyvar atype1 ... atypen )
                     let (l_, _) = self.last_tok_span;
-                    self.expect_token(Token::VarId)?;
                     let cls = self.atype()?;
                     let mut args = vec![];
                     while self.atype_start() {
