@@ -606,6 +606,13 @@ impl TI {
                                     );
                                 }
 
+                                // The unification above can allow simplification of predicates,
+                                // for example `Functor a` can become `Functor []`, which can be
+                                // eliminated.
+                                let inferred_preds: Vec<Pred> = self
+                                    .class_env
+                                    .reduce_context(&self.ty_syns, &inferred_preds);
+
                                 // Predicates in the inferred type must be in the explicit type as well. Explicit
                                 // type can have more predicates.
                                 'outer: for Pred { class, ty } in &inferred_preds {
