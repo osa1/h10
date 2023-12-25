@@ -90,7 +90,9 @@ instance Applicative Maybe where
   Just f <*> m = fmap f m
   Nothing <*> _ = Nothing
 
--- TODO: Applicative []
+instance Applicative [] where
+  pure a = [a]
+  fs <*> xs = concat (fmap (\f -> fmap f xs) fs)
 
 instance Applicative ((->) r) where
   -- TODO: Support simple pattern bindings, write this as `pure = const`.
@@ -107,7 +109,8 @@ instance Monad Maybe where
   Just a >>= f = f a
   Nothing >>= _ = Nothing
 
--- TODO: Monad []
+instance Monad [] where
+  xs >>= f = concat (fmap (\x -> f x) xs)
 
 instance Monad ((->) r) where
   f >>= k = \r -> k (f r) r
@@ -129,3 +132,9 @@ join x = x >> id
 
 map :: (a -> b) -> [a] -> [b]
 map = fmap
+
+[]       ++ l = l
+(x : xs) ++ l = x : (xs ++ l)
+
+concat [] = []
+concat (l : ls) = l ++ concat ls
