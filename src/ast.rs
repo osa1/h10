@@ -112,7 +112,7 @@ impl fmt::Display for Span {
 pub type Decl<Id> = AstNode<Decl_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> Decl<Id> {
+impl<Id: fmt::Debug> Decl<Id> {
     pub fn class(&self) -> &ClassDecl<Id> {
         match &self.node {
             Decl_::Class(class_decl) => class_decl,
@@ -149,7 +149,7 @@ pub enum Decl_<Id> {
 pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> ValueDecl<Id> {
+impl<Id: fmt::Debug> ValueDecl<Id> {
     // TODO: Add a type for type sig
     pub fn type_sig(&self) -> (&[Id], &[Type<Id>], &Type<Id>) {
         match &self.node {
@@ -194,7 +194,7 @@ pub enum ValueDecl_<Id> {
 pub type Type<Id> = AstNode<Type_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> Type<Id> {
+impl<Id: fmt::Debug> Type<Id> {
     pub fn arrow(&self) -> (&Type<Id>, &Type<Id>) {
         match &self.node {
             Type_::Arrow(ty1, ty2) => (&*ty1, &*ty2),
@@ -291,7 +291,7 @@ pub enum TyCon_<Id> {
 pub type Lhs<Id> = AstNode<Lhs_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> Lhs<Id> {
+impl<Id: fmt::Debug> Lhs<Id> {
     pub fn fun(&self) -> (&Id, &[Pat<Id>]) {
         match &self.node {
             Lhs_::Fun { var, pats } => (var, &pats),
@@ -309,7 +309,7 @@ pub enum Lhs_<Id> {
 pub type Rhs<Id> = AstNode<Rhs_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> Rhs<Id> {
+impl<Id: fmt::Debug> Rhs<Id> {
     pub fn rhs(&self) -> (&Exp<Id>, &[ValueDecl<Id>]) {
         match &self.node {
             Rhs_::Rhs { rhs, where_decls } => (rhs, &where_decls),
@@ -341,7 +341,7 @@ pub struct GuardedRhs_<Id> {
 pub type Exp<Id> = AstNode<Exp_<Id>>;
 
 #[cfg(test)]
-impl<Id: std::fmt::Debug> Exp<Id> {
+impl<Id: fmt::Debug> Exp<Id> {
     pub fn var(&self) -> &Id {
         match &self.node {
             Exp_::Var(var) => var,

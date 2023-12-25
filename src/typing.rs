@@ -427,8 +427,8 @@ impl fmt::Display for TyVarRef {
 impl fmt::Display for TyVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.link() {
-            Some(link) => fmt::Debug::fmt(&link, f),
-            None => fmt::Debug::fmt(&self.id, f),
+            Some(link) => fmt::Display::fmt(&link, f),
+            None => fmt::Display::fmt(&self.id, f),
         }
     }
 }
