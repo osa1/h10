@@ -157,7 +157,7 @@ impl TyRef {
     }
 
     pub(crate) fn normalize(&self) -> TyRef {
-        match self.deref().clone() {
+        match self.deref() {
             Ty::Var(var) => match var.link() {
                 Some(link) => {
                     let normalized = link.normalize();
@@ -168,6 +168,23 @@ impl TyRef {
             },
 
             _ => self.clone(),
+        }
+    }
+
+    pub(crate) fn deep_normalize(&self) -> TyRef {
+        match self.deref() {
+            Ty::Var(var) => match var.link() {
+                Some(link) => {
+                    let normalized = link.deep_normalize();
+                    var.set_link(normalized.clone());
+                    normalized
+                }
+                None => self.clone(),
+            },
+
+            Ty::App(ty1, ty2) => TyRef::new_app(ty1.deep_normalize(), ty2.deep_normalize()),
+
+            Ty::Con(_) | Ty::Gen(_) => self.clone(),
         }
     }
 

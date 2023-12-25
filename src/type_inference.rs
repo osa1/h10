@@ -619,7 +619,7 @@ impl TI {
                                     for exp_pred in &explicit_preds {
                                         if class == &exp_pred.class {
                                             // TODO: Syntactic equality OK?
-                                            if ty.normalize() == exp_pred.ty {
+                                            if ty.deep_normalize() == exp_pred.ty {
                                                 continue 'outer;
                                             }
                                         }

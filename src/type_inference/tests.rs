@@ -240,9 +240,8 @@ not True = False
 class Eq a where
   (==) :: a -> a -> Bool
 
--- FIXME
--- g1 :: (Eq (f Bool), Functor f) => f Bool -> Bool
--- g1 xs = fmap not xs == xs
+g1 :: (Eq (f Bool), Functor f) => f Bool -> Bool
+g1 xs = fmap not xs == xs
 
 g2 xs = fmap not xs == xs
 
@@ -251,7 +250,7 @@ g3 = \xs -> fmap not xs == xs
 "#;
 
     let ty = "(Eq (f Bool), Functor f) => f Bool -> Bool";
-    // check_inferred_ty(pgm, "g1", ty);
+    check_inferred_ty(pgm, "g1", ty);
     check_inferred_ty(pgm, "g2", ty);
     check_inferred_ty(pgm, "g3", ty);
 }
