@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+set -x
+
+cargo fmt
+cargo build
+cargo clippy
+cargo run
+cargo test
