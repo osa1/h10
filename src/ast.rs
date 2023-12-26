@@ -3,6 +3,7 @@ use crate::id::Id;
 use crate::token::Literal;
 
 use std::fmt;
+use std::hash::Hash;
 use std::rc::Rc;
 
 use lexgen_util::Loc;
@@ -231,7 +232,7 @@ pub enum Type_<Id> {
     Var(Id),
 }
 
-impl<Id: std::hash::Hash + Eq + Clone> Type_<Id> {
+impl<Id: Hash + Eq + Clone> Type_<Id> {
     pub fn vars(&self) -> Set<Id> {
         let mut vars: Set<Id> = Default::default();
         self.vars_(&mut vars);
@@ -449,6 +450,12 @@ impl<Id> Pat<Id> {
     }
 }
 
+impl<Id: Hash + Eq + Clone> Pat<Id> {
+    pub(crate) fn vars(&self) -> Set<Id> {
+        self.node.vars()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Pat_<Id> {
     Var(Id),
@@ -470,7 +477,7 @@ pub enum GCon_<Id> {
     QCon(Id),
 }
 
-impl<Id: std::hash::Hash + Eq + Clone> Pat_<Id> {
+impl<Id: Hash + Eq + Clone> Pat_<Id> {
     pub fn vars(&self) -> Set<Id> {
         let mut vars: Set<Id> = Default::default();
         self.vars_(&mut vars);

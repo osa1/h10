@@ -673,7 +673,7 @@ impl TI {
         Ok(())
     }
 
-    // NB. `assumps` should be updated with the types of the binders.
+    // NB. `assumps` should've been updated with the types of the binders.
     fn ti_binding_group(
         &mut self,
         level: u32,
@@ -694,7 +694,7 @@ impl TI {
                         level,
                         pat,
                         &mut group_assumps,
-                        &explicit_tys.keys().cloned().collect(),
+                        &explicit_tys.keys().cloned().chain(pat.vars()).collect(),
                         preds,
                     )?;
                     let rhs_ty = self.ti_rhs(level, ty_vars, &group_assumps, rhs, preds)?;
