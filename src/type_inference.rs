@@ -664,8 +664,20 @@ impl TI {
                     }
                 }
 
-                BindingGroup::Pat(PatBinding { .. }) => {
-                    // TODO: Do we need anything to do here?
+                BindingGroup::Pat(PatBinding { pat, .. }) => {
+                    // The binding is already unified against the pattern type by
+                    // `ti_binding_group`.
+                    //
+                    // TODO: Handle pattern bindings with explicitly typed vars.
+                    for id in pat.vars() {
+                        let (id_ty_preds, id_ty) =
+                            assumps.get(&id).unwrap().instantiate_monomorphic();
+                        // TODO: This assertion will fail with explicitly typed binders with
+                        // predicates.
+                        assert!(id_ty_preds.is_empty());
+                        let scheme = generalize(level, binding_inferred_preds, &id_ty);
+                        assumps.insert_mut(id.clone(), scheme);
+                    }
                 }
             }
         }

@@ -255,6 +255,23 @@ g3 = \xs -> fmap not xs == xs
     check_inferred_ty(pgm, "g3", ty);
 }
 
+#[test]
+fn simple_complex_pattern_binding() {
+    // Test is simple, but the pattern is "complex" (i.e. not just a var).
+    let pgm = r#"
+class Num a where
+  (+) :: a -> a -> a
+
+f n = (n, n + 1)
+
+(x, y) = f 5
+    "#;
+
+    check_inferred_ty(pgm, "f", "Num a => a -> (a, a)");
+    check_inferred_ty(pgm, "x", "Num a => a");
+    check_inferred_ty(pgm, "y", "Num a => a");
+}
+
 fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     let pgm = parse_module(pgm).unwrap();
 
