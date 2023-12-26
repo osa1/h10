@@ -515,152 +515,157 @@ impl TI {
         }
 
         for group in &all_groups {
-            let mut group_ids: Set<Id> = Default::default();
-            for binding in group {
-                binding.collect_defined_ids(&mut group_ids);
+            self.ti_recursive_group(level, ty_vars, assumps, sigs, group)?;
+        }
+
+        Ok(())
+    }
+
+    fn ti_recursive_group(
+        &mut self,
+        level: u32,
+        ty_vars: &TrieMap<Id, TyRef>,
+        assumps: &mut TrieMap<Id, Scheme>,
+        sigs: &Map<Id, Scheme>,
+        group: &[&BindingGroup],
+    ) -> Result<(), String> {
+        let mut group_ids: Set<Id> = Default::default();
+        for binding in group {
+            binding.collect_defined_ids(&mut group_ids);
+        }
+
+        // Add types of bindings in the group to the assumptions.
+        let mut group_id_type_schemes: Map<Id, Scheme> = Default::default();
+        for id in &group_ids {
+            let id_ty = match sigs.get(id) {
+                Some(explicit_ty) => explicit_ty.clone(),
+                None => Scheme::monomorphic(TyRef::new_var(Kind::Star, level)),
+            };
+            let old = group_id_type_schemes.insert(id.clone(), id_ty.clone());
+            debug_assert!(old.is_none(), "{} : {:?}", id, old);
+
+            assumps.insert_mut(id.clone(), id_ty);
+        }
+
+        // Predicates inferred for the recursive group.
+        let mut inferred_preds: Vec<Pred> = vec![];
+
+        // Type check bindings.
+        let mut inferred_tys: Vec<TyRef> = Vec::with_capacity(group.len());
+        for binding in group {
+            let inferred_ty =
+                self.ti_binding_group(level, ty_vars, assumps, sigs, binding, &mut inferred_preds)?;
+            inferred_tys.push(inferred_ty);
+        }
+
+        // Simplify inferred preds.
+        let inferred_preds: Vec<Pred> = self
+            .class_env
+            .reduce_context(&self.ty_syns, &inferred_preds);
+
+        // Add predicates to inferred types.
+        let mut inferred_ty_preds: Vec<(Vec<Pred>, TyRef)> = Vec::with_capacity(inferred_tys.len());
+
+        for inferred_ty in inferred_tys {
+            let mut preds: Vec<Pred> = Vec::new();
+            let inferred_ty: TyRef = inferred_ty.normalize();
+
+            for inferred_pred in &inferred_preds {
+                let pred_var = inferred_pred.hnf_ty_var();
+                if inferred_ty.contains_var(&pred_var) {
+                    preds.push(inferred_pred.clone());
+                }
             }
 
-            // Add types of bindings in the group to the assumptions.
-            let mut group_id_type_schemes: Map<Id, Scheme> = Default::default();
-            for id in &group_ids {
-                let id_ty = match sigs.get(id) {
-                    Some(explicit_ty) => explicit_ty.clone(),
-                    None => Scheme::monomorphic(TyRef::new_var(Kind::Star, level)),
-                };
-                let old = group_id_type_schemes.insert(id.clone(), id_ty.clone());
-                debug_assert!(old.is_none(), "{} : {:?}", id, old);
+            inferred_ty_preds.push((preds, inferred_ty));
+        }
 
-                assumps.insert_mut(id.clone(), id_ty);
-            }
+        // Unify inferred types of bindings with the type schemes we've added before type
+        // inference.
+        //
+        // This is to check that (1) use sites (2) explicit types (3) inferred types are
+        // all compatible.
+        for (binding, (binding_inferred_preds, binding_inferred_ty)) in
+            group.iter().zip(inferred_ty_preds.iter())
+        {
+            match binding {
+                BindingGroup::Fun(FunBindingGroup { id, .. })
+                | BindingGroup::Pat(PatBinding {
+                    pat:
+                        ast::AstNode {
+                            node: ast::Pat_::Var(id),
+                            ..
+                        },
+                    ..
+                }) => {
+                    match sigs.get(id) {
+                        Some(sig) => {
+                            // Explicitly typed binding: compare inferred and given schemes.
 
-            // Predicates inferred for the recursive group.
-            let mut inferred_preds: Vec<Pred> = vec![];
+                            // Instantiate the types at the current level, check that the
+                            // inferred type is at least as general as the explicit type.
+                            let (explicit_preds, explicit_ty) = sig.instantiate(u32::MAX);
 
-            // Type check bindings.
-            let mut inferred_tys: Vec<TyRef> = Vec::with_capacity(group.len());
-            for binding in group {
-                let inferred_ty = self.ti_binding_group(
-                    level,
-                    ty_vars,
-                    assumps,
-                    sigs,
-                    binding,
-                    &mut inferred_preds,
-                )?;
-                inferred_tys.push(inferred_ty);
-            }
+                            // Example: explicit = `(a, b)`, inferred = `(int, bool)`.
+                            if unify_left(&self.ty_syns, binding_inferred_ty, &explicit_ty).is_err()
+                            {
+                                panic!(
+                                    "Type error: explicit type `{}` is more general than the inferred type `{}`",
+                                    explicit_ty.normalize(), binding_inferred_ty.normalize()
+                                );
+                            }
 
-            // Simplify inferred preds.
-            let inferred_preds: Vec<Pred> = self
-                .class_env
-                .reduce_context(&self.ty_syns, &inferred_preds);
+                            // The unification above can allow simplification of predicates,
+                            // for example `Functor a` can become `Functor []`, which can be
+                            // eliminated.
+                            let inferred_preds: Vec<Pred> = self
+                                .class_env
+                                .reduce_context(&self.ty_syns, &inferred_preds);
 
-            // Add predicates to inferred types.
-            let mut inferred_ty_preds: Vec<(Vec<Pred>, TyRef)> =
-                Vec::with_capacity(inferred_tys.len());
+                            // Predicates in the inferred type must be in the explicit type as well. Explicit
+                            // type can have more predicates.
+                            'outer: for Pred { class, ty } in &inferred_preds {
+                                for exp_pred in &explicit_preds {
+                                    if class == &exp_pred.class {
+                                        // TODO: Syntactic equality OK?
+                                        if ty.deep_normalize() == exp_pred.ty {
+                                            continue 'outer;
+                                        }
+                                    }
+                                }
+                                panic!(
+                                    "Type error: inferred predicate `{} {}` not in explicit type {:?} . {} ({})",
+                                    class, ty, explicit_preds, explicit_ty, match &sig.span {
+                                        Some(span) => format!("{}", span),
+                                        None => "?".to_string(),
+                                    }
+                                );
+                            }
+                        }
+                        None => {
+                            // Implicitly typed binding: unify the fresh type we've created for
+                            // the binding in `group_id_type_schemes`.
+                            let (fun_fresh_preds, fun_fresh_ty) = group_id_type_schemes
+                                .get(id)
+                                .unwrap()
+                                .instantiate_monomorphic();
 
-            for inferred_ty in inferred_tys {
-                let mut preds: Vec<Pred> = Vec::new();
-                let inferred_ty: TyRef = inferred_ty.normalize();
+                            // TODO: Monomorphic types can't have preds, move this assertion to
+                            // `instantiate_monomorphic`.
+                            assert!(fun_fresh_preds.is_empty());
 
-                for inferred_pred in &inferred_preds {
-                    let pred_var = inferred_pred.hnf_ty_var();
-                    if inferred_ty.contains_var(&pred_var) {
-                        preds.push(inferred_pred.clone());
+                            unify(&self.ty_syns, &fun_fresh_ty, binding_inferred_ty)?;
+
+                            // Generalize the inferred type and update the assumption.
+                            let scheme =
+                                generalize(level, binding_inferred_preds, binding_inferred_ty);
+                            assumps.insert_mut(id.clone(), scheme);
+                        }
                     }
                 }
 
-                inferred_ty_preds.push((preds, inferred_ty));
-            }
-
-            // Unify inferred types of bindings with the type schemes we've added before type
-            // inference.
-            //
-            // This is to check that (1) use sites (2) explicit types (3) inferred types are
-            // all compatible.
-            for (binding, (binding_inferred_preds, binding_inferred_ty)) in
-                group.iter().zip(inferred_ty_preds.iter())
-            {
-                match binding {
-                    BindingGroup::Fun(FunBindingGroup { id, .. })
-                    | BindingGroup::Pat(PatBinding {
-                        pat:
-                            ast::AstNode {
-                                node: ast::Pat_::Var(id),
-                                ..
-                            },
-                        ..
-                    }) => {
-                        match sigs.get(id) {
-                            Some(sig) => {
-                                // Explicitly typed binding: compare inferred and given schemes.
-
-                                // Instantiate the types at the current level, check that the
-                                // inferred type is at least as general as the explicit type.
-                                let (explicit_preds, explicit_ty) = sig.instantiate(u32::MAX);
-
-                                // Example: explicit = `(a, b)`, inferred = `(int, bool)`.
-                                if unify_left(&self.ty_syns, binding_inferred_ty, &explicit_ty)
-                                    .is_err()
-                                {
-                                    panic!(
-                                        "Type error: explicit type `{}` is more general than the inferred type `{}`",
-                                        explicit_ty.normalize(), binding_inferred_ty.normalize()
-                                    );
-                                }
-
-                                // The unification above can allow simplification of predicates,
-                                // for example `Functor a` can become `Functor []`, which can be
-                                // eliminated.
-                                let inferred_preds: Vec<Pred> = self
-                                    .class_env
-                                    .reduce_context(&self.ty_syns, &inferred_preds);
-
-                                // Predicates in the inferred type must be in the explicit type as well. Explicit
-                                // type can have more predicates.
-                                'outer: for Pred { class, ty } in &inferred_preds {
-                                    for exp_pred in &explicit_preds {
-                                        if class == &exp_pred.class {
-                                            // TODO: Syntactic equality OK?
-                                            if ty.deep_normalize() == exp_pred.ty {
-                                                continue 'outer;
-                                            }
-                                        }
-                                    }
-                                    panic!(
-                                        "Type error: inferred predicate `{} {}` not in explicit type {:?} . {} ({})",
-                                        class, ty, explicit_preds, explicit_ty, match &sig.span {
-                                            Some(span) => format!("{}", span),
-                                            None => "?".to_string(),
-                                        }
-                                    );
-                                }
-                            }
-                            None => {
-                                // Implicitly typed binding: unify the fresh type we've created for
-                                // the binding in `group_id_type_schemes`.
-                                let (fun_fresh_preds, fun_fresh_ty) = group_id_type_schemes
-                                    .get(id)
-                                    .unwrap()
-                                    .instantiate_monomorphic();
-
-                                // TODO: Monomorphic types can't have preds, move this assertion to
-                                // `instantiate_monomorphic`.
-                                assert!(fun_fresh_preds.is_empty());
-
-                                unify(&self.ty_syns, &fun_fresh_ty, binding_inferred_ty)?;
-
-                                // Generalize the inferred type and update the assumption.
-                                let scheme =
-                                    generalize(level, binding_inferred_preds, binding_inferred_ty);
-                                assumps.insert_mut(id.clone(), scheme);
-                            }
-                        }
-                    }
-
-                    BindingGroup::Pat(PatBinding { .. }) => {
-                        // TODO: Do we need anything to do here?
-                    }
+                BindingGroup::Pat(PatBinding { .. }) => {
+                    // TODO: Do we need anything to do here?
                 }
             }
         }
