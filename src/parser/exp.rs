@@ -111,7 +111,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 self.expect_token(Token::ReservedId(ReservedId::Then))?;
                 let e2 = self.exp()?;
                 self.skip_token(Token::Special(Special::Semi));
-                self.expect_token(Token::ReservedId(ReservedId::Then))?;
+                self.expect_token(Token::ReservedId(ReservedId::Else))?;
                 let e3 = self.exp()?;
                 let r = e3.span.end;
                 Ok(self.spanned(l, r, Exp_::If(Box::new(e1), Box::new(e2), Box::new(e3))))
