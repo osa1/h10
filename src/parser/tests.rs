@@ -1,6 +1,6 @@
 use crate::ast;
 use crate::layout_lexer::LayoutLexer;
-use crate::parser::{parse_exp, Parser};
+use crate::parser::{parse_exp, parse_exp_with_layout, Parser};
 use crate::token::Token;
 
 fn tokens(input: &str) -> Vec<Token> {
@@ -323,4 +323,26 @@ fn unit() {
         ast::Exp_::Tuple(args) => assert!(args.is_empty()),
         _ => panic!(),
     }
+}
+
+#[test]
+fn rbrace_insertion_1() {
+    let exp = "if e then do { x; y } else z";
+    let ast = parse_exp_with_layout(exp).unwrap();
+    assert!(matches!(&ast.node, ast::Exp_::If(_, _, _)));
+
+    let exp = "if e then do x; y; else z";
+    let ast = parse_exp_with_layout(exp).unwrap();
+    assert!(matches!(&ast.node, ast::Exp_::If(_, _, _)));
+}
+
+#[test]
+fn rbrace_insertion_2() {
+    let exp = "let { x = 3 } in x";
+    let ast = parse_exp_with_layout(exp).unwrap();
+    assert!(matches!(&ast.node, ast::Exp_::Let(_, _)));
+
+    let exp = "let x = 3 in x";
+    let ast = parse_exp_with_layout(exp).unwrap();
+    assert!(matches!(&ast.node, ast::Exp_::Let(_, _)));
 }

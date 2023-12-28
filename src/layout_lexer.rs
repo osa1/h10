@@ -5,10 +5,11 @@ use crate::lexer::Lexer;
 use crate::token::{ReservedId, Special, Token};
 
 use std::cmp::Ordering;
-use std::convert::Infallible;
 use std::iter::Peekable;
 
-use lexgen_util::{LexerError, Loc};
+use lexgen_util::{LexerError, LexerErrorKind, Loc};
+
+pub type LayoutError = String;
 
 /// A layout lexer is a lexer with two extra methods to allow handling implicit layouts when
 /// parsing.
@@ -16,7 +17,7 @@ use lexgen_util::{LexerError, Loc};
 /// When parsing expression and types in tests (instead of whole modules), use `Lexer`, which
 /// implements `LayoutLexer_` without actually handling implicit layouts.
 pub trait LayoutLexer_:
-    Iterator<Item = Result<(Loc, Token, Loc), LexerError<Infallible>>> + Clone
+    Iterator<Item = Result<(Loc, Token, Loc), LexerError<LayoutError>>> + Clone
 {
     fn pop_layout(&mut self) -> bool;
     fn in_explicit_layout(&self) -> bool;
@@ -65,19 +66,35 @@ const RBRACE: Token = Token::Special(Special::RBrace);
 const SEMIC: Token = Token::Special(Special::Semi);
 
 impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
+    /// Create a new layout lexer for parsing a full module.
+    ///
+    /// This constructor handles insertion of `{` when the first lexeme is not a `{` or `module`.
+    ///
+    /// When you need to handle layout but you are not parsing a full module (e.g. in tests, or in
+    /// a REPL), use `new_non_module`.
     pub fn new(input: &'input str) -> Self {
-        let mut lexer = Self {
+        let mut lexer = Self::new_non_module(input);
+        lexer.initialize();
+        lexer
+    }
+
+    /// Create a new layout lexer without the initial `{` insertion when the first lexeme is not a
+    /// `{` or `module`.
+    ///
+    /// This can be used to parse a type or an expression.
+    pub fn new_non_module(input: &'input str) -> Self {
+        Self {
             lexer: Lexer::new(input).peekable(),
             last_token_line: None,
             context: vec![],
             do_layout: false,
             override_next: None,
-        };
-        lexer.initialize();
-        lexer
+        }
     }
 
     fn pop_layout_(&mut self) -> bool {
+        // TODO: Do we want to generate a `}` here? Currently the parser needs to skip the `}` when
+        // it pops the context.
         match self.context.pop() {
             Some(-1) | None => false,
             Some(_) => true,
@@ -113,7 +130,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
 }
 
 impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, I> {
-    type Item = Result<(Loc, Token, Loc), LexerError<Infallible>>;
+    type Item = Result<(Loc, Token, Loc), LexerError<LayoutError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(next) = self.override_next.take() {
@@ -157,14 +174,15 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             }
         };
 
+        if matches!(token, Token::Special(Special::LBrace)) {
+            // Explicit layout.
+            self.do_layout = false;
+            self.context.push(-1);
+            return self.lexer.next(); // consume '{'
+        }
+
         if self.do_layout {
             self.do_layout = false;
-
-            if matches!(token, Token::Special(Special::LBrace)) {
-                // Explicit layout.
-                self.context.push(-1);
-                return self.lexer.next(); // consume '{'
-            }
 
             // Implicit layout. The rules are:
             //
@@ -200,6 +218,25 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             // (3)
             self.override_next = Some((*start, RBRACE, virtual_token_end(start)));
             return Some(Ok((*start, LBRACE, virtual_token_end(start))));
+        }
+
+        if matches!(token, Token::Special(Special::RBrace)) {
+            // Pop explicit layout.
+            match self.context.pop() {
+                Some(-1) => {}
+                Some(_) => {
+                    return Some(Err(LexerError {
+                        location: *start,
+                        kind: LexerErrorKind::Custom("Right brace in implicit layout".to_owned()),
+                    }))
+                }
+                None => {
+                    return Some(Err(LexerError {
+                        location: *start,
+                        kind: LexerErrorKind::Custom("Right brace without a left brace".to_owned()),
+                    }))
+                }
+            }
         }
 
         let beginning_of_line = self

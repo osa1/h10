@@ -9,6 +9,10 @@ lexgen::lexer! {
     #[derive(Clone)]
     pub Lexer(LexerState) -> Token;
 
+    // TODO: We shouldn't have to mention an error type from the next pass here. Figure out how to
+    // make the error bound of `LayoutLexer_` something like `Into<LexerError<LayoutError>>`.
+    type Error = crate::layout_lexer::LayoutError;
+
     let octal_digit = ['0'-'7'];
     let hex_digit = ['0'-'9' 'a'-'f' 'A'-'F'];
 

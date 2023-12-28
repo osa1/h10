@@ -130,8 +130,8 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             Token::ReservedId(ReservedId::Do) => {
                 self.skip(); // consume 'do'
                 self.expect_token(Token::Special(Special::LBrace))?;
-                let stmts = self.stmts()?;
-                let (_, r) = self.expect_token(Token::Special(Special::RBrace))?;
+                let stmts = self.stmts()?; // parses `}` as well
+                let (_, r) = self.last_tok_span;
                 Ok(self.spanned(l, r, Exp_::Do(stmts)))
             }
 

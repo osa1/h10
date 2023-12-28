@@ -9,11 +9,10 @@ mod utils;
 mod tests;
 
 use crate::ast::*;
-use crate::layout_lexer::{LayoutLexer, LayoutLexer_};
+use crate::layout_lexer::{LayoutError, LayoutLexer, LayoutLexer_};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
 use crate::token::{ReservedId, ReservedOp, Special, Token};
 
-use std::convert::Infallible;
 use std::rc::Rc;
 
 use lexgen_util::{LexerError, Loc};
@@ -43,6 +42,17 @@ pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
     Parser::new(exp_str, "<input>".into(), crate::lexer::Lexer::new(exp_str)).exp()
 }
 
+/// Parse an expression. Handles layout.
+#[cfg(test)]
+pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
+    Parser::new(
+        exp_str,
+        "<input>".into(),
+        LayoutLexer::new_non_module(exp_str),
+    )
+    .exp()
+}
+
 #[derive(Clone)]
 struct Parser<'input, L: LayoutLexer_> {
     source: Rc<str>,
@@ -51,7 +61,7 @@ struct Parser<'input, L: LayoutLexer_> {
 
     /// Next peeked token. We can't use std `Peekable` as we need to be able to pop current layout
     /// on parse error and `Peekable` doesn't give access to the inner iterator.
-    peeked: Option<Result<(Loc, Token, Loc), LexerError<Infallible>>>,
+    peeked: Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>>,
 
     /// Span of the last token returned by `next`.
     last_tok_span: (Loc, Loc),
@@ -234,15 +244,33 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /*
     stmts → stmt1 … stmtn exp [;]          (n ≥ 0)
 
-    Parses statements until a `}`.
+    Note: Currently this parses `}` as well, because layout lexer does not really yield a `}` after
+    popping a context. We may want to revisit this.
     */
     fn stmts(&mut self) -> ParserResult<Vec<ParsedStmt>> {
         let mut stmts = vec![];
         while !matches!(self.peek(), Ok((_, Token::Special(Special::RBrace), _))) {
             self.skip_all(Token::Special(Special::Semi));
-            stmts.push(self.stmt()?);
+            let mut parser = self.clone();
+            match parser.stmt() {
+                Ok(stmt) => {
+                    stmts.push(stmt);
+                    *self = parser;
+                }
+                Err(err) => {
+                    if parser.lexer.pop_layout() {
+                        println!("pop_layout success");
+                        *self = parser;
+                        return Ok(stmts);
+                    } else {
+                        println!("pop_layout failed");
+                        return Err(err);
+                    }
+                }
+            }
             self.skip_all(Token::Special(Special::Semi));
         }
+        self.skip(); // consume '}'
         Ok(stmts)
     }
 

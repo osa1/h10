@@ -90,3 +90,26 @@ a = 1"#;
         ]
     );
 }
+
+#[test]
+fn record_literal() {
+    // Test that the layout lexer handles `{` and `}` in a context where an implicit layout is not
+    // expected (i.e. after a `let`, `where`, `of`, `do`).
+    let input = "data A = A { x :: Int }";
+    let lexer = LayoutLexer::new_non_module(input);
+    let tokens: Vec<Token> = lexer.map(|t| t.unwrap().1).collect();
+    assert_eq!(
+        tokens,
+        vec![
+            Token::ReservedId(ReservedId::Data),
+            Token::ConId,
+            Token::ReservedOp(ReservedOp::Equals),
+            Token::ConId,
+            Token::Special(Special::LBrace),
+            Token::VarId,
+            Token::ReservedOp(ReservedOp::ColonColon),
+            Token::ConId,
+            Token::Special(Special::RBrace),
+        ]
+    );
+}
