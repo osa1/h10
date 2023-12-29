@@ -62,6 +62,9 @@ rejected. In other words, there are no cases where defaulting gives us the right
 unificiation gives us a wrong kind. Dependency analysis can be added later easily.
 */
 
+#[cfg(test)]
+mod tests;
+
 use crate::ast;
 use crate::collections::{Map, Set};
 use crate::id::{self, Id};

@@ -134,6 +134,13 @@ impl<Id: fmt::Debug> Decl<Id> {
             other => panic!("Not value decl: {:?}", other),
         }
     }
+
+    pub fn data(&self) -> &DataDecl<Id> {
+        match &self.node {
+            Decl_::Data(data_decl) => data_decl,
+            other => panic!("Not type decl: {:?}", other),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
