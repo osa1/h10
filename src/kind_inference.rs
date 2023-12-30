@@ -55,11 +55,8 @@ Note: In this implementation we avoid dependency analysis and analyze a whole mo
 types, but we don't consider type signatures (except in typeclass method signatures) during
 inference, as mentioned above.
 
-I think this should allow more programs without rejecting H10 programs: in some cases this means
-we'll assign a kind instead of defaulting. If the assigned kind is `*` this will make no
-difference. If the assigned kind is something else, then we accepted a program that in H98 would be
-rejected. In other words, there are no cases where defaulting gives us the right kind and
-unificiation gives us a wrong kind. Dependency analysis can be added later easily.
+This allows more programs without rejecting H10 programs, but it's not modular: a use of a type in
+another module influences kind of the type.
 */
 
 #[cfg(test)]
