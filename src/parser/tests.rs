@@ -343,3 +343,15 @@ fn rbrace_insertion_2() {
     let ast = parse_exp_with_layout(exp).unwrap();
     assert!(matches!(&ast.node, ast::Exp_::Let(_, _)));
 }
+
+#[test]
+fn kind_sig_1() {
+    let pgm = r#"
+type T :: (Type -> Type) -> Type
+type T f = f Int
+"#;
+    let ast = parse_module(pgm).unwrap();
+    assert_eq!(ast.len(), 2);
+    ast[0].kind_sig();
+    ast[1].type_synonym();
+}

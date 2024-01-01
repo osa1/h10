@@ -56,6 +56,7 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<
             }
 
             ast::Decl_::Type(_)
+            | ast::Decl_::KindSig(_)
             | ast::Decl_::Value(_)
             | ast::Decl_::Class(_)
             | ast::Decl_::Instance(_)
@@ -121,6 +122,7 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<
             }
 
             ast::Decl_::Type(_)
+            | ast::Decl_::KindSig(_)
             | ast::Decl_::Value(_)
             | ast::Decl_::Class(_)
             | ast::Decl_::Instance(_)

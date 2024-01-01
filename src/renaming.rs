@@ -119,6 +119,7 @@ impl Renamer {
         match &decl.node {
             ast::Decl_::Value(decl) => self.bind_value_decl(decl),
             ast::Decl_::Type(decl) => self.bind_type_decl(decl),
+            ast::Decl_::KindSig(_) => todo!("Kind signatures"),
             ast::Decl_::Data(decl) => self.bind_data_decl(decl),
             ast::Decl_::Newtype(decl) => self.bind_newtype_decl(decl),
             ast::Decl_::Class(decl) => self.bind_class_decl(decl),
@@ -236,6 +237,7 @@ impl Renamer {
         decl.map(|decl| match decl {
             ast::Decl_::Value(decl) => ast::Decl_::Value(self.rename_value_decl(decl)),
             ast::Decl_::Type(decl) => ast::Decl_::Type(self.rename_type_decl(decl)),
+            ast::Decl_::KindSig(_) => todo!("Kind signatures"),
             ast::Decl_::Data(decl) => ast::Decl_::Data(self.rename_data_decl(decl)),
             ast::Decl_::Newtype(decl) => ast::Decl_::Newtype(self.rename_newtype_decl(decl)),
             ast::Decl_::Class(decl) => ast::Decl_::Class(self.rename_class_decl(decl)),

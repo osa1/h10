@@ -30,6 +30,8 @@ pub type ParsedTyCon = TyCon<String>;
 pub type ParsedType = Type<String>;
 pub type ParsedTypeDecl = TypeDecl<String>;
 #[allow(unused)]
+pub type ParsedKindSig = KindSigDecl<String>;
+#[allow(unused)]
 pub type ParsedTypeImport = TypeImport<String>;
 pub type ParsedValueDecl = ValueDecl<String>;
 
@@ -74,6 +76,13 @@ impl<T> AstNode<T> {
         AstNode {
             span: self.span.clone(),
             node: f(&self.node),
+        }
+    }
+
+    pub fn map_<T2, F: FnOnce(T) -> T2>(self, f: F) -> AstNode<T2> {
+        AstNode {
+            span: self.span,
+            node: f(self.node),
         }
     }
 
@@ -141,12 +150,27 @@ impl<Id: fmt::Debug> Decl<Id> {
             other => panic!("Not type decl: {:?}", other),
         }
     }
+
+    pub fn kind_sig(&self) -> &KindSigDecl<Id> {
+        match &self.node {
+            Decl_::KindSig(kind_sig) => kind_sig,
+            other => panic!("Not kind signature: {:?}", other),
+        }
+    }
+
+    pub fn type_synonym(&self) -> &TypeDecl<Id> {
+        match &self.node {
+            Decl_::Type(type_syn) => type_syn,
+            other => panic!("Not type synonym: {:?}", other),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Decl_<Id> {
     Value(ValueDecl<Id>),
     Type(TypeDecl<Id>),
+    KindSig(KindSigDecl<Id>),
     Data(DataDecl<Id>),
     Newtype(NewtypeDecl<Id>),
     Class(ClassDecl<Id>),
@@ -569,6 +593,14 @@ pub struct TypeDecl_<Id> {
     pub ty: Id,
     pub vars: Vec<Id>,
     pub rhs: Type<Id>,
+}
+
+pub type KindSigDecl<Id> = AstNode<KindSigDecl_<Id>>;
+
+#[derive(Debug, Clone)]
+pub struct KindSigDecl_<Id> {
+    pub ty: Id,
+    pub sig: Type<Id>,
 }
 
 pub type DataDecl<Id> = AstNode<DataDecl_<Id>>;
