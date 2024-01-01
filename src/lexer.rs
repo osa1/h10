@@ -150,7 +150,7 @@ mod test {
     #[test]
     fn lex_id_sym() {
         assert_eq!(
-            lex("a A ++ :+: A.a A.A A.++ A.:+:"),
+            lex("a A ++ :+: A.a A.A A.++ A.:+: *"),
             vec![
                 Token::VarId,
                 Token::ConId,
@@ -160,6 +160,7 @@ mod test {
                 Token::QConId,
                 Token::QVarSym,
                 Token::QConSym,
+                Token::VarSym,
             ]
         );
     }

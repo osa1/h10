@@ -1,6 +1,6 @@
 use crate::ast;
 use crate::layout_lexer::LayoutLexer;
-use crate::parser::{parse_exp, parse_exp_with_layout, Parser};
+use crate::parser::{parse_exp, parse_exp_with_layout, parse_module};
 use crate::token::Token;
 
 fn tokens(input: &str) -> Vec<Token> {
@@ -11,14 +11,14 @@ fn tokens(input: &str) -> Vec<Token> {
 fn test1() {
     let pgm = "f = 1";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test2() {
     let pgm = "f = 1 + 2";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -29,7 +29,7 @@ f =
   +
   2";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn test4() {
 f = 1
 g = 2";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -50,49 +50,49 @@ f = x
 
 g = 2";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test6() {
     let pgm = "x = (hi `x`)";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test7() {
     let pgm = "x = (`x` hi)";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test8() {
     let pgm = "x = ((0, let a = 1 in f a, 1, (++), (:+:)) `g`) \"hi\"";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test9() {
     let pgm = "x = ((a `b`), (`b` a), (+ 1), (1 +))";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test10() {
     let pgm = "x = (,,,) 1 2 3 4";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test11() {
     let pgm = "x = y :: Int";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -101,25 +101,25 @@ fn test12() {
 id :: a -> a
 id a = a";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test13() {
     let pgm = "getA (X a) = a";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test14() {
     let pgm = "plus2 (A a :+: A b) = a + b";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 
     let pgm = "plus3 (A a :+: A b :+: A c) = a + b + c";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -129,14 +129,14 @@ plus3 (A a :+: A b :+: A c)
   | a == 0 = b + c
   | otherwise = a + b + c";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test16() {
     let pgm = "infixl 2 :+:, ><, `ok`";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn test17() {
 a, b, (><) :: Int -> Int
 ";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn test18() {
 type String = [Char]
 ";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -165,7 +165,7 @@ data Option a = Some a | None
 data Coord = Coord { x :: Int, y :: Int }
 ";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -175,7 +175,7 @@ newtype List1 a = List [a]
 newtype List2 a b = List2 { list2ToList :: [a] }
 ";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -188,7 +188,7 @@ class Read a where
   readListPrec :: ReadPrec [a]
 ";
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -212,7 +212,7 @@ instance Read Char where
   readList = readListDefault
 "#;
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -228,7 +228,7 @@ update1 x = x { a = 1 }
 update2 x = x { a = 1, b = 2 }
 "#;
     println!("{:?}", tokens(pgm));
-    println!("{:#?}", Parser::new_test(pgm).module().unwrap());
+    println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
@@ -242,11 +242,8 @@ test3 = case x of
   _ -> 2
 "#;
     println!("{:?}", tokens(pgm));
-    let ast = Parser::new_test(pgm).module().unwrap();
+    let ast = parse_module(pgm);
     println!("{:#?}", ast);
-    // let mut renamer = crate::type_inference::Renamer::new();
-    // let renamed = renamer.rename_module(&ast);
-    // println!("{:#?}", renamed);
 }
 
 #[test]
@@ -255,7 +252,7 @@ fn test25() {
 module Test where
 "#;
     println!("{:?}", tokens(pgm));
-    let ast = Parser::new_test(pgm).module().unwrap();
+    let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
 
@@ -268,21 +265,21 @@ module Test where
 x = 123
 "#;
     println!("{:?}", tokens(pgm));
-    let ast = Parser::new_test(pgm).module().unwrap();
+    let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
 
 #[test]
 fn parse_prelude() {
     let pgm = std::fs::read_to_string("Prelude.hs").unwrap();
-    let ast = Parser::new_test(&pgm).module().unwrap();
+    let ast = parse_module(&pgm);
     println!("{:#?}", ast);
 }
 
 #[test]
 fn empty_class() {
     let pgm = "class X a where";
-    let ast = Parser::new_test(&pgm).module().unwrap();
+    let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
 
@@ -292,7 +289,7 @@ fn empty_class_then_value() {
 class X a where
 x = 1
 "#;
-    let ast = Parser::new_test(&pgm).module().unwrap();
+    let ast = parse_module(pgm).unwrap();
     println!("{:#?}", ast);
     assert_eq!(ast.len(), 2);
 }
@@ -300,7 +297,7 @@ x = 1
 #[test]
 fn empty_inst() {
     let pgm = "instance Num Int where";
-    let ast = Parser::new_test(&pgm).module().unwrap();
+    let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
 
@@ -310,7 +307,7 @@ fn empty_inst_then_value() {
 instance Num Int where
 x = 1
 "#;
-    let ast = Parser::new_test(&pgm).module().unwrap();
+    let ast = parse_module(pgm).unwrap();
     println!("{:#?}", ast);
     assert_eq!(ast.len(), 2);
 }

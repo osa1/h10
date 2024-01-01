@@ -71,13 +71,6 @@ struct Parser<'input, L: LayoutLexer_> {
     context: List<Context>,
 }
 
-impl<'input> Parser<'input, LayoutLexer<'input, std::str::Chars<'input>>> {
-    #[cfg(test)]
-    fn new_test(input: &'input str) -> Self {
-        Self::new(input, "<test>".into(), LayoutLexer::new(input))
-    }
-}
-
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn new(input: &'input str, source: Rc<str>, lexer: L) -> Self {
         Parser {
