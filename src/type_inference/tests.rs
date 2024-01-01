@@ -15,7 +15,7 @@ fn unify_two_way_left() {
     // would be good to simplify this and add more unification tests.
     let mut renamer = Renamer::new();
 
-    let ty1_ast: ast::RenamedType = renamer.rename_type(&parse_type("a -> a").unwrap().1);
+    let ty1_ast: ast::RenamedType = renamer.rename_type(&parse_type("a -> a").unwrap().2, true);
     let a_id: Id = ty1_ast.arrow().0.var().clone();
     let a_tyref = TyRef::new_var(Kind::Star, 0);
     let ty1 = convert_ast_ty(
@@ -24,7 +24,7 @@ fn unify_two_way_left() {
         &ty1_ast,
     );
 
-    let ty2_ast: ast::RenamedType = renamer.rename_type(&parse_type("Int -> Int").unwrap().1);
+    let ty2_ast: ast::RenamedType = renamer.rename_type(&parse_type("Int -> Int").unwrap().2, true);
     let ty2 = convert_ast_ty(&Default::default(), &Default::default(), &ty2_ast);
     let int_tyref = &ty2.split_fun_ty().0[0];
 
@@ -294,11 +294,11 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
         )
     });
 
-    let (expected_ty_context, expected_ty) = parse_type(expected_ty).unwrap();
-    let renamed_expected_ty = renamer.rename_type(&expected_ty);
+    let (_foralls, expected_ty_context, expected_ty) = parse_type(expected_ty).unwrap();
+    let renamed_expected_ty = renamer.rename_type(&expected_ty, true);
     let renamed_expected_ty_context: Vec<ast::RenamedType> = expected_ty_context
         .into_iter()
-        .map(|ty| renamer.rename_type(&ty))
+        .map(|ty| renamer.rename_type(&ty, true))
         .collect();
 
     let expected_ty_scheme = Scheme::from_type_sig(

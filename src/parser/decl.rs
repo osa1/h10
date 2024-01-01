@@ -223,9 +223,18 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             let (l, _, _) = self_.peek()?;
             let vars = self_.vars()?;
             self_.expect_token(Token::ReservedOp(ReservedOp::ColonColon))?;
-            let (context, ty) = self_.type_with_context()?;
+            let (foralls, context, ty) = self_.type_with_context()?;
             let r = ty.span.end;
-            Ok(self_.spanned(l, r, ValueDecl_::TypeSig { vars, context, ty }))
+            Ok(self_.spanned(
+                l,
+                r,
+                ValueDecl_::TypeSig {
+                    vars,
+                    foralls,
+                    context,
+                    ty,
+                },
+            ))
         });
 
         if let Ok(ty_sig) = ty_sig {

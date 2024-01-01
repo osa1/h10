@@ -248,17 +248,37 @@ impl Renamer {
 
     fn rename_value_decl(&mut self, decl: &ast::ParsedValueDecl) -> ast::RenamedValueDecl {
         match &decl.node {
-            ast::ValueDecl_::TypeSig { vars, context, ty } => {
+            ast::ValueDecl_::TypeSig {
+                vars,
+                foralls,
+                context,
+                ty,
+            } => {
                 let vars: Vec<Id> = vars.iter().map(|var| self.rename_var(var)).collect();
 
                 // `context` and `ty` may use variables before declaring
                 self.tys.enter();
-                let context: Vec<ast::RenamedType> =
-                    context.iter().map(|ty| self.rename_type(ty)).collect();
-                let ty = self.rename_type(ty);
+
+                let foralls: Vec<Id> = foralls.iter().map(|var| self.bind_type_var(var)).collect();
+
+                // When the type has a scoped type variables all type variables should be listed.
+                let allow_binding = foralls.is_empty();
+
+                let context: Vec<ast::RenamedType> = context
+                    .iter()
+                    .map(|ty| self.rename_type(ty, allow_binding))
+                    .collect();
+
+                let ty = self.rename_type(ty, allow_binding);
+
                 self.tys.exit();
 
-                decl.with_node(ast::ValueDecl_::TypeSig { vars, context, ty })
+                decl.with_node(ast::ValueDecl_::TypeSig {
+                    vars,
+                    foralls,
+                    context,
+                    ty,
+                })
             }
 
             ast::ValueDecl_::Fixity { fixity, prec, ops } => {
@@ -287,7 +307,7 @@ impl Renamer {
             .iter()
             .map(|var| self.bind_fresh_type_var(var))
             .collect();
-        let rhs = self.rename_type(rhs);
+        let rhs = self.rename_type(rhs, true);
         self.tys.exit();
         decl.with_node(ast::TypeDecl_ { ty, vars, rhs })
     }
@@ -302,7 +322,10 @@ impl Renamer {
         } = &decl.node;
         let ty_con = self.rename_type_var(ty_con);
         self.tys.enter();
-        let context = context.iter().map(|ctx| self.rename_type(ctx)).collect();
+        let context = context
+            .iter()
+            .map(|ctx| self.rename_type(ctx, true))
+            .collect();
         let ty_args = ty_args
             .iter()
             .map(|var| self.bind_fresh_type_var(var))
@@ -332,7 +355,7 @@ impl Renamer {
     fn rename_field(&mut self, field: &ast::ParsedFieldDecl) -> ast::RenamedFieldDecl {
         let ast::FieldDecl_ { vars, ty } = &field.node;
         let vars = vars.iter().map(|var| self.rename_var(var)).collect();
-        let ty = self.rename_type(ty);
+        let ty = self.rename_type(ty, true);
         field.with_node(ast::FieldDecl_ { vars, ty })
     }
 
@@ -345,7 +368,10 @@ impl Renamer {
         } = &decl.node;
         let ty_con = self.rename_type_var(ty_con);
         self.tys.enter();
-        let context = context.iter().map(|ctx| self.rename_type(ctx)).collect();
+        let context = context
+            .iter()
+            .map(|ctx| self.rename_type(ctx, true))
+            .collect();
         for ty_arg in ty_args {
             self.bind_fresh_type_var(ty_arg);
         }
@@ -374,7 +400,10 @@ impl Renamer {
         self.tys.enter();
         // Context will refer to the type variable, so bind the type variable first.
         self.bind_fresh_type_var(ty_arg);
-        let context = context.iter().map(|ty| self.rename_type(ty)).collect();
+        let context = context
+            .iter()
+            .map(|ty| self.rename_type(ty, true))
+            .collect();
         let ty_arg = self.rename_type_var(ty_arg);
         let decls = decls
             .iter()
@@ -398,8 +427,11 @@ impl Renamer {
         } = &decl.node;
         let ty_con = self.rename_type_var(ty_con);
         self.tys.enter();
-        let context = context.iter().map(|ty| self.rename_type(ty)).collect();
-        let ty = self.rename_type(ty);
+        let context = context
+            .iter()
+            .map(|ty| self.rename_type(ty, true))
+            .collect();
+        let ty = self.rename_type(ty, true);
 
         // Instance methods are top-level, but we create a new scope to be able to able to override
         // class method ids while renaming instance declarations.
@@ -427,7 +459,7 @@ impl Renamer {
     fn rename_default_decl(&mut self, decl: &ast::ParsedDefaultDecl) -> ast::RenamedDefaultDecl {
         let ast::DefaultDecl_ { tys } = &decl.node;
         decl.with_node(ast::DefaultDecl_ {
-            tys: tys.iter().map(|ty| self.rename_type(ty)).collect(),
+            tys: tys.iter().map(|ty| self.rename_type(ty, true)).collect(),
         })
     }
 
@@ -591,8 +623,11 @@ impl Renamer {
                     type_,
                 } => ast::Exp_::TypeAnnotation {
                     exp: Box::new(self.rename_exp(exp)),
-                    context: context.iter().map(|ty| self.rename_type(ty)).collect(),
-                    type_: self.rename_type(type_),
+                    context: context
+                        .iter()
+                        .map(|ty| self.rename_type(ty, true))
+                        .collect(),
+                    type_: self.rename_type(type_, true),
                 },
 
                 ast::Exp_::ArithmeticSeq { exp1, exp2, exp3 } => ast::Exp_::ArithmeticSeq {
@@ -725,27 +760,37 @@ impl Renamer {
     }
 
     // NB. Types can use varibles without declaring them first
-    pub(crate) fn rename_type(&mut self, ty: &ast::ParsedType) -> ast::RenamedType {
+    pub(crate) fn rename_type(
+        &mut self,
+        ty: &ast::ParsedType,
+        allow_binding: bool,
+    ) -> ast::RenamedType {
         ty.map(|ty| match ty {
-            ast::Type_::Tuple(tys) => {
-                ast::Type_::Tuple(tys.iter().map(|ty| self.rename_type(ty)).collect())
-            }
+            ast::Type_::Tuple(tys) => ast::Type_::Tuple(
+                tys.iter()
+                    .map(|ty| self.rename_type(ty, allow_binding))
+                    .collect(),
+            ),
 
-            ast::Type_::List(ty) => ast::Type_::List(Box::new(self.rename_type(ty))),
+            ast::Type_::List(ty) => ast::Type_::List(Box::new(self.rename_type(ty, allow_binding))),
 
             ast::Type_::Arrow(ty1, ty2) => ast::Type_::Arrow(
-                Box::new(self.rename_type(ty1)),
-                Box::new(self.rename_type(ty2)),
+                Box::new(self.rename_type(ty1, allow_binding)),
+                Box::new(self.rename_type(ty2, allow_binding)),
             ),
 
             ast::Type_::App(ty, tys) => ast::Type_::App(
-                Box::new(self.rename_type(ty)),
-                tys.iter().map(|ty| self.rename_type(ty)).collect(),
+                Box::new(self.rename_type(ty, allow_binding)),
+                tys.iter()
+                    .map(|ty| self.rename_type(ty, allow_binding))
+                    .collect(),
             ),
 
             ast::Type_::Con(con) => ast::Type_::Con(self.rename_tycon(con)),
 
-            ast::Type_::Var(var) => ast::Type_::Var(self.rename_or_bind_type_var(var)),
+            ast::Type_::Var(var) => {
+                ast::Type_::Var(self.rename_or_bind_type_var(var, allow_binding))
+            }
         })
     }
 
@@ -775,15 +820,23 @@ impl Renamer {
             .clone()
     }
 
-    fn rename_or_bind_type_var(&mut self, var: &str) -> Id {
+    fn rename_or_bind_type_var(&mut self, var: &str, allow_binding: bool) -> Id {
         match self.tys.get(var) {
             Some(id) => id.clone(),
             None => {
-                let id = self.fresh_id(var, IdKind::TyVar);
-                self.tys.bind(var.to_owned(), id.clone());
-                id
+                if allow_binding {
+                    self.bind_type_var(var)
+                } else {
+                    panic!("Unbound type varible: {}", var)
+                }
             }
         }
+    }
+
+    fn bind_type_var(&mut self, var: &str) -> Id {
+        let id = self.fresh_id(var, IdKind::TyVar);
+        self.tys.bind(var.to_owned(), id.clone());
+        id
     }
 
     fn rename_type_var(&mut self, var: &str) -> Id {

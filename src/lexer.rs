@@ -92,6 +92,7 @@ lexgen::lexer! {
         "deriving" = Token::ReservedId(ReservedId::Deriving),
         "do" = Token::ReservedId(ReservedId::Do),
         "else" = Token::ReservedId(ReservedId::Else),
+        "forall" = Token::ReservedId(ReservedId::Forall),
         "foreign" = Token::ReservedId(ReservedId::Foreign),
         "if" = Token::ReservedId(ReservedId::If),
         "import" = Token::ReservedId(ReservedId::Import),
@@ -150,7 +151,7 @@ mod test {
     #[test]
     fn lex_id_sym() {
         assert_eq!(
-            lex("a A ++ :+: A.a A.A A.++ A.:+: *"),
+            lex("a A ++ :+: A.a A.A A.++ A.:+: * ."),
             vec![
                 Token::VarId,
                 Token::ConId,
@@ -160,6 +161,7 @@ mod test {
                 Token::QConId,
                 Token::QVarSym,
                 Token::QConSym,
+                Token::VarSym,
                 Token::VarSym,
             ]
         );

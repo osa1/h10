@@ -59,24 +59,34 @@ pub enum Special {
 pub enum ReservedOp {
     /// `..`
     DotDot,
+
     /// `:`
     Colon,
+
     /// `::`
     ColonColon,
+
     /// `=`
     Equals,
+
     /// `\\`
     Backslash,
+
     /// `|`
     Pipe,
+
     /// `<-`
     LeftArrow,
+
     /// `->`
     RightArrow,
+
     /// `@`
     At,
+
     /// `~`
     Tilde,
+
     /// `=>`
     FatArrow,
 }
@@ -90,6 +100,7 @@ pub enum ReservedId {
     Deriving,
     Do,
     Else,
+    Forall,
     Foreign,
     If,
     Import,

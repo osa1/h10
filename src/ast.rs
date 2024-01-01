@@ -158,7 +158,7 @@ impl<Id: fmt::Debug> Decl<Id> {
         }
     }
 
-    pub fn type_synonym(&self) -> &TypeDecl<Id> {
+    pub fn type_syn(&self) -> &TypeDecl<Id> {
         match &self.node {
             Decl_::Type(type_syn) => type_syn,
             other => panic!("Not type synonym: {:?}", other),
@@ -183,9 +183,14 @@ pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;
 #[cfg(test)]
 impl<Id: fmt::Debug> ValueDecl<Id> {
     // TODO: Add a type for type sig
-    pub fn type_sig(&self) -> (&[Id], &[Type<Id>], &Type<Id>) {
+    pub fn type_sig(&self) -> (&[Id], &[Id], &[Type<Id>], &Type<Id>) {
         match &self.node {
-            ValueDecl_::TypeSig { vars, context, ty } => (&*vars, &*context, ty),
+            ValueDecl_::TypeSig {
+                vars,
+                foralls,
+                context,
+                ty,
+            } => (&*vars, &*foralls, &*context, ty),
             other => panic!("Not type sig: {:?}", other),
         }
     }
@@ -201,13 +206,15 @@ impl<Id: fmt::Debug> ValueDecl<Id> {
 
 #[derive(Debug, Clone)]
 pub enum ValueDecl_<Id> {
-    /// In `x, y, z :: Show a => a -> String`:
+    /// In `x, y, z :: forall a . Show a => a -> String`:
     ///
     /// - vars    = `[x, y, z]`
+    /// - foralls = `[a]`
     /// - context = `[Show a]`
     /// - ty      = `a -> String`
     TypeSig {
         vars: Vec<Id>,
+        foralls: Vec<Id>,
         context: Vec<Type<Id>>,
         ty: Type<Id>,
     },

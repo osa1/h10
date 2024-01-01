@@ -39,7 +39,13 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
 
             let mut methods: Map<Id, Scheme> = Default::default();
             for decl in decls {
-                if let ast::ValueDecl_::TypeSig { vars, context, ty } = &decl.node {
+                if let ast::ValueDecl_::TypeSig {
+                    vars,
+                    foralls: _,
+                    context,
+                    ty,
+                } = &decl.node
+                {
                     let mut method_context: Vec<ast::RenamedType> =
                         Vec::with_capacity(context.len() + 1);
 

@@ -27,7 +27,7 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedDecl>> {
 
 /// Parse a type with predicates. Does not handle layout.
 #[cfg(test)]
-pub fn parse_type(type_str: &str) -> ParserResult<(Vec<ParsedType>, ParsedType)> {
+pub fn parse_type(type_str: &str) -> ParserResult<(Vec<String>, Vec<ParsedType>, ParsedType)> {
     Parser::new(
         type_str,
         "<input>".into(),
@@ -340,6 +340,25 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn context(&mut self) -> ParserResult<Vec<ParsedType>> {
         self.context_parser(Self::class)
+    }
+
+    fn try_foralls(&mut self) -> ParserResult<Vec<String>> {
+        let mut ids = vec![];
+        if self.skip_token(Token::ReservedId(ReservedId::Forall)) {
+            loop {
+                let (l, t, r) = self.next()?;
+                match t {
+                    Token::VarId => {
+                        ids.push(self.string(l, r));
+                    }
+                    Token::VarSym if self.str(l, r) == "." => {
+                        break;
+                    }
+                    _ => return self.fail(l, ErrorKind::UnexpectedToken),
+                }
+            }
+        }
+        Ok(ids)
     }
 
     fn try_context_arrow(&mut self) -> Option<Vec<ParsedType>> {

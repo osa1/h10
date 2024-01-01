@@ -330,6 +330,7 @@ fn collect_types(decls: &[ast::RenamedDecl]) -> Vec<TypeDecl> {
         for decl in &decl.node.decls {
             if let ast::ValueDecl_::TypeSig {
                 vars: _,
+                foralls: _,
                 context,
                 ty,
             } = &decl.node

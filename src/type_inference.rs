@@ -1269,7 +1269,12 @@ fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, Kind>) -> Ma
 
 fn collect_sig(decl: &ast::RenamedValueDecl, ty_kinds: &Map<Id, Kind>, sigs: &mut Map<Id, Scheme>) {
     match &decl.node {
-        ast::ValueDecl_::TypeSig { vars, context, ty } => {
+        ast::ValueDecl_::TypeSig {
+            vars,
+            foralls: _,
+            context,
+            ty,
+        } => {
             for var in vars {
                 let scheme = Scheme::from_type_sig(
                     decl.span.clone(),

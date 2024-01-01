@@ -353,5 +353,16 @@ type T f = f Int
     let ast = parse_module(pgm).unwrap();
     assert_eq!(ast.len(), 2);
     ast[0].kind_sig();
-    ast[1].type_synonym();
+    ast[1].type_syn();
+}
+
+#[test]
+fn explicit_forall() {
+    let pgm = "f :: forall f a b . Functor f => (a -> b) -> f a -> f b";
+    let ast = parse_module(pgm).unwrap();
+    assert_eq!(ast.len(), 1);
+    let (vars, foralls, context, _ty) = ast[0].value().type_sig();
+    assert_eq!(vars, ["f"]);
+    assert_eq!(foralls, ["f", "a", "b"]);
+    assert_eq!(context.len(), 1);
 }
