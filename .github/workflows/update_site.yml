@@ -1,7 +1,11 @@
 name: Update site
+
 on:
   push:
     branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
   build_and_deploy:
