@@ -19,11 +19,11 @@ wasm-pack build --target web --release \
 cp target/wasm-pack/h10.js $OUT_DIR/h10.js
 cp target/wasm-pack/h10_bg.wasm $OUT_DIR/h10_bg.wasm
 
-wasm-opt \
-    --closed-world -tnh -O4 --gufa -g \
-    --strip-debug --strip-dwarf --strip-producers --strip-target-features \
-    $OUT_DIR/h10_bg.wasm -o $OUT_DIR/h10_bg.wasm
-
-wasm-opt \
-    --name-types -g \
-    -S $OUT_DIR/h10_bg.wasm -o $OUT_DIR/h10_bg.wat
+# wasm-opt \
+#     --closed-world -tnh -O4 --gufa -g \
+#     --strip-debug --strip-dwarf --strip-producers --strip-target-features \
+#     $OUT_DIR/h10_bg.wasm -o $OUT_DIR/h10_bg.wasm
+# 
+# wasm-opt \
+#     --name-types -g \
+#     -S $OUT_DIR/h10_bg.wasm -o $OUT_DIR/h10_bg.wat
