@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<link rel="icon" href="data:,">
+
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+
+<link rel="stylesheet" href="lib/codemirror.css">
+
+<script src="lib/codemirror.js"></script>
+<script src="addon/edit/matchbrackets.js"></script>
+<script src="mode/haskell/haskell.js"></script>
+
+<style>
+  .CodeMirror {
+    border: 1px solid black;
+  }
+
+  #wrapper {
+    display: flex;
+  }
+
+  #left {
+    flex: 0 0 40%;
+  }
+
+  #right {
+    flex: 1;
+  }
+</style>
+
+<div id="wrapper">
+  <div id="left">
+    <div><textarea id="code" name="code"></textarea></div>
+
+    <p></p>
+
+    <button onclick="typeCheck(editor.getValue())">Type check</button>
+  </div>
+
+  <div id="right">
+    <pre><code id="compilerOutput"></code></pre>
+  </div>
+</div>
+
+<script>
+  var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+    lineNumbers: true,
+    lineWrapping: true,
+    matchBrackets: true,
+    indentUnit: 2,
+    mode: "haskell"
+  });
+
+  editor.setSize(null, 800);
+
+  function clearCompilerOutput() {
+    var div = document.getElementById('compilerOutput');
+    div.innerHTML = '';
+  }
+
+  function addCompilerOutput(output) {
+    var div = document.getElementById('compilerOutput');
+    div.innerHTML += output;
+    div.innerHTML += '\n';
+  }
+</script>
+
+<script type="module">
+  import init, { typeCheck, initH10 } from './h10.js';
+
+  await init();
+  initH10();
+
+  window.typeCheck = typeCheck;
+
+  // Initially load Prelude.hs as the code.
+  fetch(new Request('Prelude.hs'))
+    .then((response) => response.text())
+    .then((text) => editor.setValue(text));
+</script>
