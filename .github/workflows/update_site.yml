@@ -27,6 +27,11 @@ jobs:
         run: |
           ./build_site
 
+      - name: Copy Prelude.hs
+        run: |
+          rm site/Prelude.hs
+          cp Prelude.hs site/Prelude.hs
+
       - name: Deploy site
         uses: JamesIves/github-pages-deploy-action@v4
         with:
