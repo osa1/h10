@@ -44,6 +44,7 @@ impl Renamer {
         renamer.bind_builtin_type("Bool", id::bool_ty_id());
         renamer.bind_builtin_type("Integer", id::integer_ty_id());
         renamer.bind_builtin_type("[]", id::list_ty_id());
+        renamer.bind_builtin_type("Type", id::type_ty_id());
 
         renamer.bind_builtin_value(":", id::cons_id());
         renamer.bind_builtin_value("[]", id::nil_id());
@@ -119,7 +120,7 @@ impl Renamer {
         match &decl.node {
             ast::Decl_::Value(decl) => self.bind_value_decl(decl),
             ast::Decl_::Type(decl) => self.bind_type_decl(decl),
-            ast::Decl_::KindSig(_) => todo!("Kind signatures"),
+            ast::Decl_::KindSig(decl) => self.bind_kind_sig_decl(decl),
             ast::Decl_::Data(decl) => self.bind_data_decl(decl),
             ast::Decl_::Newtype(decl) => self.bind_newtype_decl(decl),
             ast::Decl_::Class(decl) => self.bind_class_decl(decl),
@@ -192,13 +193,14 @@ impl Renamer {
     }
 
     fn bind_type(&mut self, ty: &str) {
-        if ty == "Int" || ty == "Bool" {
-            // Builtins already bound. TODO: Allow overriding in user modules.
-            return;
+        if self.tys.get(ty).is_none() {
+            let id = self.fresh_id(ty, IdKind::TyVar);
+            self.tys.bind(ty.to_owned(), id);
         }
+    }
 
-        let id = self.fresh_id(ty, IdKind::TyVar);
-        self.tys.bind(ty.to_owned(), id);
+    fn bind_kind_sig_decl(&mut self, decl: &ast::ParsedKindSigDecl) {
+        self.bind_type(&decl.node.ty);
     }
 
     fn bind_type_decl(&mut self, decl: &ast::ParsedTypeDecl) {
@@ -237,7 +239,7 @@ impl Renamer {
         decl.map(|decl| match decl {
             ast::Decl_::Value(decl) => ast::Decl_::Value(self.rename_value_decl(decl)),
             ast::Decl_::Type(decl) => ast::Decl_::Type(self.rename_type_decl(decl)),
-            ast::Decl_::KindSig(_) => todo!("Kind signatures"),
+            ast::Decl_::KindSig(decl) => ast::Decl_::KindSig(self.rename_kind_sig_decl(decl)),
             ast::Decl_::Data(decl) => ast::Decl_::Data(self.rename_data_decl(decl)),
             ast::Decl_::Newtype(decl) => ast::Decl_::Newtype(self.rename_newtype_decl(decl)),
             ast::Decl_::Class(decl) => ast::Decl_::Class(self.rename_class_decl(decl)),
@@ -297,6 +299,15 @@ impl Renamer {
                 decl.with_node(ast::ValueDecl_::Value { lhs, rhs })
             }
         }
+    }
+
+    fn rename_kind_sig_decl(&mut self, decl: &ast::ParsedKindSigDecl) -> ast::RenamedKindSigDecl {
+        let ast::KindSigDecl_ { ty, sig } = &decl.node;
+        let ty = self.rename_type_var(ty);
+        self.tys.enter();
+        let sig = self.rename_type(sig, true);
+        self.tys.exit();
+        decl.with_node(ast::KindSigDecl_ { ty, sig })
     }
 
     fn rename_type_decl(&mut self, decl: &ast::ParsedTypeDecl) -> ast::RenamedTypeDecl {
@@ -999,4 +1010,23 @@ f = toggle
 
     let use_var = renamed[3].value().value().1.rhs().0.var();
     assert_eq!(use_var, &class_method_id);
+}
+
+#[test]
+fn kind_sig_1() {
+    let pgm = r#"
+type T :: (Type -> Type) -> Type
+type T f = f Int
+"#;
+
+    let parsed = crate::parser::parse_module(pgm).unwrap();
+    let renamed = rename_module(&parsed);
+
+    let sig = renamed[0].kind_sig();
+    let sig_id = sig.node.ty.clone();
+
+    let syn = renamed[1].type_syn();
+    let syn_id = syn.node.ty.clone();
+
+    assert_eq!(sig_id, syn_id);
 }

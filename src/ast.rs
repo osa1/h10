@@ -29,8 +29,7 @@ pub type ParsedStmt = Stmt<String>;
 pub type ParsedTyCon = TyCon<String>;
 pub type ParsedType = Type<String>;
 pub type ParsedTypeDecl = TypeDecl<String>;
-#[allow(unused)]
-pub type ParsedKindSig = KindSigDecl<String>;
+pub type ParsedKindSigDecl = KindSigDecl<String>;
 #[allow(unused)]
 pub type ParsedTypeImport = TypeImport<String>;
 pub type ParsedValueDecl = ValueDecl<String>;
@@ -57,6 +56,7 @@ pub type RenamedStmt = Stmt<Id>;
 pub type RenamedTyCon = TyCon<Id>;
 pub type RenamedType = Type<Id>;
 pub type RenamedTypeDecl = TypeDecl<Id>;
+pub type RenamedKindSigDecl = KindSigDecl<Id>;
 #[allow(unused)]
 pub type RenamedTypeImport = TypeImport<Id>;
 pub type RenamedValueDecl = ValueDecl<Id>;

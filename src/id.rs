@@ -122,3 +122,9 @@ pub fn tuple_ty_id(arity: u32) -> Id {
     assert!(arity >= 2 && arity <= 6);
     TUPLE_TY_IDS.with(|tys| tys[arity as usize - 2].clone())
 }
+
+thread_local!(static TYPE_TY_ID: Id = Id::new(Some("Type".to_owned()), IdKind::TyCon));
+
+pub fn type_ty_id() -> Id {
+    TYPE_TY_ID.with(|id| id.clone())
+}
