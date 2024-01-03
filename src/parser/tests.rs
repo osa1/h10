@@ -357,6 +357,20 @@ type T f = f Int
 }
 
 #[test]
+fn kind_sig_2() {
+    // Example from GHC user manual 6.4.12.8.
+    // Inferred kind without the signature: `(Type -> Type) -> Type -> Type`.
+    let pgm = r#"
+type T :: (k -> Type) -> k -> Type
+data T m a = MkT (m a) (T Maybe (m a))
+"#;
+    let ast = parse_module(pgm).unwrap();
+    assert_eq!(ast.len(), 2);
+    ast[0].kind_sig();
+    ast[1].data();
+}
+
+#[test]
 fn explicit_forall() {
     let pgm = "f :: forall f a b . Functor f => (a -> b) -> f a -> f b";
     let ast = parse_module(pgm).unwrap();
