@@ -99,21 +99,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn topdecl(&mut self) -> ParserResult<ParsedDecl> {
         let (_, t, _) = self.peek()?;
         match t {
-            Token::ReservedId(ReservedId::Type) => {
-                let (l, decl, r) = match self.type_decl()? {
-                    TypeDeclOrKindSig::TypeDecl(type_decl) => {
-                        let l = type_decl.span.start;
-                        let r = type_decl.span.end;
-                        (l, Decl_::Type(type_decl), r)
-                    }
-                    TypeDeclOrKindSig::KindSig(kind_sig) => {
-                        let l = kind_sig.span.start;
-                        let r = kind_sig.span.end;
-                        (l, Decl_::KindSig(kind_sig), r)
-                    }
-                };
-                Ok(self.spanned(l, r, decl))
-            }
+            Token::ReservedId(ReservedId::Kind) => self
+                .kind_sig_decl()
+                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::KindSig(node))),
+
+            Token::ReservedId(ReservedId::Type) => self
+                .type_decl()
+                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Type(node))),
 
             Token::ReservedId(ReservedId::Data) => self
                 .data_decl()
@@ -432,31 +424,28 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
+    fn kind_sig_decl(&mut self) -> ParserResult<ParsedKindSigDecl> {
+        self.skip(); // skip 'kind'
+        let (l, _) = self.last_tok_span;
+
+        let (_, ty, _) = self.expect_token_string(Token::ConId)?;
+
+        self.expect_token(Token::ReservedOp(ReservedOp::ColonColon))?;
+
+        let (foralls, context, sig) = self.type_with_context()?;
+        if !context.is_empty() {
+            panic!("Type signatures can't have contexts");
+        }
+        Ok(self.spanned(l, sig.span.end, KindSigDecl_ { ty, foralls, sig }))
+    }
+
     // type simpletype = type
-    fn type_decl(&mut self) -> ParserResult<TypeDeclOrKindSig<String>> {
+    fn type_decl(&mut self) -> ParserResult<ParsedTypeDecl> {
         self.skip(); // skip 'type'
         let (l, _) = self.last_tok_span;
 
         // `tycon` part of `simpletype`.
         let (_, ty, _) = self.expect_token_string(Token::ConId)?;
-
-        if matches!(
-            self.peek()?,
-            (_, Token::ReservedOp(ReservedOp::ColonColon), _)
-        ) {
-            self.skip(); // consume '::'
-
-            // Kind signature.
-            let (foralls, context, sig) = self.type_with_context()?;
-            if !context.is_empty() {
-                panic!("Type signatures can't have contexts");
-            }
-            return Ok(TypeDeclOrKindSig::KindSig(self.spanned(
-                l,
-                sig.span.end,
-                KindSigDecl_ { ty, foralls, sig },
-            )));
-        }
 
         // Type synonym declaration.
         let mut tyvars = vec![];
@@ -467,7 +456,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         self.expect_token(Token::ReservedOp(ReservedOp::Equals))?;
         let rhs = self.type_()?;
 
-        Ok(TypeDeclOrKindSig::TypeDecl(self.spanned(
+        Ok(self.spanned(
             l,
             rhs.span.end,
             TypeDecl_ {
@@ -475,7 +464,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 vars: tyvars,
                 rhs,
             },
-        )))
+        ))
     }
 
     // simpletype → tycon tyvar1 … tyvark         (k ≥ 0)
@@ -840,10 +829,4 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let (_, r) = self.expect_token(Token::Special(Special::RParen))?;
         Ok(self.spanned(l, r, DefaultDecl_ { tys }))
     }
-}
-
-#[derive(Debug)]
-enum TypeDeclOrKindSig<Id> {
-    TypeDecl(TypeDecl<Id>),
-    KindSig(KindSigDecl<Id>),
 }

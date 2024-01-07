@@ -101,6 +101,7 @@ lexgen::lexer! {
         "infixl" = Token::ReservedId(ReservedId::Infixl),
         "infixr" = Token::ReservedId(ReservedId::Infixr),
         "instance" = Token::ReservedId(ReservedId::Instance),
+        "kind" = Token::ReservedId(ReservedId::Kind),
         "let" = Token::ReservedId(ReservedId::Let),
         "module" = Token::ReservedId(ReservedId::Module),
         "newtype" = Token::ReservedId(ReservedId::Newtype),

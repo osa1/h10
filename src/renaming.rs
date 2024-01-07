@@ -1019,7 +1019,7 @@ f = toggle
 #[test]
 fn kind_sig_1() {
     let pgm = r#"
-type T :: (Type -> Type) -> Type
+kind T :: (Type -> Type) -> Type
 type T f = f Int
 "#;
 

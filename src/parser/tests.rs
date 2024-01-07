@@ -347,7 +347,7 @@ fn rbrace_insertion_2() {
 #[test]
 fn kind_sig_1() {
     let pgm = r#"
-type T :: (Type -> Type) -> Type
+kind T :: (Type -> Type) -> Type
 type T f = f Int
 "#;
     let ast = parse_module(pgm).unwrap();
@@ -361,7 +361,7 @@ fn kind_sig_2() {
     // Example from GHC user manual 6.4.12.8.
     // Inferred kind without the signature: `(Type -> Type) -> Type -> Type`.
     let pgm = r#"
-type T :: (k -> Type) -> k -> Type
+kind T :: (k -> Type) -> k -> Type
 data T m a = MkT (m a) (T Maybe (m a))
 "#;
     let ast = parse_module(pgm).unwrap();
@@ -372,9 +372,7 @@ data T m a = MkT (m a) (T Maybe (m a))
 
 #[test]
 fn kind_sig_3() {
-    // This is a data type signature, we use `type` syntax for all kind signatures.
-    // TODO: Maybe use `kind Proxy :: ...`?
-    let pgm = "type Proxy :: forall k . k -> Type";
+    let pgm = "kind Proxy :: forall k . k -> Type";
     let ast = parse_module(pgm).unwrap();
     assert_eq!(ast.len(), 1);
     let kind_sig = ast[0].kind_sig();
