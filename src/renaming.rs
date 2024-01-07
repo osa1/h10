@@ -302,12 +302,16 @@ impl Renamer {
     }
 
     fn rename_kind_sig_decl(&mut self, decl: &ast::ParsedKindSigDecl) -> ast::RenamedKindSigDecl {
-        let ast::KindSigDecl_ { ty, sig } = &decl.node;
+        let ast::KindSigDecl_ { ty, foralls, sig } = &decl.node;
         let ty = self.rename_type_var(ty);
         self.tys.enter();
+        let foralls = foralls
+            .iter()
+            .map(|id| self.bind_fresh_type_var(id))
+            .collect();
         let sig = self.rename_type(sig, true);
         self.tys.exit();
-        decl.with_node(ast::KindSigDecl_ { ty, sig })
+        decl.with_node(ast::KindSigDecl_ { ty, foralls, sig })
     }
 
     fn rename_type_decl(&mut self, decl: &ast::ParsedTypeDecl) -> ast::RenamedTypeDecl {

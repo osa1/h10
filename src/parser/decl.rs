@@ -447,11 +447,14 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             self.skip(); // consume '::'
 
             // Kind signature.
-            let sig = self.type_()?;
+            let (foralls, context, sig) = self.type_with_context()?;
+            if !context.is_empty() {
+                panic!("Type signatures can't have contexts");
+            }
             return Ok(TypeDeclOrKindSig::KindSig(self.spanned(
                 l,
                 sig.span.end,
-                KindSigDecl_ { ty, sig },
+                KindSigDecl_ { ty, foralls, sig },
             )));
         }
 

@@ -607,6 +607,7 @@ pub type KindSigDecl<Id> = AstNode<KindSigDecl_<Id>>;
 #[derive(Debug, Clone)]
 pub struct KindSigDecl_<Id> {
     pub ty: Id,
+    pub foralls: Vec<Id>,
     pub sig: Type<Id>,
 }
 

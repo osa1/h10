@@ -7,9 +7,6 @@ use crate::token::{ReservedOp, Special, Token};
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /// Parses the part after `::` in a type signature. E.g. `x :: Show a => a -> String` the part
     /// `Show a => a -> String`.
-    ///
-    /// This is used type signatures and tests. Haskell 2010 spec doesn't have a non-terminal for
-    /// this.
     pub(crate) fn type_with_context(
         &mut self,
     ) -> ParserResult<(Vec<String>, Vec<ParsedType>, ParsedType)> {

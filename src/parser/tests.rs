@@ -371,6 +371,17 @@ data T m a = MkT (m a) (T Maybe (m a))
 }
 
 #[test]
+fn kind_sig_3() {
+    // This is a data type signature, we use `type` syntax for all kind signatures.
+    // TODO: Maybe use `kind Proxy :: ...`?
+    let pgm = "type Proxy :: forall k . k -> Type";
+    let ast = parse_module(pgm).unwrap();
+    assert_eq!(ast.len(), 1);
+    let kind_sig = ast[0].kind_sig();
+    assert_eq!(kind_sig.node.foralls.len(), 1);
+}
+
+#[test]
 fn explicit_forall() {
     let pgm = "f :: forall f a b . Functor f => (a -> b) -> f a -> f b";
     let ast = parse_module(pgm).unwrap();
