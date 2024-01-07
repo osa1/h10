@@ -1034,3 +1034,48 @@ type T f = f Int
 
     assert_eq!(sig_id, syn_id);
 }
+
+#[test]
+fn explicit_forall() {
+    let pgm = r#"
+class Functor f where
+  fmap :: (a -> b) -> f a -> f b
+
+f :: forall f a b . Functor f => (a -> b) -> f a -> f b
+"#;
+
+    let parsed = crate::parser::parse_module(pgm).unwrap();
+    let renamed = rename_module(&parsed);
+
+    let functor_id = renamed[0].class().node.ty_con.clone();
+
+    let (_vars, foralls, context, ty) = renamed[1].value().type_sig();
+    let (f_id, a_id, b_id) = match foralls {
+        [f, a, b] => (f, a, b),
+        _ => panic!(),
+    };
+
+    // Check `Functor f` renaming.
+    let (con, args) = context[0].app();
+    assert_eq!(con.con().id(), &functor_id);
+    assert_eq!(args[0].var(), f_id);
+
+    // Check rest of the type.
+    let (ty1, ty23) = ty.arrow();
+    let (ty2, ty3) = ty23.arrow();
+
+    // (a -> b)
+    let (a, b) = ty1.arrow();
+    assert_eq!(a.var(), a_id);
+    assert_eq!(b.var(), b_id);
+
+    // f a
+    let (ty2_con, ty2_args) = ty2.app();
+    assert_eq!(ty2_con.var(), f_id);
+    assert_eq!(ty2_args[0].var(), a_id);
+
+    // f b
+    let (ty3_con, ty3_args) = ty3.app();
+    assert_eq!(ty3_con.var(), f_id);
+    assert_eq!(ty3_args[0].var(), b_id);
+}

@@ -247,6 +247,20 @@ impl<Id: fmt::Debug> Type<Id> {
             _ => panic!("Not id: {:?}", self),
         }
     }
+
+    pub fn app(&self) -> (&Type<Id>, &[Type<Id>]) {
+        match &self.node {
+            Type_::App(con, args) => (&*con, &*args),
+            _ => panic!("Not app: {:?}", self),
+        }
+    }
+
+    pub fn con(&self) -> &TyCon<Id> {
+        match &self.node {
+            Type_::Con(con) => con,
+            _ => panic!("Not app: {:?}", self),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -311,6 +325,16 @@ impl<Id: Hash + Eq + Clone> Type_<Id> {
 }
 
 pub type TyCon<Id> = AstNode<TyCon_<Id>>;
+
+#[cfg(test)]
+impl<Id: fmt::Debug> TyCon<Id> {
+    pub fn id(&self) -> &Id {
+        match &self.node {
+            TyCon_::Id(id) => id,
+            other => panic!("Not id: {:?}", other),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TyCon_<Id> {
