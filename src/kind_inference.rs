@@ -59,6 +59,8 @@ This allows more programs without rejecting H10 programs, but it's not modular: 
 another module influences kind of the type.
 */
 
+mod dependency_analysis;
+
 #[cfg(test)]
 mod tests;
 

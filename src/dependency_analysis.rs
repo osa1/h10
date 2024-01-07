@@ -61,10 +61,7 @@ fn collect_implicitly_typed_bound_vars<A>(
     bound_vars
 }
 
-fn create_dependency_graph(
-    groups: &[BindingGroup],
-    bound_vars: &Map<Id, u32>,
-) -> Map<u32, Set<u32>> {
+fn create_dependency_graph(groups: &[BindingGroup], bound_vars: &Map<Id, u32>) -> DepGraph {
     let mut dep_graph: DepGraph = Default::default();
 
     for (group_idx, group) in groups.iter().enumerate() {
