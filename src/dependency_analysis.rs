@@ -15,7 +15,7 @@ pub(crate) fn dependency_analysis<'a>(
 ) -> DependencyGroups<'a> {
     let bound_vars = collect_implicitly_typed_bound_vars(groups, explicit_tys);
     let dep_graph = create_dependency_graph(groups, &bound_vars);
-    let sccs = strongconnect(groups, &dep_graph);
+    let sccs = strongconnect(groups.len(), &dep_graph);
     let implicitly_typed = group_sccs(groups, &sccs);
     let explicitly_typed = collect_explicitly_typed_bindings(groups, &sccs);
     DependencyGroups {
@@ -302,12 +302,12 @@ struct StrongConnectState {
     on_stack: bool,
 }
 
-fn strongconnect(groups: &[BindingGroup], dep_graph: &DepGraph) -> Vec<Set<BindingGroupIdx>> {
+fn strongconnect(num_groups: usize, dep_graph: &DepGraph) -> Vec<Set<BindingGroupIdx>> {
     let mut sccs: Vec<Set<BindingGroupIdx>> = vec![];
     let mut states: Map<BindingGroupIdx, StrongConnectState> = Default::default();
     let mut stack: Vec<BindingGroupIdx> = vec![];
 
-    for group_idx in 0..groups.len() {
+    for group_idx in 0..num_groups {
         let group_idx = BindingGroupIdx::from_usize(group_idx);
         if !states.contains_key(&group_idx) {
             strongconnect_(dep_graph, &mut sccs, &mut states, &mut stack, group_idx);
