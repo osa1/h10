@@ -2,6 +2,7 @@ use crate::ast;
 use crate::bind_groups::{BindingGroup, FunBindingGroup, PatBinding};
 use crate::collections::{Map, Set};
 use crate::id::Id;
+use crate::scc::strongconnect;
 use crate::type_scheme::Scheme;
 
 pub(crate) struct DependencyGroups<'a> {
@@ -15,7 +16,7 @@ pub(crate) fn dependency_analysis<'a>(
 ) -> DependencyGroups<'a> {
     let bound_vars = collect_implicitly_typed_bound_vars(groups, explicit_tys);
     let dep_graph = create_dependency_graph(groups, &bound_vars);
-    let sccs = strongconnect(groups.len(), &dep_graph);
+    let sccs = strongconnect(groups.len() as u32, &dep_graph);
     let implicitly_typed = group_sccs(groups, &sccs);
     let explicitly_typed = collect_explicitly_typed_bindings(groups, &sccs);
     DependencyGroups {
@@ -24,21 +25,8 @@ pub(crate) fn dependency_analysis<'a>(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct BindingGroupIdx(u32);
-
-impl BindingGroupIdx {
-    fn from_usize(i: usize) -> Self {
-        Self(i as u32)
-    }
-
-    fn as_usize(&self) -> usize {
-        self.0 as usize
-    }
-}
-
 /// Maps an implicitly typed definition to its implicitly typed dependencies.
-type DepGraph = Map<BindingGroupIdx, Set<BindingGroupIdx>>;
+type DepGraph = Map<u32, Set<u32>>;
 
 /// Map variables to their definitions in `groups`.
 ///
@@ -47,11 +35,11 @@ type DepGraph = Map<BindingGroupIdx, Set<BindingGroupIdx>>;
 fn collect_implicitly_typed_bound_vars<A>(
     groups: &[BindingGroup],
     explicit_tys: &Map<Id, A>,
-) -> Map<Id, BindingGroupIdx> {
-    let mut bound_vars: Map<Id, BindingGroupIdx> = Default::default();
+) -> Map<Id, u32> {
+    let mut bound_vars: Map<Id, u32> = Default::default();
 
     for (group_idx, group) in groups.iter().enumerate() {
-        let group_idx = BindingGroupIdx::from_usize(group_idx);
+        let group_idx = group_idx as u32;
         match group {
             BindingGroup::Pat(PatBinding { pat, rhs: _ }) => {
                 for var in pat.node.vars() {
@@ -75,12 +63,12 @@ fn collect_implicitly_typed_bound_vars<A>(
 
 fn create_dependency_graph(
     groups: &[BindingGroup],
-    bound_vars: &Map<Id, BindingGroupIdx>,
-) -> Map<BindingGroupIdx, Set<BindingGroupIdx>> {
+    bound_vars: &Map<Id, u32>,
+) -> Map<u32, Set<u32>> {
     let mut dep_graph: DepGraph = Default::default();
 
     for (group_idx, group) in groups.iter().enumerate() {
-        let group_idx = BindingGroupIdx::from_usize(group_idx);
+        let group_idx = group_idx as u32;
         match group {
             BindingGroup::Pat(PatBinding { pat: _, rhs }) => {
                 analyze_rhs(group_idx, bound_vars, &mut dep_graph, rhs);
@@ -97,8 +85,8 @@ fn create_dependency_graph(
 }
 
 fn analyze_rhs(
-    group_idx: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    group_idx: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     rhs: &ast::RenamedRhs,
 ) {
@@ -115,8 +103,8 @@ fn analyze_rhs(
 }
 
 fn analyze_guarded_rhss(
-    use_site: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    use_site: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     guarded_rhss: &[ast::RenamedGuardedRhs],
 ) {
@@ -131,8 +119,8 @@ fn analyze_guarded_rhss(
 }
 
 fn analyze_where_decls(
-    use_site: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    use_site: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     where_decls: &[ast::RenamedValueDecl],
 ) {
@@ -154,8 +142,8 @@ fn analyze_where_decls(
 }
 
 fn analyze_exp(
-    use_site: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    use_site: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     exp: &ast::RenamedExp,
 ) {
@@ -232,8 +220,8 @@ fn analyze_exp(
 }
 
 fn analyze_stmts(
-    use_site: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    use_site: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     stmts: &[ast::RenamedStmt],
 ) {
@@ -250,8 +238,8 @@ fn analyze_stmts(
 }
 
 fn analyze_alts(
-    use_site: BindingGroupIdx,
-    bound_vars: &Map<Id, BindingGroupIdx>,
+    use_site: u32,
+    bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
     alts: &[ast::RenamedAlt],
 ) {
@@ -273,12 +261,7 @@ fn analyze_alts(
     }
 }
 
-fn add_dep(
-    use_site: BindingGroupIdx,
-    var: Id,
-    bound_vars: &Map<Id, BindingGroupIdx>,
-    dep_graph: &mut DepGraph,
-) {
+fn add_dep(use_site: u32, var: Id, bound_vars: &Map<Id, u32>, dep_graph: &mut DepGraph) {
     if let Some(decl_idx) = bound_vars.get(&var) {
         dep_graph.entry(use_site).or_default().insert(*decl_idx);
     }
@@ -286,115 +269,16 @@ fn add_dep(
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Tarjan's strongly connected components algorithm. Implemented as described in the wiki page.
-
-/// State of a node processed by the algorithm.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct StrongConnectState {
-    /// SCC group of the node.
-    index: u32,
-
-    /// Smallest `index` of any node on the stack known to be reachable from the node through the
-    /// node's DFS subtree.
-    lowlink: u32,
-
-    /// Whether the node is on stack.
-    on_stack: bool,
-}
-
-fn strongconnect(num_groups: usize, dep_graph: &DepGraph) -> Vec<Set<BindingGroupIdx>> {
-    let mut sccs: Vec<Set<BindingGroupIdx>> = vec![];
-    let mut states: Map<BindingGroupIdx, StrongConnectState> = Default::default();
-    let mut stack: Vec<BindingGroupIdx> = vec![];
-
-    for group_idx in 0..num_groups {
-        let group_idx = BindingGroupIdx::from_usize(group_idx);
-        if !states.contains_key(&group_idx) {
-            strongconnect_(dep_graph, &mut sccs, &mut states, &mut stack, group_idx);
-        }
-    }
-
-    sccs
-}
-
-fn strongconnect_(
-    dep_graph: &DepGraph,
-    sccs: &mut Vec<Set<BindingGroupIdx>>,
-    states: &mut Map<BindingGroupIdx, StrongConnectState>,
-    stack: &mut Vec<BindingGroupIdx>,
-    group_idx: BindingGroupIdx,
-) {
-    // Allocate a group for the binding.
-    let index = sccs.len() as u32;
-    sccs.push(Default::default());
-
-    stack.push(group_idx);
-
-    let old_state = states.insert(
-        group_idx,
-        StrongConnectState {
-            index,
-            lowlink: index,
-            on_stack: true,
-        },
-    );
-    assert_eq!(old_state, None);
-
-    // Consider successors.
-    for dep in dep_graph.get(&group_idx).unwrap_or(&Default::default()) {
-        match states.get(dep) {
-            None => {
-                // Successor has not yet been visited; recurse on it.
-                strongconnect_(dep_graph, sccs, states, stack, *dep);
-                let dep_lowlink = states.get(dep).unwrap().lowlink;
-                let bind_state = states.get_mut(&group_idx).unwrap();
-                bind_state.lowlink = std::cmp::min(bind_state.lowlink, dep_lowlink);
-            }
-            Some(dep_state) => {
-                if dep_state.on_stack {
-                    // Successor is in stack and hence in the current SCC.
-                    //
-                    // If dep is not on stack, then (bind, dep) is an edge pointing to an SCC
-                    // already found and must be ignored.
-                    let dep_index = dep_state.index;
-                    let bind_state = states.get_mut(&group_idx).unwrap();
-                    bind_state.lowlink = std::cmp::min(bind_state.lowlink, dep_index);
-                }
-            }
-        }
-    }
-
-    // If v is a root node, pop the stack and generate an SCC.
-    let bind_state = states.get(&group_idx).unwrap();
-    if bind_state.index == bind_state.lowlink {
-        // Start a new strongly connected component.
-        let mut bind_group: Set<BindingGroupIdx> = Default::default();
-        loop {
-            let w = stack.pop().unwrap();
-            let w_state = states.get_mut(&w).unwrap();
-            w_state.on_stack = false;
-            let new = bind_group.insert(w);
-            assert!(new);
-            if w == group_idx {
-                break;
-            }
-        }
-        sccs.push(bind_group);
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 fn group_sccs<'a, 'b>(
     groups: &'a [BindingGroup<'b>],
-    sccs: &[Set<BindingGroupIdx>],
+    sccs: &[Set<u32>],
 ) -> Vec<Vec<&'a BindingGroup<'b>>> {
     let mut grouped = Vec::with_capacity(sccs.len());
 
     for scc in sccs {
         let mut group = Vec::with_capacity(scc.len());
         for idx in scc {
-            group.push(&groups[idx.as_usize()]);
+            group.push(&groups[*idx as usize]);
         }
         grouped.push(group);
     }
@@ -406,16 +290,16 @@ fn group_sccs<'a, 'b>(
 
 fn collect_explicitly_typed_bindings<'a, 'b, 'c>(
     groups: &'a [BindingGroup<'b>],
-    implicitly_typed_sccs: &'c [Set<BindingGroupIdx>],
+    implicitly_typed_sccs: &'c [Set<u32>],
 ) -> Vec<&'a BindingGroup<'b>> {
-    let mut implicits: Set<BindingGroupIdx> = Default::default();
+    let mut implicits: Set<u32> = Default::default();
     for scc in implicitly_typed_sccs {
         implicits.extend(scc);
     }
 
     let mut explicit_groups: Vec<&'a BindingGroup<'b>> = vec![];
     for (group_idx, group) in groups.iter().enumerate() {
-        if !implicits.contains(&BindingGroupIdx::from_usize(group_idx)) {
+        if !implicits.contains(&(group_idx as u32)) {
             explicit_groups.push(group);
         }
     }

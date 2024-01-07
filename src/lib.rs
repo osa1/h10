@@ -16,6 +16,7 @@ mod lexer;
 mod parser;
 mod rc_id;
 mod renaming;
+mod scc;
 mod token;
 mod type_inference;
 mod type_scheme;
