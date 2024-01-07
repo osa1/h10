@@ -9,7 +9,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /// `Show a => a -> String`.
     pub(crate) fn type_with_context(
         &mut self,
-    ) -> ParserResult<(Vec<String>, Vec<ParsedType>, ParsedType)> {
+    ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
         let foralls = self.try_foralls()?;
         let context = self.try_context_arrow().unwrap_or_default();
         let ty = self.type_()?;

@@ -27,7 +27,9 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedDecl>> {
 
 /// Parse a type with predicates. Does not handle layout.
 #[cfg(test)]
-pub fn parse_type(type_str: &str) -> ParserResult<(Vec<String>, Vec<ParsedType>, ParsedType)> {
+pub fn parse_type(
+    type_str: &str,
+) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
     Parser::new(
         type_str,
         "<input>".into(),
@@ -342,23 +344,39 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         self.context_parser(Self::class)
     }
 
-    fn try_foralls(&mut self) -> ParserResult<Vec<String>> {
-        let mut ids = vec![];
-        if self.skip_token(Token::ReservedId(ReservedId::Forall)) {
-            loop {
-                let (l, t, r) = self.next()?;
-                match t {
-                    Token::VarId => {
-                        ids.push(self.string(l, r));
-                    }
-                    Token::VarSym if self.str(l, r) == "." => {
-                        break;
-                    }
-                    _ => return self.fail(l, ErrorKind::UnexpectedToken),
+    fn try_foralls(&mut self) -> ParserResult<Vec<ParsedTypeBinder>> {
+        let mut binders = vec![];
+
+        if !self.skip_token(Token::ReservedId(ReservedId::Forall)) {
+            return Ok(binders);
+        }
+
+        loop {
+            let (l, t, r) = self.next()?;
+            match t {
+                Token::VarId => {
+                    let id = self.string(l, r);
+                    binders.push(self.spanned(l, r, TypeBinder_ { id, ty: None }));
                 }
+
+                Token::Special(Special::LParen) => {
+                    let (id_l, id_r) = self.expect_token(Token::VarId)?;
+                    let id = self.string(id_l, id_r);
+                    self.expect_token(Token::ReservedOp(ReservedOp::ColonColon))?;
+                    let ty = self.type_()?;
+                    let (_, r) = self.expect_token(Token::Special(Special::RParen))?;
+                    binders.push(self.spanned(l, r, TypeBinder_ { id, ty: Some(ty) }));
+                }
+
+                Token::VarSym if self.str(l, r) == "." => {
+                    break;
+                }
+
+                _ => return self.fail(l, ErrorKind::UnexpectedToken),
             }
         }
-        Ok(ids)
+
+        Ok(binders)
     }
 
     fn try_context_arrow(&mut self) -> Option<Vec<ParsedType>> {

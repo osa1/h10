@@ -4,7 +4,7 @@ set -e
 set -x
 
 cargo fmt
-cargo build
-cargo clippy
+cargo build --all-targets
+cargo clippy --all-targets
 cargo run
 cargo test

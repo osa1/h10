@@ -380,12 +380,27 @@ fn kind_sig_3() {
 }
 
 #[test]
+fn kind_sig_with_binder_ty_1() {
+    let pgm = "kind Proxy :: forall (k :: Type) . k -> Type";
+    let ast = parse_module(pgm).unwrap();
+    assert_eq!(ast.len(), 1);
+    let kind_sig = ast[0].kind_sig();
+    assert_eq!(kind_sig.node.foralls.len(), 1);
+}
+
+#[test]
 fn explicit_forall() {
     let pgm = "f :: forall f a b . Functor f => (a -> b) -> f a -> f b";
     let ast = parse_module(pgm).unwrap();
     assert_eq!(ast.len(), 1);
     let (vars, foralls, context, _ty) = ast[0].value().type_sig();
     assert_eq!(vars, ["f"]);
-    assert_eq!(foralls, ["f", "a", "b"]);
+    assert_eq!(
+        foralls
+            .iter()
+            .map(|binder| &binder.node.id)
+            .collect::<Vec<_>>(),
+        ["f", "a", "b"]
+    );
     assert_eq!(context.len(), 1);
 }

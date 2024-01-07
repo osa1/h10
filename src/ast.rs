@@ -29,6 +29,7 @@ pub type ParsedStmt = Stmt<String>;
 pub type ParsedTyCon = TyCon<String>;
 pub type ParsedType = Type<String>;
 pub type ParsedTypeDecl = TypeDecl<String>;
+pub type ParsedTypeBinder = TypeBinder<String>;
 pub type ParsedKindSigDecl = KindSigDecl<String>;
 #[allow(unused)]
 pub type ParsedTypeImport = TypeImport<String>;
@@ -56,6 +57,7 @@ pub type RenamedStmt = Stmt<Id>;
 pub type RenamedTyCon = TyCon<Id>;
 pub type RenamedType = Type<Id>;
 pub type RenamedTypeDecl = TypeDecl<Id>;
+pub type RenamedTypeBinder = TypeBinder<Id>;
 pub type RenamedKindSigDecl = KindSigDecl<Id>;
 #[allow(unused)]
 pub type RenamedTypeImport = TypeImport<Id>;
@@ -183,14 +185,14 @@ pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;
 #[cfg(test)]
 impl<Id: fmt::Debug> ValueDecl<Id> {
     // TODO: Add a type for type sig
-    pub fn type_sig(&self) -> (&[Id], &[Id], &[Type<Id>], &Type<Id>) {
+    pub fn type_sig(&self) -> (&[Id], &[TypeBinder<Id>], &[Type<Id>], &Type<Id>) {
         match &self.node {
             ValueDecl_::TypeSig {
                 vars,
                 foralls,
                 context,
                 ty,
-            } => (&*vars, &*foralls, &*context, ty),
+            } => (vars, foralls, context, ty),
             other => panic!("Not type sig: {:?}", other),
         }
     }
@@ -214,7 +216,7 @@ pub enum ValueDecl_<Id> {
     /// - ty      = `a -> String`
     TypeSig {
         vars: Vec<Id>,
-        foralls: Vec<Id>,
+        foralls: Vec<TypeBinder<Id>>,
         context: Vec<Type<Id>>,
         ty: Type<Id>,
     },
@@ -236,7 +238,7 @@ pub type Type<Id> = AstNode<Type_<Id>>;
 impl<Id: fmt::Debug> Type<Id> {
     pub fn arrow(&self) -> (&Type<Id>, &Type<Id>) {
         match &self.node {
-            Type_::Arrow(ty1, ty2) => (&*ty1, &*ty2),
+            Type_::Arrow(ty1, ty2) => (ty1, ty2),
             _ => panic!("Not arrow: {:?}", self),
         }
     }
@@ -250,7 +252,7 @@ impl<Id: fmt::Debug> Type<Id> {
 
     pub fn app(&self) -> (&Type<Id>, &[Type<Id>]) {
         match &self.node {
-            Type_::App(con, args) => (&*con, &*args),
+            Type_::App(con, args) => (con, args),
             _ => panic!("Not app: {:?}", self),
         }
     }
@@ -626,12 +628,20 @@ pub struct TypeDecl_<Id> {
     pub rhs: Type<Id>,
 }
 
+pub type TypeBinder<Id> = AstNode<TypeBinder_<Id>>;
+
+#[derive(Debug, Clone)]
+pub struct TypeBinder_<Id> {
+    pub id: Id,
+    pub ty: Option<Type<Id>>,
+}
+
 pub type KindSigDecl<Id> = AstNode<KindSigDecl_<Id>>;
 
 #[derive(Debug, Clone)]
 pub struct KindSigDecl_<Id> {
     pub ty: Id,
-    pub foralls: Vec<Id>,
+    pub foralls: Vec<TypeBinder<Id>>,
     pub sig: Type<Id>,
 }
 

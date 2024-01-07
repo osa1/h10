@@ -261,7 +261,10 @@ impl Renamer {
                 // `context` and `ty` may use variables before declaring
                 self.tys.enter();
 
-                let foralls: Vec<Id> = foralls.iter().map(|var| self.bind_type_var(var)).collect();
+                let foralls: Vec<ast::RenamedTypeBinder> = foralls
+                    .iter()
+                    .map(|ty_binder| self.rename_type_binder(ty_binder))
+                    .collect();
 
                 // When the type has a scoped type variables all type variables should be listed.
                 let allow_binding = foralls.is_empty();
@@ -307,11 +310,19 @@ impl Renamer {
         self.tys.enter();
         let foralls = foralls
             .iter()
-            .map(|id| self.bind_fresh_type_var(id))
+            .map(|ty_binder| self.rename_type_binder(ty_binder))
             .collect();
         let sig = self.rename_type(sig, true);
         self.tys.exit();
         decl.with_node(ast::KindSigDecl_ { ty, foralls, sig })
+    }
+
+    fn rename_type_binder(&mut self, ty_binder: &ast::ParsedTypeBinder) -> ast::RenamedTypeBinder {
+        let ast::TypeBinder_ { id, ty } = &ty_binder.node;
+        let ty = ty.as_ref().map(|ty| self.rename_type(ty, false));
+        let id_renamed = self.fresh_id(id, IdKind::TyVar);
+        self.tys.bind(id.to_owned(), id_renamed.clone());
+        ty_binder.with_node(ast::TypeBinder_ { id: id_renamed, ty })
     }
 
     fn rename_type_decl(&mut self, decl: &ast::ParsedTypeDecl) -> ast::RenamedTypeDecl {
@@ -1036,6 +1047,19 @@ type T f = f Int
 }
 
 #[test]
+fn kind_sig_2() {
+    let pgm = "kind Proxy :: forall k . k -> Type";
+
+    let parsed = crate::parser::parse_module(pgm).unwrap();
+    let renamed = rename_module(&parsed);
+
+    let sig = renamed[0].kind_sig();
+    let k_id = &sig.node.foralls[0].node.id;
+    let ty = &sig.node.sig;
+    assert_eq!(ty.arrow().0.var(), k_id);
+}
+
+#[test]
 fn explicit_forall() {
     let pgm = r#"
 class Functor f where
@@ -1050,7 +1074,7 @@ f :: forall f a b . Functor f => (a -> b) -> f a -> f b
     let functor_id = renamed[0].class().node.ty_con.clone();
 
     let (_vars, foralls, context, ty) = renamed[1].value().type_sig();
-    let (f_id, a_id, b_id) = match foralls {
+    let (f_binder, a_binder, b_binder) = match foralls {
         [f, a, b] => (f, a, b),
         _ => panic!(),
     };
@@ -1058,7 +1082,7 @@ f :: forall f a b . Functor f => (a -> b) -> f a -> f b
     // Check `Functor f` renaming.
     let (con, args) = context[0].app();
     assert_eq!(con.con().id(), &functor_id);
-    assert_eq!(args[0].var(), f_id);
+    assert_eq!(args[0].var(), &f_binder.node.id);
 
     // Check rest of the type.
     let (ty1, ty23) = ty.arrow();
@@ -1066,16 +1090,16 @@ f :: forall f a b . Functor f => (a -> b) -> f a -> f b
 
     // (a -> b)
     let (a, b) = ty1.arrow();
-    assert_eq!(a.var(), a_id);
-    assert_eq!(b.var(), b_id);
+    assert_eq!(a.var(), &a_binder.node.id);
+    assert_eq!(b.var(), &b_binder.node.id);
 
     // f a
     let (ty2_con, ty2_args) = ty2.app();
-    assert_eq!(ty2_con.var(), f_id);
-    assert_eq!(ty2_args[0].var(), a_id);
+    assert_eq!(ty2_con.var(), &f_binder.node.id);
+    assert_eq!(ty2_args[0].var(), &a_binder.node.id);
 
     // f b
     let (ty3_con, ty3_args) = ty3.app();
-    assert_eq!(ty3_con.var(), f_id);
-    assert_eq!(ty3_args[0].var(), b_id);
+    assert_eq!(ty3_con.var(), &f_binder.node.id);
+    assert_eq!(ty3_args[0].var(), &b_binder.node.id);
 }

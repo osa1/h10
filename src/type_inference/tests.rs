@@ -315,7 +315,7 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
 
     println!("expected: {}", expected_ty_scheme);
     println!("inferred: {}", inferred_ty_scheme);
-    if !scheme_eq(&expected_ty_scheme, &inferred_ty_scheme) {
+    if !scheme_eq(&expected_ty_scheme, inferred_ty_scheme) {
         panic!(
             "Expected: {}, inferred: {}",
             expected_ty_scheme, inferred_ty_scheme
@@ -415,7 +415,7 @@ fn scheme_eq(s1: &Scheme, s2: &Scheme) -> bool {
 
     // Sort predicates on class, then type.
     fn sort_preds(preds: &[Pred]) -> Vec<Pred> {
-        let mut preds: Vec<Pred> = preds.iter().cloned().collect();
+        let mut preds: Vec<Pred> = preds.to_vec();
         preds.sort();
         preds
     }
