@@ -91,8 +91,6 @@ fn analyze_decl(
         | ast::Decl_::KindSig(_)
         | ast::Decl_::Value(_) => {}
     }
-
-    todo!()
 }
 
 fn analyze_type_decl(
@@ -151,12 +149,29 @@ fn analyze_newtype_decl(
 }
 
 fn analyze_class_decl(
-    _decl_idx: u32,
-    _decl: &ast::RenamedClassDecl,
-    _defs: &Map<Id, u32>,
-    _dep_graph: &mut DepGraph,
+    decl_idx: u32,
+    decl: &ast::RenamedClassDecl,
+    defs: &Map<Id, u32>,
+    dep_graph: &mut DepGraph,
 ) {
-    todo!()
+    for pred in &decl.node.context {
+        analyze_type(decl_idx, pred, defs, dep_graph);
+    }
+
+    for value_decl in &decl.node.decls {
+        if let ast::ValueDecl_::TypeSig {
+            vars: _,
+            foralls: _,
+            context,
+            ty,
+        } = &value_decl.node
+        {
+            for pred in context {
+                analyze_type(decl_idx, pred, defs, dep_graph);
+            }
+            analyze_type(decl_idx, ty, defs, dep_graph);
+        }
+    }
 }
 
 fn analyze_type(

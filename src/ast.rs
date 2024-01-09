@@ -185,6 +185,7 @@ pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;
 #[cfg(test)]
 impl<Id: fmt::Debug> ValueDecl<Id> {
     // TODO: Add a type for type sig
+    #[allow(clippy::type_complexity)]
     pub fn type_sig(&self) -> (&[Id], &[TypeBinder<Id>], &[Type<Id>], &Type<Id>) {
         match &self.node {
             ValueDecl_::TypeSig {
