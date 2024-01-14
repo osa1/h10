@@ -128,3 +128,11 @@ thread_local!(static TYPE_TY_ID: Id = Id::new(Some("Type".to_owned()), IdKind::T
 pub fn type_ty_id() -> Id {
     TYPE_TY_ID.with(|id| id.clone())
 }
+
+thread_local!(static TYPE_TY_TYREF: crate::typing::TyRef = crate::typing::TyRef::new_con(type_ty_id()));
+
+/// A [`TyRef`] for `Type`.
+// TODO: Maybe make this a [`TyRef`] method.
+pub fn type_ty_tyref() -> crate::typing::TyRef {
+    TYPE_TY_TYREF.with(|ty| ty.clone())
+}

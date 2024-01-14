@@ -16,7 +16,7 @@ use crate::id::{self, Id};
 use crate::kind_inference::{infer_fv_kinds, infer_type_kinds};
 use crate::token::Literal;
 use crate::type_scheme::Scheme;
-use crate::typing::{Kind, Ty, TyRef, TyVarRef};
+use crate::typing::{Ty, TyRef, TyVarRef};
 use crate::unification::{unify, unify_left};
 
 use std::collections::hash_map::Entry;
@@ -27,8 +27,8 @@ use std::ops::Deref;
 /// Note: for now we don't allow imports and type check a whole program as just one module. The
 /// only built-ins the type checked module gets is the Haskell 2010 built-ins that can't be
 /// implemented in Haskell 2010, such as the list type, and `Int` and `Float` types.
-pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, Kind>, TrieMap<Id, Scheme>) {
-    let ty_kinds: Map<Id, Kind> = infer_type_kinds(module);
+pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
+    let ty_kinds: Map<Id, TyRef> = infer_type_kinds(module);
     let class_env: ClassEnv = module_class_env(module, &ty_kinds);
     let con_tys: Map<Id, Scheme> = collect_con_tys(module, &ty_kinds);
     let ty_syns: Map<Id, TypeSynonym> = collect_type_synonyms(module, &ty_kinds);
@@ -37,7 +37,7 @@ pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, Kind>, TrieMap<Id, Sch
     (ti.ty_kinds, bind_tys)
 }
 
-fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<Id, Scheme> {
+fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     // Collect data con types, to be used in field types.
     let mut con_ty_refs: TrieMap<Id, TyRef> = Default::default();
 
@@ -70,12 +70,12 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<
     for decl in decls {
         match &decl.node {
             ast::Decl_::Data(decl) => {
-                let ty_con_kind: &Kind = ty_kinds.get(&decl.node.ty_con).unwrap();
+                let ty_con_kind: &TyRef = ty_kinds.get(&decl.node.ty_con).unwrap();
                 let ty_con_args: &[Id] = &decl.node.ty_args;
 
                 // Map args to their kinds, to be used to generate `Gen`s in the scheme.
-                let (ty_con_arg_kinds, ty_con_ret_kind) = ty_con_kind.split_fun_kind();
-                assert_eq!(ty_con_ret_kind, Kind::Star);
+                let (ty_con_arg_kinds, ty_con_ret_kind) = ty_con_kind.split_fun_ty();
+                assert_eq!(ty_con_ret_kind, id::type_ty_tyref());
                 assert_eq!(ty_con_arg_kinds.len(), ty_con_args.len());
 
                 let ty_arg_gens: Map<Id, u32> = ty_con_args
@@ -90,7 +90,11 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<
                         if !field.node.vars.is_empty() {
                             todo!("Record constructors");
                         }
-                        field_tys.push(convert_ast_ty(&con_ty_refs, &ty_arg_gens, &field.node.ty));
+                        field_tys.push(convert_ast_ty(
+                            &|id| con_ty_refs.get(id).cloned(),
+                            &ty_arg_gens,
+                            &field.node.ty,
+                        ));
                     }
                     let con_scheme = Scheme {
                         kinds: ty_con_arg_kinds.clone(),
@@ -135,13 +139,16 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<
 
 #[derive(Debug)]
 pub(crate) struct TypeSynonym {
-    pub(crate) args: Vec<Kind>,
+    /// Arg kinds.
+    pub(crate) args: Vec<TyRef>,
+
+    /// RHS type.
     pub(crate) rhs: TyRef,
 }
 
 fn collect_type_synonyms(
     decls: &[ast::RenamedDecl],
-    ty_kinds: &Map<Id, Kind>,
+    ty_kinds: &Map<Id, TyRef>,
 ) -> Map<Id, TypeSynonym> {
     let mut type_synonyms: Map<Id, TypeSynonym> = Default::default();
 
@@ -151,11 +158,11 @@ fn collect_type_synonyms(
             ..
         }) = &decl.node
         {
-            let ty_con_kind: &Kind = ty_kinds.get(ty).unwrap();
+            let ty_con_kind: &TyRef = ty_kinds.get(ty).unwrap();
             let ty_con_args = vars.clone();
 
-            let (ty_con_arg_kinds, ty_con_ret_kind) = ty_con_kind.split_fun_kind();
-            assert_eq!(ty_con_ret_kind, Kind::Star);
+            let (ty_con_arg_kinds, ty_con_ret_kind) = ty_con_kind.split_fun_ty();
+            assert_eq!(ty_con_ret_kind, id::type_ty_tyref());
             assert_eq!(ty_con_arg_kinds.len(), ty_con_args.len());
 
             let var_gens: Map<Id, u32> = vars
@@ -164,7 +171,7 @@ fn collect_type_synonyms(
                 .map(|(idx, var)| (var.clone(), idx as u32))
                 .collect();
 
-            let rhs = convert_ast_ty(&Default::default(), &var_gens, rhs);
+            let rhs = convert_ast_ty(&|_id| None, &var_gens, rhs);
 
             type_synonyms.insert(
                 ty.clone(),
@@ -189,7 +196,7 @@ struct TI {
     con_tys: Map<Id, Scheme>,
 
     /// Maps type constructors to their kinds.
-    ty_kinds: Map<Id, Kind>,
+    ty_kinds: Map<Id, TyRef>,
 
     /// Type synonyms.
     ty_syns: Map<Id, TypeSynonym>,
@@ -208,7 +215,7 @@ impl TI {
     fn new(
         class_env: ClassEnv,
         mut con_tys: Map<Id, Scheme>,
-        ty_kinds: Map<Id, Kind>,
+        ty_kinds: Map<Id, TyRef>,
         ty_synonyms: Map<Id, TypeSynonym>,
     ) -> Self {
         // Add prelude constructors that can't be implemented in Haskell.
@@ -220,7 +227,7 @@ impl TI {
             id::nil_id(),
             Scheme {
                 span: None,
-                kinds: vec![Kind::Star],
+                kinds: vec![id::type_ty_tyref()],
                 preds: vec![],
                 ty: list_return_ty.clone(),
             },
@@ -231,7 +238,7 @@ impl TI {
             id::cons_id(),
             Scheme {
                 span: None,
-                kinds: vec![Kind::Star],
+                kinds: vec![id::type_ty_tyref()],
                 preds: vec![],
                 ty: make_fun_ty(vec![list_arg_ty, list_return_ty.clone()], list_return_ty),
             },
@@ -414,7 +421,7 @@ impl TI {
 
         // Kind of the typeclass type constructor argument.
         // E.g. in `Functor f`, `* -> *`.
-        let ty_con_arg_kind = self
+        let ty_con_arg_kind: TyRef = self
             .ty_kinds
             .get(instance_ty_con)
             .unwrap()
@@ -422,15 +429,15 @@ impl TI {
 
         // Kinds of free varibles in instance type argument.
         // E.g. in `Functor (Either a)`, `{a = *}`.
-        let fv_kinds: Map<Id, Kind> = infer_fv_kinds(
+        let fv_kinds: Map<Id, TyRef> = infer_fv_kinds(
             &self.ty_kinds,
             instance_context,
             instance_ty,
-            ty_con_arg_kind,
+            &ty_con_arg_kind,
         );
 
         // TODO: Shouldn't we sort the kinds based on fv id?
-        let fv_kinds_vec: Vec<Kind> = fv_kinds.values().cloned().collect();
+        let fv_kinds_vec: Vec<TyRef> = fv_kinds.values().cloned().collect();
 
         // Maps free variables in `fv_kinds` to `Gen` indices.
         let fv_gens: Map<Id, u32> = fv_kinds
@@ -441,8 +448,8 @@ impl TI {
 
         // Type of the instance type, e.g. in `Functor (Either a)`, `Either a`.
         let instance_ty: TyRef = convert_ast_ty(
-            &Default::default(), // bound vars
-            &fv_gens,            // free vars
+            &|_id| None, // bound vars
+            &fv_gens,    // free vars
             instance_ty,
         );
 
@@ -541,7 +548,7 @@ impl TI {
         for id in &group_ids {
             let id_ty = match sigs.get(id) {
                 Some(explicit_ty) => explicit_ty.clone(),
-                None => Scheme::monomorphic(TyRef::new_var(Kind::Star, level)),
+                None => Scheme::monomorphic(TyRef::new_var(id::type_ty_tyref(), level)),
             };
             let old = group_id_type_schemes.insert(id.clone(), id_ty.clone());
             debug_assert!(old.is_none(), "{} : {:?}", id, old);
@@ -801,13 +808,13 @@ impl TI {
                     assert!(preds.is_empty());
                     Ok(instantiated)
                 } else {
-                    let var_ty = TyRef::new_var(Kind::Star, level);
+                    let var_ty = TyRef::new_var(id::type_ty_tyref(), level);
                     assumps.insert_mut(var.clone(), Scheme::monomorphic(var_ty.clone()));
                     Ok(var_ty)
                 }
             }
 
-            ast::Pat_::Wildcard => Ok(TyRef::new_var(Kind::Star, level)),
+            ast::Pat_::Wildcard => Ok(TyRef::new_var(id::type_ty_tyref(), level)),
 
             ast::Pat_::As(var, pat) => {
                 let pat_ty = self.ti_pat(level, pat, assumps, fixed_vars, preds)?;
@@ -827,7 +834,7 @@ impl TI {
 
             ast::Pat_::List(pats) => {
                 let elem_ty = if pats.is_empty() {
-                    TyRef::new_var(Kind::Star, level)
+                    TyRef::new_var(id::type_ty_tyref(), level)
                 } else {
                     let mut pat_tys = Vec::with_capacity(pats.len());
 
@@ -866,7 +873,7 @@ impl TI {
                     con_arg_tys.push(self.ti_pat(level, arg, assumps, fixed_vars, preds)?);
                 }
 
-                let ret_ty = TyRef::new_var(Kind::Star, level);
+                let ret_ty = TyRef::new_var(id::type_ty_tyref(), level);
                 let inferred_ty = make_fun_ty(con_arg_tys, ret_ty.clone());
 
                 unify(&self.ty_syns, &inferred_ty, &data_con_ty)?;
@@ -879,7 +886,7 @@ impl TI {
     fn ti_lit(&mut self, level: u32, lit: &Literal, preds: &mut Vec<Pred>) -> TyRef {
         match lit {
             Literal::Int => {
-                let ty = TyRef::new_var(Kind::Star, level);
+                let ty = TyRef::new_var(id::type_ty_tyref(), level);
                 preds.push(Pred {
                     class: self.num_ty_id(),
                     ty: ty.clone(),
@@ -888,7 +895,7 @@ impl TI {
             }
 
             Literal::Float => {
-                let ty = TyRef::new_var(Kind::Star, level);
+                let ty = TyRef::new_var(id::type_ty_tyref(), level);
                 preds.push(Pred {
                     class: self.fractional_ty_id(),
                     ty: ty.clone(),
@@ -979,7 +986,7 @@ impl TI {
                     .flat_map(|arg| self.ti_exp(level, ty_vars, assumps, arg, preds))
                     .collect();
 
-                let ret_ty = TyRef::new_var(Kind::Star, level);
+                let ret_ty = TyRef::new_var(id::type_ty_tyref(), level);
 
                 let expected_f_ty = make_fun_ty(arg_tys, ret_ty.clone());
 
@@ -1003,7 +1010,7 @@ impl TI {
                     .collect();
 
                 let elem_ty = if elems.is_empty() {
-                    TyRef::new_var(Kind::Star, level)
+                    TyRef::new_var(id::type_ty_tyref(), level)
                 } else {
                     for elem_idx in 0..elems.len() - 1 {
                         unify(&self.ty_syns, &elem_tys[elem_idx], &elem_tys[elem_idx + 1])?;
@@ -1182,7 +1189,7 @@ impl TI {
 
 #[derive(Debug, Default)]
 struct GeneralizeState {
-    kinds: Vec<Kind>,
+    kinds: Vec<TyRef>,
     tys: Map<TyVarRef, TyRef>,
 }
 
@@ -1249,7 +1256,7 @@ fn generalize(level: u32, preds: &[Pred], ty: &TyRef) -> Scheme {
     }
 }
 
-fn collect_top_sigs(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map<Id, Scheme> {
+fn collect_top_sigs(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
         if let ast::Decl_::Value(value_decl) = &decl.node {
@@ -1259,7 +1266,7 @@ fn collect_top_sigs(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, Kind>) -> Map
     sigs
 }
 
-fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, Kind>) -> Map<Id, Scheme> {
+fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
         collect_sig(decl, ty_kinds, &mut sigs);
@@ -1267,7 +1274,11 @@ fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, Kind>) -> Ma
     sigs
 }
 
-fn collect_sig(decl: &ast::RenamedValueDecl, ty_kinds: &Map<Id, Kind>, sigs: &mut Map<Id, Scheme>) {
+fn collect_sig(
+    decl: &ast::RenamedValueDecl,
+    ty_kinds: &Map<Id, TyRef>,
+    sigs: &mut Map<Id, Scheme>,
+) {
     match &decl.node {
         ast::ValueDecl_::TypeSig {
             vars,
@@ -1295,6 +1306,8 @@ fn collect_sig(decl: &ast::RenamedValueDecl, ty_kinds: &Map<Id, Kind>, sigs: &mu
 }
 
 // TODO: Use a shared (->) type
+// TODO: With kinds and types unified this is now used more generally, move this out of type
+// inference module.
 pub fn make_fun_ty(args: Vec<TyRef>, mut ret: TyRef) -> TyRef {
     let arrow_ty_con = TyRef::new_con(id::arrow_ty_id());
     for arg in args.into_iter().rev() {

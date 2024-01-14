@@ -5,11 +5,11 @@ use crate::collections::{Map, TrieMap};
 use crate::id::Id;
 use crate::kind_inference::infer_fv_kinds;
 use crate::type_scheme::Scheme;
-use crate::typing::{Kind, TyRef};
+use crate::typing::TyRef;
 
 /// Creates the class environment for a module. The returned environment is not type checked, use
 /// `TI::ti_module` to type check it.
-pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind>) -> ClassEnv {
+pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRef>) -> ClassEnv {
     let mut class_env: Map<Id, Class> = Default::default();
 
     // Collect classes.
@@ -25,17 +25,14 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
             span,
         }) = &decl.node
         {
-            let class_kind = kinds.get(ty_con).unwrap();
+            let class_kind: &TyRef = kinds.get(ty_con).unwrap();
 
             println!("Class {} kind = {:?}", ty_con, class_kind);
 
-            let arg_kind: Kind = match class_kind {
-                Kind::Star => panic!("Class kind is *"),
-                Kind::Fun(arg, ret) => {
-                    assert_eq!(**ret, Kind::Star);
-                    (**arg).clone()
-                }
-            };
+            let (mut arg_kinds, _ret_kind) = class_kind.split_fun_ty();
+            assert_eq!(arg_kinds.len(), 1); // no multi-param typeclasses yet
+
+            let arg_kind = arg_kinds.pop().unwrap();
 
             let mut methods: Map<Id, Scheme> = Default::default();
             for decl in decls {
@@ -153,9 +150,9 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
         }) = &decl.node
         {
             // Argument kiund of `ty_con`, expected kind of `ty`.
-            let ty_con_arg_kind = kinds.get(ty_con).unwrap().get_kind_arrow_star_kind();
+            let ty_con_arg_kind: TyRef = kinds.get(ty_con).unwrap().get_kind_arrow_star_kind();
 
-            let fv_kinds = infer_fv_kinds(kinds, context, ty, ty_con_arg_kind);
+            let fv_kinds = infer_fv_kinds(kinds, context, ty, &ty_con_arg_kind);
 
             let fv_gens: Map<Id, u32> = fv_kinds
                 .iter()
@@ -163,7 +160,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
                 .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
                 .collect();
 
-            let kinds: Vec<Kind> = fv_kinds.into_values().collect();
+            let kinds: Vec<TyRef> = fv_kinds.into_values().collect();
 
             // TODO: Any restrictions on predicates here that we need to check?
             let mut preds: Vec<Pred> = Default::default();
@@ -173,7 +170,8 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
                     _ => panic!("Invalid instance context"),
                 };
 
-                let pred_ty = convert_ast_ty(&Default::default(), &fv_gens, pred_arg);
+                // TODO: Shouldn't constructors be bound here?
+                let pred_ty = convert_ast_ty(&|_id| None, &fv_gens, pred_arg);
 
                 preds.push(Pred {
                     class: pred_con,
@@ -181,7 +179,8 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, Kind
                 });
             }
 
-            let head = convert_ast_ty(&Default::default(), &fv_gens, ty);
+            // TODO: Same as above, consturctors should be bound.
+            let head = convert_ast_ty(&|_id| None, &fv_gens, ty);
 
             class_env.get_mut(ty_con).unwrap().instances.push(Instance {
                 class: ty_con.clone(),

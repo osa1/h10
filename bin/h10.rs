@@ -6,7 +6,7 @@ fn main() {
     let (ty_kinds, bind_tys) = type_check_module(&std::fs::read_to_string("Prelude.hs").unwrap());
 
     for (ty, kind) in ty_kinds {
-        println!("{} : {:?}", ty, kind);
+        println!("{} : {}", ty, kind);
     }
 
     println!();

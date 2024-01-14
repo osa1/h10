@@ -2,7 +2,7 @@ use crate::collections::Map;
 use crate::id::Id;
 use crate::type_inference::TypeSynonym;
 use crate::type_scheme::{instantiate_scheme, Scheme};
-use crate::typing::{Kind, Ty, TyRef, TyVarRef};
+use crate::typing::{Ty, TyRef, TyVarRef};
 use crate::unification::unify_left;
 
 use std::ops::Deref;
@@ -30,9 +30,9 @@ pub struct Class {
 
     /// Kind of the instances. For example:
     ///
-    /// - `Functor f`: kind of `f` is `* -> *`.
-    /// - `Show a`: kind of `a` is `*`.
-    pub arg_kind: Kind,
+    /// - `Functor f`: kind of `f` is `Type -> Type`.
+    /// - `Show a`: kind of `a` is `Type`.
+    pub arg_kind: TyRef,
 
     /// Superclasses of the class. For example: `class Functor f => Applicative f where ...`
     /// superclasses are `[Functor]`.
@@ -53,8 +53,8 @@ pub struct Instance {
     /// `Show`
     pub class: Id,
 
-    /// `[*, *]`
-    pub kinds: Vec<Kind>,
+    /// `[Type, Type]`
+    pub kinds: Vec<TyRef>,
 
     /// `[Show (Gen 0), Show (Gen 1)]`
     pub context: Vec<Pred>,

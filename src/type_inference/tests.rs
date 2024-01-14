@@ -2,12 +2,12 @@ use crate::ast;
 use crate::ast_to_ty::convert_ast_ty;
 use crate::class_env::Pred;
 use crate::collections::Set;
-use crate::id::Id;
+use crate::id::{type_ty_tyref, Id};
 use crate::parser::{parse_module, parse_type};
 use crate::renaming::Renamer;
 use crate::type_inference::{ti_module, unify};
 use crate::type_scheme::Scheme;
-use crate::typing::{Kind, TyRef};
+use crate::typing::TyRef;
 
 #[test]
 fn unify_two_way_left() {
@@ -17,15 +17,21 @@ fn unify_two_way_left() {
 
     let ty1_ast: ast::RenamedType = renamer.rename_type(&parse_type("a -> a").unwrap().2, true);
     let a_id: Id = ty1_ast.arrow().0.var().clone();
-    let a_tyref = TyRef::new_var(Kind::Star, 0);
+    let a_tyref = TyRef::new_var(type_ty_tyref(), 0);
     let ty1 = convert_ast_ty(
-        &[(a_id, a_tyref.clone())].into_iter().collect(),
+        &|id| {
+            if id == &a_id {
+                Some(a_tyref.clone())
+            } else {
+                None
+            }
+        },
         &Default::default(),
         &ty1_ast,
     );
 
     let ty2_ast: ast::RenamedType = renamer.rename_type(&parse_type("Int -> Int").unwrap().2, true);
-    let ty2 = convert_ast_ty(&Default::default(), &Default::default(), &ty2_ast);
+    let ty2 = convert_ast_ty(&|_id| None, &Default::default(), &ty2_ast);
     let int_tyref = &ty2.split_fun_ty().0[0];
 
     unify(&Default::default(), &ty1, &ty2).unwrap();

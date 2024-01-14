@@ -3,15 +3,15 @@ Notes:
 
 - Kinds are STLC types:
   - Arrows:    k ::= k -> k
-  - Constants: k ::= *
+  - Constants: k ::= Type
 
 - No principal types (kinds):
 
-  - `data K a = K ()`: Kind of `K` can be `* -> *`, `(* -> *) -> *`, ...
+  - `data K a = K ()`: Kind of `K` can be `Type -> Type`, `(Type -> Type) -> Type`, ...
 
   - `data Tree a = Leaf | Fork (Tree a) (Tree a)`: Same as above, `a` is not restricted to a kind.
 
-- H98 (and I hope H10 too) says kinds default to `*` when cannot be inferred.
+- H98 (and I hope H10 too) says kinds default to `Type` when cannot be inferred.
 
 - Some tricky cases from "Kind Inference for Datatypes" by Xie et. al.:
 
@@ -20,17 +20,17 @@ Notes:
        data P1 a = MkP1 P2
        data P2   = MkP2 (P1 Maybe)
 
-       -- a  : * -> *
-       -- P1 : (* -> *) -> *
-       -- P2 : *
+       -- a  : Type -> Type
+       -- P1 : (Type -> Type) -> Type
+       -- P2 : Type
 
   - Without mutual recursion defaulting kicks in:
 
        data P1 a = MkP1
        data P2   = MkP2 (P1 Maybe)
 
-       -- a  : * (defaulting)
-       -- P1 : * -> *
+       -- a  : Type (defaulting)
+       -- P1 : Type -> Type
        -- P2 : rejected
 
 Kind Inference for Datatypes by Xie el. al. has a formal description of H98 kind inference and all
@@ -49,7 +49,7 @@ For example:
     class Functor f where
       fmap :: (a -> b) -> f a -> f b
 
-Without considering `f a` we can't infer that `f :: * -> *`.
+Without considering `f a` we can't infer that `f :: Type -> Type`.
 
 Note: In this implementation we avoid dependency analysis and analyze a whole module with all the
 types, but we don't consider type signatures (except in typeclass method signatures) during
@@ -66,42 +66,47 @@ mod tests;
 
 use crate::ast;
 use crate::collections::{Map, Set};
-use crate::id::{self, Id};
-use crate::typing;
+use crate::id::{self, type_ty_tyref, Id};
+use crate::type_inference::make_fun_ty;
+use crate::typing::{Ty, TyRef};
+use crate::unification::unify;
+
+use std::ops::Deref;
 
 /// Infers kinds of type constructors.
-pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Kind> {
+pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, TyRef> {
     let types: Vec<TypeDecl> = collect_types(decls);
 
     // `ty_arg_kinds[i]` maps type arguments of `types[i]` to their kinds.
-    let mut ty_arg_kinds: Vec<Map<Id, Kind>> = Vec::with_capacity(types.len());
+    let mut ty_arg_kinds: Vec<Map<Id, TyRef>> = Vec::with_capacity(types.len());
 
-    let mut con_kinds: Map<Id, Kind> = Default::default();
+    // Maps type constructors to their kinds. The result of kind inference.
+    let mut con_kinds: Map<Id, TyRef> = Default::default();
 
     // Builtins.
-    con_kinds.insert(id::char_ty_id(), Kind::Star);
-    con_kinds.insert(id::int_ty_id(), Kind::Star);
-    con_kinds.insert(id::integer_ty_id(), Kind::Star);
-
-    let mut state = KindInferState::new();
+    con_kinds.insert(id::char_ty_id(), type_type());
+    con_kinds.insert(id::int_ty_id(), type_type());
+    con_kinds.insert(id::integer_ty_id(), type_type());
+    con_kinds.insert(id::type_ty_id(), type_type());
 
     // Initially types get kinds based on number of type parameters. N parameters means N arrows:
-    // `k1 -> ... -> k{N} -> *`, where each `k` is a distinct unification variable.
+    // `k1 -> ... -> k{N} -> Type`, where each `k` is a distinct unification variable.
     for ty in &types {
-        let arg_kinds: Vec<(Id, Kind)> = ty
+        // TODO: No need to collect the arg kinds in a `Vec`.
+        let arg_kinds: Vec<(Id, TyRef)> = ty
             .args
             .iter()
-            .map(|id| (id.clone(), Kind::Var(state.new_var())))
+            .map(|id| (id.clone(), new_unification_var()))
             .collect();
 
-        let con_kind: Kind = state.new_kind_fun(
+        let con_kind: TyRef = make_fun_ty(
             arg_kinds.iter().map(|(_, kind)| kind.clone()).collect(),
-            Kind::Star,
+            type_type(),
         );
 
-        let arg_kinds: Map<Id, Kind> = arg_kinds.into_iter().collect();
+        let arg_kinds: Map<Id, TyRef> = arg_kinds.into_iter().collect();
 
-        let old_kind: Option<Kind> = con_kinds.insert(ty.con.clone(), con_kind);
+        let old_kind: Option<TyRef> = con_kinds.insert(ty.con.clone(), con_kind);
         assert_eq!(
             old_kind, None,
             "Type kind added multiple times: {:?}",
@@ -112,24 +117,19 @@ pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Ki
     }
 
     for (ty, arg_kinds) in types.iter().zip(ty_arg_kinds.iter()) {
-        let bound_kinds: Map<Id, Kind> = ty
+        let bound_kinds: Map<Id, TyRef> = ty
             .bounds
             .iter()
-            .map(|id| (id.clone(), Kind::Var(state.new_var())))
+            .map(|id| (id.clone(), TyRef::new_var(type_ty_tyref(), 0)))
             .collect();
+
         for field in &ty.stars {
-            unify_ty_kind(
-                &mut state,
-                &con_kinds,
-                arg_kinds,
-                &bound_kinds,
-                field,
-                &Kind::Star,
-            );
+            let field_ty_kind = ty_kind(&con_kinds, arg_kinds, &bound_kinds, field);
+            unify(&Default::default(), &field_ty_kind, &type_type()).unwrap();
         }
     }
 
-    normalize_kinds(&con_kinds, &state.unification_vars)
+    normalize_kinds(&con_kinds)
 }
 
 /// Given a list of predicates and a type (e.g. to infer kinds of free variables in `preds => ty`)
@@ -138,111 +138,148 @@ pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, typing::Ki
 ///
 /// `expected_kind` is the expected kind of `ty`.
 pub(crate) fn infer_fv_kinds(
-    con_kinds: &Map<Id, typing::Kind>,
+    con_kinds: &Map<Id, TyRef>,
     preds: &[ast::RenamedType],
-    ty: &ast::RenamedType,
-    expected_kind: &typing::Kind,
-) -> Map<Id, typing::Kind> {
+    ast_ty: &ast::RenamedType,
+    expected_kind: &TyRef,
+) -> Map<Id, TyRef> {
     // The process is similar to kind inference for type constructors. Free variables are
-    // initialized with unification variables. Types of terms have kind `*`. Unification constrains
-    // kinds of type variables. Unconstrained type variables are defaulted as `*`.
+    // initialized with unification variables. Types of terms have kind `Type`. Unification
+    // constrains kinds of type variables. Unconstrained type variables are defaulted as `Type`.
 
-    let mut state = KindInferState::new();
-
-    let mut fvs: Map<Id, Kind> = Default::default();
+    let mut vars: Map<Id, TyRef> = Default::default();
     for pred in preds {
-        collect_fvs(&mut state, pred, &mut fvs);
+        collect_vars(pred, &mut vars);
     }
-    collect_fvs(&mut state, ty, &mut fvs);
+    collect_vars(ast_ty, &mut vars);
 
-    let con_kinds: Map<Id, Kind> = con_kinds
-        .iter()
-        .map(|(con, kind)| (con.clone(), Kind::from(kind)))
-        .collect();
-
-    for pred in preds {
-        unify_ty_kind(
-            &mut state,
-            &con_kinds,
-            &Default::default(),
-            &fvs,
-            pred,
-            &Kind::Star,
-        );
+    for pred_ast_ty in preds {
+        let pred_kind = ty_kind(con_kinds, &vars, &Default::default(), pred_ast_ty);
+        unify(&Default::default(), &pred_kind, &type_type()).unwrap();
     }
 
-    unify_ty_kind(
-        &mut state,
-        &con_kinds,
-        &Default::default(),
-        &fvs,
-        ty,
-        &Kind::from(expected_kind),
-    );
+    let ty_kind = ty_kind(con_kinds, &vars, &Default::default(), ast_ty);
+    unify(&Default::default(), &ty_kind, expected_kind).unwrap();
 
-    normalize_kinds(&fvs, &state.unification_vars)
+    normalize_kinds(&vars)
 }
 
-fn collect_fvs(state: &mut KindInferState, ty: &ast::RenamedType, fvs: &mut Map<Id, Kind>) {
+/// Create a new unification variable with kind `Type` and level 0.
+fn new_unification_var() -> TyRef {
+    TyRef::new_var(type_ty_tyref(), 0)
+}
+
+/// The [`TyRef`] for `Type`.
+fn type_type() -> TyRef {
+    type_ty_tyref()
+}
+
+/// Infer kind of `ty`.
+///
+/// Operates on ast type representation to be able to show locations in error messages.
+//
+// TODO: Maybe consider assining locations to type inference types?
+fn ty_kind(
+    con_kinds: &Map<Id, TyRef>,
+    arg_kinds: &Map<Id, TyRef>,
+    bound_kinds: &Map<Id, TyRef>,
+    ty: &ast::RenamedType,
+) -> TyRef {
     match &ty.node {
-        ast::Type_::Tuple(tys) => tys.iter().for_each(|ty| collect_fvs(state, ty, fvs)),
+        ast::Type_::Tuple(args) => {
+            for arg in args {
+                let arg_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, arg);
+                unify(&Default::default(), &arg_kind, &type_type()).unwrap();
+            }
+            type_type()
+        }
 
-        ast::Type_::List(ty) => collect_fvs(state, ty, fvs),
+        ast::Type_::List(arg) => {
+            let arg_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, arg);
+            unify(&Default::default(), &arg_kind, &type_type()).unwrap();
+            type_type()
+        }
 
-        ast::Type_::Arrow(ty1, ty2) => {
-            collect_fvs(state, ty1, fvs);
-            collect_fvs(state, ty2, fvs);
+        ast::Type_::Arrow(arg1, arg2) => {
+            let arg1_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, arg1);
+            unify(&Default::default(), &arg1_kind, &type_type()).unwrap();
+
+            let arg2_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, arg2);
+            unify(&Default::default(), &arg2_kind, &type_type()).unwrap();
+
+            type_type()
         }
 
         ast::Type_::App(ty, tys) => {
-            collect_fvs(state, ty, fvs);
-            tys.iter().for_each(|ty| collect_fvs(state, ty, fvs));
+            let result_kind = new_unification_var();
+
+            let mut expected_fun_kind = result_kind.clone();
+            for arg_ty in tys.iter().rev() {
+                let arg_ty_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, arg_ty);
+                expected_fun_kind = make_fun_ty(vec![arg_ty_kind], expected_fun_kind);
+            }
+            let expected_fun_kind = expected_fun_kind;
+
+            let actual_fun_kind = ty_kind(con_kinds, arg_kinds, bound_kinds, ty);
+
+            unify(&Default::default(), &expected_fun_kind, &actual_fun_kind).unwrap();
+
+            result_kind
+        }
+
+        ast::Type_::Con(con) => match &con.node {
+            ast::TyCon_::Id(con) => con_kinds.get(con).unwrap().clone(),
+
+            ast::TyCon_::Tuple(arity) => make_fun_ty(
+                std::iter::repeat_with(type_type)
+                    .take(*arity as usize)
+                    .collect(),
+                type_type(),
+            ),
+
+            ast::TyCon_::Arrow => make_fun_ty(vec![type_type(), type_type()], type_type()),
+
+            ast::TyCon_::List => make_fun_ty(vec![type_type()], type_type()),
+        },
+
+        ast::Type_::Var(var) => arg_kinds
+            .get(var)
+            .or_else(|| bound_kinds.get(var))
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Argument kind unknown: {:?} ({}), env: {:?}",
+                    var, ty.span, arg_kinds
+                )
+            }),
+    }
+}
+
+/// Collect type variables in [`ty`] in [`fvs`], with a fresh unification variable for each
+/// variable.
+fn collect_vars(ty: &ast::RenamedType, fvs: &mut Map<Id, TyRef>) {
+    match &ty.node {
+        ast::Type_::Tuple(tys) => tys.iter().for_each(|ty| collect_vars(ty, fvs)),
+
+        ast::Type_::List(ty) => collect_vars(ty, fvs),
+
+        ast::Type_::Arrow(ty1, ty2) => {
+            collect_vars(ty1, fvs);
+            collect_vars(ty2, fvs);
+        }
+
+        ast::Type_::App(ty, tys) => {
+            collect_vars(ty, fvs);
+            tys.iter().for_each(|ty| collect_vars(ty, fvs));
         }
 
         ast::Type_::Con(_) => {}
 
         ast::Type_::Var(id) => {
-            fvs.insert(id.clone(), Kind::Var(state.new_var()));
+            fvs.insert(id.clone(), new_unification_var());
         }
     }
 }
-
-/// Kinds with unification variables.
-#[derive(Clone, PartialEq, Eq)]
-enum Kind {
-    Star,
-    Fun(Box<Kind>, Box<Kind>),
-    Var(KindVar),
-}
-
-impl std::fmt::Debug for Kind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Kind::Star => write!(f, "*"),
-            Kind::Fun(k1, k2) => match &**k1 {
-                Kind::Star | Kind::Var(_) => write!(f, "{:?} -> {:?}", k1, k2),
-                Kind::Fun(_, _) => write!(f, "({:?}) -> {:?}", k1, k2),
-            },
-            Kind::Var(var) => write!(f, "_{}", var.0),
-        }
-    }
-}
-
-impl From<&typing::Kind> for Kind {
-    fn from(kind: &typing::Kind) -> Self {
-        match kind {
-            typing::Kind::Star => Kind::Star,
-            typing::Kind::Fun(k1, k2) => Kind::Fun(
-                Box::new(Kind::from(k1.as_ref())),
-                Box::new(Kind::from(k2.as_ref())),
-            ),
-        }
-    }
-}
-
-/// A unification variable representing a kind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct KindVar(u32);
 
 /// A type declaration, abstracted for the purposes of kind inference.
 #[derive(Debug, Clone)]
@@ -385,210 +422,34 @@ fn collect_types(decls: &[ast::RenamedDecl]) -> Vec<TypeDecl> {
         .collect()
 }
 
-#[derive(Debug)]
-struct KindInferState {
-    /// Next fresh unification varible.
-    next_var: KindVar,
-
-    /// Maps unification variables to their current values.
-    unification_vars: Map<KindVar, Kind>,
-}
-
-impl KindInferState {
-    fn new() -> Self {
-        Self {
-            next_var: KindVar(0),
-            unification_vars: Default::default(),
-        }
-    }
-
-    fn new_var(&mut self) -> KindVar {
-        let var = self.next_var;
-        self.next_var = KindVar(var.0 + 1);
-        var
-    }
-
-    /// `k1 -> ... -> k{arity - 1} -> *`.
-    fn new_kind(&mut self, arity: usize) -> Kind {
-        self.new_kind_w_result_kind(Kind::Star, arity)
-    }
-
-    /// Similar to `new_kind`, but the given result kind.
-    fn new_kind_w_result_kind(&mut self, mut kind: Kind, mut arity: usize) -> Kind {
-        while arity != 0 {
-            kind = Kind::Fun(Box::new(Kind::Var(self.new_var())), Box::new(kind));
-            arity -= 1;
-        }
-        kind
-    }
-
-    fn new_kind_fun(&mut self, args: Vec<Kind>, mut ret: Kind) -> Kind {
-        for arg in args.into_iter().rev() {
-            ret = Kind::Fun(Box::new(arg), Box::new(ret));
-        }
-        ret
-    }
-}
-
-/// Unify kind of `ty` with `expected_kind`. Type variables in `ty` must be bound in `arg_kinds` to
-/// their kinds.
-fn unify_ty_kind(
-    state: &mut KindInferState,
-    con_kinds: &Map<Id, Kind>,
-    arg_kinds: &Map<Id, Kind>,
-    bound_kinds: &Map<Id, Kind>,
-    ty: &ast::RenamedType,
-    expected_kind: &Kind,
-) {
-    let kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, ty);
-    unify(state, kind, expected_kind.clone());
-}
-
-fn unify(state: &mut KindInferState, mut k1: Kind, mut k2: Kind) {
-    loop {
-        if let Kind::Var(var) = k1 {
-            if let Some(k) = state.unification_vars.get(&var) {
-                k1 = k.clone();
-                continue;
-            }
-        }
-        break;
-    }
-
-    loop {
-        if let Kind::Var(var) = k2 {
-            if let Some(k) = state.unification_vars.get(&var) {
-                k2 = k.clone();
-                continue;
-            }
-        }
-        break;
-    }
-
-    match (k1, k2) {
-        (Kind::Var(var), k) | (k, Kind::Var(var)) => {
-            if occurs(&var, &k) {
-                panic!("Occurs check fail");
-            }
-            let old = state.unification_vars.insert(var, k);
-            assert_eq!(old, None);
-        }
-
-        (Kind::Star, Kind::Star) => {}
-
-        (Kind::Fun(k1_1, k1_2), Kind::Fun(k2_1, k2_2)) => {
-            unify(state, *k1_1, *k2_1);
-            unify(state, *k1_2, *k2_2);
-        }
-
-        (k1, k2) => panic!("Kinds do not unify: {:?} ~ {:?}", k1, k2),
-    }
-}
-
-/// Returns whether `var` occurs in `kind`.
-fn occurs(var: &KindVar, kind: &Kind) -> bool {
-    match kind {
-        Kind::Star => false,
-        Kind::Fun(k1, k2) => occurs(var, k1) || occurs(var, k2),
-        Kind::Var(var2) => var == var2,
-    }
-}
-
-/// Infer kind of `ty`.
-fn ty_kind(
-    state: &mut KindInferState,
-    con_kinds: &Map<Id, Kind>,
-    arg_kinds: &Map<Id, Kind>,
-    bound_kinds: &Map<Id, Kind>,
-    ty: &ast::RenamedType,
-) -> Kind {
-    match &ty.node {
-        ast::Type_::Tuple(args) => {
-            for arg in args {
-                let arg_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, arg);
-                unify(state, arg_kind, Kind::Star);
-            }
-            Kind::Star
-        }
-
-        ast::Type_::List(arg) => {
-            let arg_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, arg);
-            unify(state, arg_kind, Kind::Star);
-            Kind::Star
-        }
-
-        ast::Type_::Arrow(arg1, arg2) => {
-            let arg1_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, arg1);
-            unify(state, arg1_kind, Kind::Star);
-
-            let arg2_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, arg2);
-            unify(state, arg2_kind, Kind::Star);
-
-            Kind::Star
-        }
-
-        ast::Type_::App(ty, tys) => {
-            let result_kind = Kind::Var(state.new_var());
-
-            let mut expected_fun_kind = result_kind.clone();
-            for arg_ty in tys.iter().rev() {
-                let arg_ty_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, arg_ty);
-                expected_fun_kind = Kind::Fun(Box::new(arg_ty_kind), Box::new(expected_fun_kind));
-            }
-            let expected_fun_kind = expected_fun_kind;
-
-            let actual_fun_kind = ty_kind(state, con_kinds, arg_kinds, bound_kinds, ty);
-
-            unify(state, expected_fun_kind, actual_fun_kind);
-
-            result_kind
-        }
-
-        ast::Type_::Con(con) => match &con.node {
-            ast::TyCon_::Id(con) => con_kinds.get(con).unwrap().clone(),
-
-            ast::TyCon_::Tuple(arity) => state.new_kind(*arity as usize),
-
-            ast::TyCon_::Arrow => state.new_kind(2),
-
-            ast::TyCon_::List => state.new_kind(1),
-        },
-
-        ast::Type_::Var(var) => arg_kinds
-            .get(var)
-            .or_else(|| bound_kinds.get(var))
-            .cloned()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Argument kind unknown: {:?} ({}), env: {:?}",
-                    var, ty.span, arg_kinds
-                )
-            }),
-    }
-}
-
 /// Normalize all kinds in `kinds`.
-fn normalize_kinds(kinds: &Map<Id, Kind>, vars: &Map<KindVar, Kind>) -> Map<Id, typing::Kind> {
+fn normalize_kinds(kinds: &Map<Id, TyRef>) -> Map<Id, TyRef> {
     kinds
         .iter()
-        .map(|(id, kind)| (id.clone(), normalize_kind(kind, vars)))
+        .map(|(id, kind)| (id.clone(), normalize_kind(kind)))
         .collect()
 }
 
 /// Replace unification variables in `kind` with their values. Variables without a value are
 /// defaulted as `*`.
-fn normalize_kind(kind: &Kind, vars: &Map<KindVar, Kind>) -> typing::Kind {
-    match kind {
-        Kind::Star => typing::Kind::Star,
-
-        Kind::Fun(k1, k2) => typing::Kind::Fun(
-            Box::new(normalize_kind(k1, vars)),
-            Box::new(normalize_kind(k2, vars)),
-        ),
-
-        Kind::Var(var) => match vars.get(var) {
-            Some(kind) => normalize_kind(kind, vars),
-            None => typing::Kind::Star, // defaulting
+fn normalize_kind(kind: &TyRef) -> TyRef {
+    match kind.deref() {
+        Ty::Var(var) => match var.link() {
+            Some(link) => {
+                let normalized = normalize_kind(&link);
+                var.set_link(normalized.clone());
+                normalized
+            }
+            None => {
+                // Defaulting.
+                type_type()
+            }
         },
+
+        Ty::App(ty1, ty2) => TyRef::new_app(normalize_kind(ty1), normalize_kind(ty2)),
+
+        Ty::Con(_) => kind.clone(),
+
+        Ty::Gen(_) => panic!("Gen in normalize_kind"),
     }
 }

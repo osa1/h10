@@ -23,46 +23,6 @@ impl Deref for TyRef {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TyVarRef(Rc<TyVar>);
 
-/// A kind.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Kind {
-    Star,
-    Fun(Box<Kind>, Box<Kind>),
-}
-
-impl Kind {
-    pub(crate) fn split_fun_kind(&self) -> (Vec<Kind>, Kind) {
-        let mut args: Vec<Kind> = vec![];
-        let mut ret = self;
-
-        loop {
-            match ret {
-                Kind::Star => return (args, Kind::Star),
-                Kind::Fun(arg, ret_) => {
-                    args.push(arg.deref().clone());
-                    ret = ret_;
-                }
-            }
-        }
-    }
-
-    /// From a `k -> *` get `k`.
-    ///
-    /// Panics when the kind does not have the right shape.
-    ///
-    /// This is useful when getting the expected kind of a typeclass argument, e.g. when inferring
-    /// the kind of `m` in `Monad m`, we get the kind of `Monad` which is `(* -> *) -> *`, and this
-    /// function gives us the expected kind of `m` which is `* -> *`.
-    pub(crate) fn get_kind_arrow_star_kind(&self) -> &Kind {
-        if let Kind::Fun(arg, ret) = self {
-            if **ret == Kind::Star {
-                return arg;
-            }
-        }
-        panic!("Kind does not have shape `k -> *`: {:?}", self)
-    }
-}
-
 /// A type.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Ty {
@@ -87,7 +47,7 @@ struct TyVar {
     id: Id,
 
     /// Kind of the variable.
-    kind: Kind,
+    kind: TyRef,
 
     /// The binding depth of the variable. All unification variables in an equivalence class must
     /// have the same level.
@@ -131,7 +91,7 @@ impl TyRef {
         TyRef(Rc::new(ty))
     }
 
-    pub(crate) fn new_var(kind: Kind, level: u32) -> TyRef {
+    pub(crate) fn new_var(kind: TyRef, level: u32) -> TyRef {
         TyRef::new(Ty::Var(TyVarRef::new(kind, level)))
     }
 
@@ -243,16 +203,27 @@ impl TyRef {
             Ty::Con(_) | Ty::Gen(_) => {}
         }
     }
-}
 
-impl TyVarRef {
-    fn new(kind: Kind, level: u32) -> TyVarRef {
-        TyVarRef(Rc::new(TyVar::new(kind, level)))
+    /// From a `k -> Type` get `k`.
+    ///
+    /// Panics when the kind does not have the right shape.
+    ///
+    /// This is useful when getting the expected kind of a typeclass argument, e.g. when inferring
+    /// the kind of `m` in `Monad m`, we get the kind of `Monad` which is `(Type -> Type) -> Type`,
+    /// and this function gives us the expected kind of `m` which is `Type -> Type`.
+    pub(crate) fn get_kind_arrow_star_kind(&self) -> TyRef {
+        let (mut args, ret) = self.split_fun_ty();
+
+        if args.len() != 1 || ret != id::type_ty_tyref() {
+            panic!("Kind does not have shape `k -> Type`: {:?}", self)
+        }
+
+        args.pop().unwrap()
     }
 }
 
 impl TyVar {
-    fn new(kind: Kind, level: u32) -> TyVar {
+    fn new(kind: TyRef, level: u32) -> TyVar {
         TyVar {
             id: Id::new(None, IdKind::TyVar),
             kind,
@@ -265,7 +236,7 @@ impl TyVar {
         self.id.clone()
     }
 
-    fn kind(&self) -> &Kind {
+    fn kind(&self) -> &TyRef {
         &self.kind
     }
 
@@ -291,11 +262,15 @@ impl TyVar {
 }
 
 impl TyVarRef {
+    fn new(kind: TyRef, level: u32) -> TyVarRef {
+        TyVarRef(Rc::new(TyVar::new(kind, level)))
+    }
+
     pub fn id(&self) -> Id {
         self.0.id()
     }
 
-    pub fn kind(&self) -> &Kind {
+    pub fn kind(&self) -> &TyRef {
         self.0.kind()
     }
 
@@ -325,18 +300,6 @@ impl TyVarRef {
 // Debugging
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-impl fmt::Debug for Kind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Star => write!(f, "*"),
-            Self::Fun(k1, k2) => match &**k1 {
-                Kind::Star => write!(f, "* -> {:?}", k2),
-                Kind::Fun(_, _) => write!(f, "({:?}) -> {:?}", k1, k2),
-            },
-        }
-    }
-}
 
 impl fmt::Debug for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

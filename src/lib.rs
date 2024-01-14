@@ -30,14 +30,14 @@ use id::Id;
 use parser::parse_module;
 use renaming::rename_module;
 use type_inference::ti_module;
-use typing::Kind;
+use typing::TyRef;
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[global_allocator]
 static ALLOC: alloc::AllocStats = alloc::AllocStats;
 
-pub fn type_check_module(input: &str) -> (Map<Id, Kind>, TrieMap<Id, Scheme>) {
+pub fn type_check_module(input: &str) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
     let ast: Vec<ast::ParsedDecl> = parse_module(input).unwrap();
     let renamed: Vec<ast::RenamedDecl> = rename_module(&ast);
     ti_module(&renamed)
