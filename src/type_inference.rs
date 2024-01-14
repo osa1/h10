@@ -39,20 +39,20 @@ pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Sc
 
 fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     // Collect data con types, to be used in field types.
-    let mut con_ty_refs: TrieMap<Id, TyRef> = Default::default();
+    let mut con_ty_refs: Map<Id, TyRef> = Default::default();
 
     for decl in decls {
         match &decl.node {
             ast::Decl_::Data(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
                 for con in &decl.node.cons {
-                    con_ty_refs.insert_mut(con.node.con.clone(), ty_con.clone());
+                    con_ty_refs.insert(con.node.con.clone(), ty_con.clone());
                 }
             }
 
             ast::Decl_::Newtype(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
-                con_ty_refs.insert_mut(decl.node.con.node.con.clone(), ty_con);
+                con_ty_refs.insert(decl.node.con.node.con.clone(), ty_con);
             }
 
             ast::Decl_::Type(_)
