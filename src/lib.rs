@@ -74,7 +74,7 @@ pub fn type_check(input: &str) {
     let (ty_kinds, bind_tys) = type_check_module(input);
 
     for (ty, kind) in ty_kinds {
-        add_compiler_output(&format!("{} : {:?}", ty, kind));
+        add_compiler_output(&format!("{} : {}", ty, kind));
     }
 
     add_compiler_output("");

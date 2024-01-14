@@ -27,7 +27,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
         {
             let class_kind: &TyRef = kinds.get(ty_con).unwrap();
 
-            println!("Class {} kind = {:?}", ty_con, class_kind);
+            println!("Class {} kind = {}", ty_con, class_kind);
 
             let (mut arg_kinds, _ret_kind) = class_kind.split_fun_ty();
             assert_eq!(arg_kinds.len(), 1); // no multi-param typeclasses yet
