@@ -223,7 +223,15 @@ impl fmt::Display for Scheme {
             }
 
             for (pred_idx, pred) in preds.iter().enumerate() {
-                write!(f, "{} {}", pred.class, pred.ty)?;
+                write!(f, "{} ", pred.class)?;
+                let pred_parens = matches!(pred.ty.deref(), Ty::App(_, _));
+                if pred_parens {
+                    write!(f, "(")?;
+                }
+                write!(f, "{}", pred.ty)?;
+                if pred_parens {
+                    write!(f, ")")?;
+                }
                 if pred_idx != num_preds - 1 {
                     write!(f, ", ")?;
                 }

@@ -175,6 +175,19 @@ impl TyRef {
         (args, ret)
     }
 
+    fn is_fun_ty(&self) -> bool {
+        if let Ty::App(ty1, _) = self.deref() {
+            if let Ty::App(ty1_, _) = ty1.deref() {
+                if let Ty::Con(con) = ty1_.deref() {
+                    if con == &id::arrow_ty_id() {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub(crate) fn subst_gens(&self, gens: &[TyRef]) -> TyRef {
         match self.deref() {
             Ty::Var(_) | Ty::Con(_) => self.clone(),
@@ -344,22 +357,19 @@ impl<'a> fmt::Debug for LinkCellDebug<'a> {
     }
 }
 
-fn ty_ref_needs_parens(ty: &TyRef) -> bool {
-    match ty.deref() {
-        Ty::Var(_) | Ty::Con(_) | Ty::Gen(_) => false,
-        Ty::App(_, _) => true,
-    }
-}
-
 impl fmt::Display for TyRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (fun_args, fun_ret) = self.split_fun_ty();
         for arg in fun_args {
-            if ty_ref_needs_parens(&arg) {
-                write!(f, "({}) -> ", arg)?;
-            } else {
-                write!(f, "{} -> ", arg)?;
+            let parens = arg.is_fun_ty();
+            if parens {
+                write!(f, "(")?;
             }
+            write!(f, "{}", arg)?;
+            if parens {
+                write!(f, ")")?;
+            }
+            write!(f, " -> ")?;
         }
         fmt::Display::fmt(fun_ret.deref(), f)
     }
@@ -373,16 +383,15 @@ impl fmt::Display for Ty {
             Ty::Con(id) => fmt::Display::fmt(id, f),
 
             Ty::App(ty1, ty2) => {
-                let ty1_parens = ty_ref_needs_parens(ty1);
-                let ty2_parens = ty_ref_needs_parens(ty2);
-                if ty1_parens {
-                    write!(f, "(")?;
+                if let Ty::Con(con) = ty1.deref() {
+                    if con == &id::list_ty_id() {
+                        return write!(f, "[{}]", ty2);
+                    }
                 }
+
                 fmt::Display::fmt(ty1, f)?;
-                if ty1_parens {
-                    write!(f, ")")?;
-                }
                 write!(f, " ")?;
+                let ty2_parens = matches!(ty2.deref(), Ty::App(_, _));
                 if ty2_parens {
                     write!(f, "(")?;
                 }
