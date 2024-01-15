@@ -16,8 +16,8 @@ wasm-pack build crates/h10 --target web --release \
     --out-dir target/wasm-pack \
     --no-pack --no-typescript
 
-cp target/wasm-pack/h10.js $OUT_DIR/h10.js
-cp target/wasm-pack/h10_bg.wasm $OUT_DIR/h10_bg.wasm
+cp crates/h10/target/wasm-pack/h10.js $OUT_DIR/h10.js
+cp crates/h10/target/wasm-pack/h10_bg.wasm $OUT_DIR/h10_bg.wasm
 
 # wasm-opt \
 #     --closed-world -tnh -O4 --gufa -g \
