@@ -271,7 +271,7 @@ x = 123
 
 #[test]
 fn parse_prelude() {
-    let pgm = std::fs::read_to_string("Prelude.hs").unwrap();
+    let pgm = std::fs::read_to_string("../../Prelude.hs").unwrap();
     let ast = parse_module(&pgm);
     println!("{:#?}", ast);
 }
