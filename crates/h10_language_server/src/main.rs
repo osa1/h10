@@ -3,7 +3,8 @@
 mod buffer;
 mod token;
 
-use buffer::Buffer;
+use buffer::{Buffer, Token};
+use token::TOKEN_TYPES;
 
 use std::fs::File;
 use std::io::Write;
@@ -70,16 +71,7 @@ impl LanguageServer for Backend {
                 SemanticTokensOptions {
                     legend: SemanticTokensLegend {
                         // TODO: This needs to be in sync with `to_lsp_token_type` values.
-                        token_types: vec![
-                            SemanticTokenType::COMMENT,
-                            SemanticTokenType::DECORATOR,
-                            SemanticTokenType::KEYWORD,
-                            SemanticTokenType::NUMBER,
-                            SemanticTokenType::OPERATOR,
-                            SemanticTokenType::STRING,
-                            SemanticTokenType::TYPE,
-                            SemanticTokenType::VARIABLE,
-                        ],
+                        token_types: TOKEN_TYPES.into(),
                         token_modifiers: vec![],
                     },
 
@@ -169,13 +161,52 @@ impl LanguageServer for Backend {
         // ])))
     }
 
-    // TODO
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-        Err(Error::method_not_found())
+        writeln!(
+            self.log_file.lock().unwrap(),
+            "semantic_tokens_full({:#?})",
+            params
+        )
+        .unwrap();
+
+        let buffer_lock = self.buffer.lock().unwrap();
+        let buffer: &Buffer = buffer_lock.as_ref().unwrap();
+
+        // 200,000 bytes.
+        let mut data: Vec<SemanticToken> = Vec::with_capacity(10_000);
+
+        for (
+            line_idx,
+            Token {
+                kind,
+                col,
+                length_cols,
+            },
+        ) in buffer.iter_tokens_from(0, 0)
+        {
+            let lsp_token = match kind.to_lsp_token_type() {
+                None => continue,
+                Some(lsp_token) => lsp_token,
+            };
+
+            data.push(SemanticToken {
+                delta_line: line_idx + 1,
+                delta_start: col,
+                length: length_cols,
+                token_type: lsp_token,
+                token_modifiers_bitset: 0,
+            });
+        }
+
+        writeln!(self.log_file.lock().unwrap(), "{:?}", data).unwrap();
+
+        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data,
+        })))
     }
 
     // TODO
@@ -183,7 +214,12 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensDeltaParams,
     ) -> Result<Option<SemanticTokensFullDeltaResult>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
+        writeln!(
+            self.log_file.lock().unwrap(),
+            "semantic_tokens_full_delta({:#?})",
+            params
+        )
+        .unwrap();
         Err(Error::method_not_found())
     }
 
@@ -192,7 +228,12 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensRangeParams,
     ) -> Result<Option<SemanticTokensRangeResult>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
+        writeln!(
+            self.log_file.lock().unwrap(),
+            "semantic_tokens_range({:#?})",
+            params
+        )
+        .unwrap();
         Err(Error::method_not_found())
     }
 
