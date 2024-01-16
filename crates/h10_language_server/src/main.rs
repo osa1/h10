@@ -122,7 +122,10 @@ impl LanguageServer for Backend {
 
             let text = change.text;
 
-            buffer.remove(&mut Default::default(), range.start, range.end);
+            // TODO: Buffer end position is inclusive, but lsp end position is exclusive.
+            if range.start != range.end {
+                buffer.remove(&mut Default::default(), range.start, range.end);
+            }
             buffer.insert(range.start, &text);
         }
     }
