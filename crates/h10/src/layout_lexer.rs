@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-use crate::lexer::Lexer;
-use crate::token::{ReservedId, Special, Token};
+use h10_lexer::token::{ReservedId, Special, Token};
+use h10_lexer::Lexer;
 
 use std::cmp::Ordering;
 use std::iter::Peekable;
@@ -16,11 +16,10 @@ pub type LayoutError = String;
 ///
 /// When parsing expression and types in tests (instead of whole modules), use `Lexer`, which
 /// implements `LayoutLexer_` without actually handling implicit layouts.
-pub trait LayoutLexer_:
-    Iterator<Item = Result<(Loc, Token, Loc), LexerError<LayoutError>>> + Clone
-{
+pub trait LayoutLexer_: Clone {
     fn pop_layout(&mut self) -> bool;
     fn in_explicit_layout(&self) -> bool;
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>>;
 }
 
 impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I> {
@@ -31,6 +30,10 @@ impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I>
     fn in_explicit_layout(&self) -> bool {
         true
     }
+
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
+        adjust_infallible(<Self as Iterator>::next(self))
+    }
 }
 
 impl<'input> LayoutLexer_ for LayoutLexer<'input, std::str::Chars<'input>> {
@@ -40,6 +43,28 @@ impl<'input> LayoutLexer_ for LayoutLexer<'input, std::str::Chars<'input>> {
 
     fn in_explicit_layout(&self) -> bool {
         self.in_explicit_layout_()
+    }
+
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
+        <Self as Iterator>::next(self)
+    }
+}
+
+fn adjust_infallible<A>(
+    item: Option<Result<A, LexerError<std::convert::Infallible>>>,
+) -> Option<Result<A, LexerError<LayoutError>>> {
+    match item {
+        Some(result) => match result {
+            Ok(item) => Some(Ok(item)),
+            Err(LexerError { location, kind }) => match kind {
+                LexerErrorKind::InvalidToken => Some(Err(LexerError {
+                    location,
+                    kind: LexerErrorKind::InvalidToken,
+                })),
+                LexerErrorKind::Custom(infallible) => match infallible {},
+            },
+        },
+        None => None,
     }
 }
 
@@ -140,7 +165,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
 
         let (start, token, end) = match self.lexer.peek() {
             Some(Ok(tok)) => tok,
-            Some(Err(_)) => return self.lexer.next(),
+            Some(Err(_)) => return adjust_infallible(self.lexer.next()),
             None => {
                 return if self.do_layout {
                     self.do_layout = false;
@@ -178,7 +203,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             // Explicit layout.
             self.do_layout = false;
             self.context.push(-1);
-            return self.lexer.next(); // consume '{'
+            return adjust_infallible(self.lexer.next()); // consume '{'
         }
 
         if self.do_layout {

@@ -2,6 +2,8 @@
 
 mod buffer;
 
+use buffer::Buffer;
+
 use std::fs::File;
 use std::io::Write;
 use std::sync::Mutex;
@@ -11,8 +13,6 @@ use tower_lsp::jsonrpc::{Error, Result};
 use tower_lsp::lsp_types::request::*;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-
-use buffer::Buffer;
 
 fn main() {
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -49,22 +49,60 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         writeln!(self.log_file.lock().unwrap(), "initialize").unwrap();
 
-        let mut result = InitializeResult::default();
-        let mut server_caps = ServerCapabilities::default();
-        server_caps.declaration_provider = Some(DeclarationCapability::Simple(true));
-        server_caps.text_document_sync = Some(TextDocumentSyncCapability::Options(
-            TextDocumentSyncOptions {
-                open_close: Some(true),
-                change: Some(TextDocumentSyncKind::INCREMENTAL),
-                will_save: None,
-                will_save_wait_until: None,
-                save: Some(SaveOptions::default().into()),
-            },
-        ));
-        server_caps.document_symbol_provider = Some(OneOf::Left(true));
-        result.capabilities = server_caps;
+        let capabilities = ServerCapabilities {
+            // Sync documents incrementally.
+            text_document_sync: Some(TextDocumentSyncCapability::Options(
+                TextDocumentSyncOptions {
+                    open_close: Some(true),
+                    change: Some(TextDocumentSyncKind::INCREMENTAL),
+                    will_save: None,
+                    will_save_wait_until: None,
+                    save: Some(SaveOptions::default().into()),
+                },
+            )),
 
-        Ok(result)
+            // Declare "go to declaration" support.
+            declaration_provider: Some(DeclarationCapability::Simple(true)),
+
+            // Declare semantic syntax highlighting support.
+            semantic_tokens_provider: Some(
+                SemanticTokensOptions {
+                    legend: SemanticTokensLegend {
+                        token_types: vec![
+                            SemanticTokenType::COMMENT,
+                            SemanticTokenType::KEYWORD,
+                            SemanticTokenType::NAMESPACE, // module
+                            SemanticTokenType::NUMBER,
+                            SemanticTokenType::OPERATOR,
+                            SemanticTokenType::STRUCT, // data constructors
+                            SemanticTokenType::TYPE,   // type constructors
+                            SemanticTokenType::VARIABLE,
+                        ],
+                        token_modifiers: vec![],
+                    },
+
+                    // Support full document highlighting.
+                    full: Some(SemanticTokensFullOptions::Delta { delta: Some(true) }),
+
+                    // Support range highlighting.
+                    range: Some(true),
+
+                    // Dunno why we have this in this type?
+                    work_done_progress_options: Default::default(),
+                }
+                .into(),
+            ),
+
+            // Declare symbol list/outline support.
+            document_symbol_provider: Some(OneOf::Left(true)),
+
+            ..Default::default()
+        };
+
+        Ok(InitializeResult {
+            capabilities,
+            ..Default::default()
+        })
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
@@ -127,6 +165,33 @@ impl LanguageServer for Backend {
         //         deprecated: None,
         //     },
         // ])))
+    }
+
+    // TODO
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
+        Err(Error::method_not_found())
+    }
+
+    // TODO
+    async fn semantic_tokens_full_delta(
+        &self,
+        params: SemanticTokensDeltaParams,
+    ) -> Result<Option<SemanticTokensFullDeltaResult>> {
+        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
+        Err(Error::method_not_found())
+    }
+
+    // TODO
+    async fn semantic_tokens_range(
+        &self,
+        params: SemanticTokensRangeParams,
+    ) -> Result<Option<SemanticTokensRangeResult>> {
+        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
+        Err(Error::method_not_found())
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,30 +353,6 @@ impl LanguageServer for Backend {
         &self,
         params: SelectionRangeParams,
     ) -> Result<Option<Vec<SelectionRange>>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-        Err(Error::method_not_found())
-    }
-
-    async fn semantic_tokens_full(
-        &self,
-        params: SemanticTokensParams,
-    ) -> Result<Option<SemanticTokensResult>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-        Err(Error::method_not_found())
-    }
-
-    async fn semantic_tokens_full_delta(
-        &self,
-        params: SemanticTokensDeltaParams,
-    ) -> Result<Option<SemanticTokensFullDeltaResult>> {
-        writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-        Err(Error::method_not_found())
-    }
-
-    async fn semantic_tokens_range(
-        &self,
-        params: SemanticTokensRangeParams,
-    ) -> Result<Option<SemanticTokensRangeResult>> {
         writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
         Err(Error::method_not_found())
     }

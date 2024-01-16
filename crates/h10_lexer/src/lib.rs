@@ -1,4 +1,9 @@
-use crate::token::{Literal, ReservedId, ReservedOp, Special, Token};
+pub mod token;
+
+#[cfg(test)]
+mod tests;
+
+use token::{Literal, ReservedId, ReservedOp, Special, Token};
 
 #[derive(Debug, Default, Clone)]
 pub struct LexerState {
@@ -8,10 +13,6 @@ pub struct LexerState {
 lexgen::lexer! {
     #[derive(Clone)]
     pub Lexer(LexerState) -> Token;
-
-    // TODO: We shouldn't have to mention an error type from the next pass here. Figure out how to
-    // make the error bound of `LayoutLexer_` something like `Into<LexerError<LayoutError>>`.
-    type Error = crate::layout_lexer::LayoutError;
 
     let octal_digit = ['0'-'7'];
     let hex_digit = ['0'-'9' 'a'-'f' 'A'-'F'];
@@ -137,34 +138,5 @@ lexgen::lexer! {
                 lexer.continue_()
             }
         },
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::lexer::Lexer;
-    use crate::token::Token;
-
-    fn lex(s: &str) -> Vec<Token> {
-        return Lexer::new(s).map(|t| t.unwrap().1).collect();
-    }
-
-    #[test]
-    fn lex_id_sym() {
-        assert_eq!(
-            lex("a A ++ :+: A.a A.A A.++ A.:+: * ."),
-            vec![
-                Token::VarId,
-                Token::ConId,
-                Token::VarSym,
-                Token::ConSym,
-                Token::QVarId,
-                Token::QConId,
-                Token::QVarSym,
-                Token::QConSym,
-                Token::VarSym,
-                Token::VarSym,
-            ]
-        );
     }
 }

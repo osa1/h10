@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
-use crate::token::{Literal, ReservedId, ReservedOp, Special, Token};
+use h10_lexer::token::{Literal, ReservedId, ReservedOp, Special, Token};
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /*

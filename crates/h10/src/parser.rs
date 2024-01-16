@@ -11,7 +11,7 @@ mod tests;
 use crate::ast::*;
 use crate::layout_lexer::{LayoutError, LayoutLexer, LayoutLexer_};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
-use crate::token::{ReservedId, ReservedOp, Special, Token};
+use h10_lexer::token::{ReservedId, ReservedOp, Special, Token};
 
 use std::rc::Rc;
 
@@ -30,18 +30,13 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedDecl>> {
 pub fn parse_type(
     type_str: &str,
 ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
-    Parser::new(
-        type_str,
-        "<input>".into(),
-        crate::lexer::Lexer::new(type_str),
-    )
-    .type_with_context()
+    Parser::new(type_str, "<input>".into(), h10_lexer::Lexer::new(type_str)).type_with_context()
 }
 
 /// Parse an expression. Does not handle layout.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(exp_str, "<input>".into(), crate::lexer::Lexer::new(exp_str)).exp()
+    Parser::new(exp_str, "<input>".into(), h10_lexer::Lexer::new(exp_str)).exp()
 }
 
 /// Parse an expression. Handles layout.

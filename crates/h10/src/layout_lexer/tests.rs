@@ -1,5 +1,5 @@
 use crate::layout_lexer::LayoutLexer;
-use crate::token::{Literal, ReservedId, ReservedOp, Special, Token};
+use h10_lexer::token::{Literal, ReservedId, ReservedOp, Special, Token};
 
 // `module X where <body>` where `<body>` is indented the same amount as `module`.
 //

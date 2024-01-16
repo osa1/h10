@@ -1,6 +1,6 @@
 use crate::collections::Set;
 use crate::id::Id;
-use crate::token::Literal;
+use h10_lexer::token::Literal;
 
 use std::fmt;
 use std::hash::Hash;

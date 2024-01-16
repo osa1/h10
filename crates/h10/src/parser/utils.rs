@@ -2,7 +2,7 @@ use crate::ast::{AstNode, Span};
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
-use crate::token::Token;
+use h10_lexer::token::Token;
 
 use lexgen_util::Loc;
 
