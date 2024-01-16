@@ -6,5 +6,5 @@ set -x
 cargo fmt
 cargo build --all-targets
 cargo clippy --all-targets
-cargo run
+cargo run --bin h10
 cargo test

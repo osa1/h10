@@ -1,0 +1,29 @@
+{
+    "name": "h10-language-server",
+    "version": "0.0.1",
+    "activationEvents": ["onLanguage:h10"],
+    "main": "./extension.js",
+    "scripts": {},
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^9.0.1"
+    },
+    "devDependencies": {
+        "@vscode/vsce": "^2.22.0"
+    },
+    "contributes": {
+        "languages": [
+            {
+                "id": "h10",
+                "aliases": [
+                    "h10"
+                ],
+                "extensions": [
+                    ".h10"
+                ]
+            }
+        ]
+    }
+}

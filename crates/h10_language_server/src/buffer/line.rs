@@ -1,0 +1,206 @@
+#![allow(unused)]
+
+// TODO: Add a field for the indentation, drop leading whitespace from `text`.
+#[derive(Debug)]
+pub struct Line {
+    /// The line contents. Does not include the newline at the end.
+    text: String,
+
+    /// Whether the line consist of single-byte characters.
+    single_byte_chars: bool,
+
+    /// Length of the string, in characters. When `single_byte_chars` is true, this is the same as
+    /// `text.len()`.
+    len_chars: u32,
+}
+
+// -----------------------------------------------------------------------------
+// Creating a new line
+// -----------------------------------------------------------------------------
+
+impl Line {
+    pub(super) fn new(text: String) -> Line {
+        let (n_chars, single_byte) = len_chars(&text);
+        let len_chars = n_chars;
+        let single_byte_chars = single_byte;
+
+        Line {
+            text,
+            single_byte_chars,
+            len_chars,
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Manipulating lines
+// -----------------------------------------------------------------------------
+
+impl Line {
+    /// Insert a string to the given position in the line.
+    ///
+    /// The inserted string (`str`) should not have line breaks.
+    pub(super) fn insert_str(&mut self, char_idx: u32, str: &str) {
+        debug_assert!(!str.chars().any(|c| c == '\n'));
+
+        let byte_idx = self.char_byte_idx(char_idx);
+        self.text.insert_str(byte_idx, str);
+
+        let (n_chars, single_byte) = len_chars(str);
+        let new_len_chars = self.len_chars + n_chars;
+        self.len_chars = new_len_chars;
+        self.single_byte_chars &= single_byte;
+    }
+
+    /// Append the current line with the given string.
+    ///
+    /// The string (`str`) should not have line breaks.
+    ///
+    /// This is a slightly more efficient version of `line.insert_str(line.len_chars(), ...)` as
+    /// you don't have to calculate number of characters when appending.
+    pub(super) fn append(&mut self, str: &str) {
+        debug_assert!(!str.chars().any(|c| c == '\n'));
+
+        if str.is_empty() {
+            return;
+        }
+
+        self.text.push_str(str);
+
+        let (n_chars, single_byte) = len_chars(str);
+        let new_len_chars = self.len_chars + n_chars;
+        self.len_chars = new_len_chars;
+        self.single_byte_chars &= single_byte;
+    }
+
+    /// Removes and returns text starting from given character index. Useful for implementing
+    /// inserting new lines.
+    pub(super) fn remove_rest(&mut self, char_idx: u32) -> String {
+        if char_idx == self.len_chars() {
+            return String::new();
+        }
+
+        let byte_idx = self.char_byte_idx(char_idx);
+        let rest = self.text[byte_idx..].to_owned();
+
+        self.text.replace_range(byte_idx.., "");
+
+        let (n_chars, single_byte) = len_chars(&self.text);
+        self.len_chars = n_chars;
+        self.single_byte_chars = single_byte;
+
+        rest
+    }
+
+    /// Returns the range as an inclusive pair. Argument range is inclusive.
+    pub(super) fn remove_char_range(
+        &mut self,
+        removed_text: &mut String,
+        range_start: u32, // inclusive
+        range_end: u32,   // inclusive
+    ) {
+        debug_assert!(!self.text.is_empty());
+
+        let start_char_byte_idx = self
+            .text
+            .char_indices()
+            .nth(range_start as usize)
+            .unwrap()
+            .0;
+
+        let (end_char_byte_idx, end_char) =
+            self.text.char_indices().nth(range_end as usize).unwrap();
+
+        let byte_range_end = end_char_byte_idx + end_char.len_utf8();
+
+        removed_text.push_str(&self.text[start_char_byte_idx..byte_range_end]);
+
+        self.text
+            .replace_range(start_char_byte_idx..byte_range_end, "");
+
+        let (n_chars, single_byte) = len_chars(&self.text);
+        self.len_chars = n_chars;
+        self.single_byte_chars = single_byte;
+    }
+}
+
+/// Returns number of characters, and whether all characters are single byte.
+///
+/// We don't store the newline character in lines so this doesn't count it.
+fn len_chars(s: &str) -> (u32, bool) {
+    let mut n_chars = 0;
+    let mut all_single_char = true;
+
+    for char in s.chars() {
+        n_chars += 1;
+        if all_single_char && char.len_utf8() != 1 {
+            all_single_char = false;
+        }
+    }
+
+    (n_chars, all_single_char)
+}
+
+// -----------------------------------------------------------------------------
+// Queries
+// -----------------------------------------------------------------------------
+
+impl Line {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn len_chars(&self) -> u32 {
+        if cfg!(debug_assertions) {
+            let (len, single_byte) = len_chars(&self.text);
+            debug_assert_eq!(len, self.len_chars);
+            debug_assert_eq!(single_byte, self.single_byte_chars);
+        }
+
+        self.len_chars
+    }
+
+    pub fn len_bytes(&self) -> usize {
+        self.text.len()
+    }
+
+    /// Find byte index of Nth character in this line. `O(n)` operation when the string has
+    /// multi-byte characters.
+    pub fn char_byte_idx(&self, n: u32) -> usize {
+        if self.single_byte_chars {
+            debug_assert!(self.text.chars().all(|c| c.len_utf8() == 1));
+            n as usize
+        } else {
+            match self.text.char_indices().nth(n as usize) {
+                Some((byte_idx, _)) => byte_idx,
+                None => {
+                    debug_assert_eq!(n, self.len_chars());
+                    self.text.len()
+                }
+            }
+        }
+    }
+
+    pub fn nth_char(&self, n: u32) -> char {
+        debug_assert!(n <= self.len_chars);
+        if n == self.len_chars {
+            '\n'
+        } else if self.single_byte_chars {
+            char::from(self.text.as_bytes()[n as usize])
+        } else {
+            self.text.chars().nth(n as usize).unwrap_or('\n')
+        }
+    }
+
+    pub fn byte_idx_to_char_idx(&self, byte_idx: usize) -> u32 {
+        for (char_idx, (char_byte_idx, _)) in self.text.char_indices().enumerate() {
+            if char_byte_idx == byte_idx {
+                return char_idx as u32;
+            }
+        }
+        panic!(
+            "byte_idx_to_char: no char at byte index (text={:?}, byte_idx={})",
+            self.text, byte_idx
+        )
+    }
+}

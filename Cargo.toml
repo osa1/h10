@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/h10",
+    "crates/h10", "crates/h10_language_server",
 ]
 
 [profile.dev.package.lexgen]
