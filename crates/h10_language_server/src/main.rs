@@ -79,7 +79,7 @@ impl LanguageServer for Backend {
                     full: Some(SemanticTokensFullOptions::Delta { delta: Some(true) }),
 
                     // Support range highlighting.
-                    range: Some(true),
+                    range: Some(false),
 
                     // Dunno why we have this in this type?
                     work_done_progress_options: Default::default(),
@@ -176,6 +176,9 @@ impl LanguageServer for Backend {
         // 200,000 bytes.
         let mut data: Vec<SemanticToken> = Vec::with_capacity(10_000);
 
+        let mut last_token_line = 0;
+        let mut last_token_col = 0;
+
         for (
             line_idx,
             Token {
@@ -190,13 +193,20 @@ impl LanguageServer for Backend {
                 Some(lsp_token) => lsp_token,
             };
 
+            if last_token_line != line_idx {
+                last_token_col = 0;
+            }
+
             data.push(SemanticToken {
-                delta_line: line_idx + 1,
-                delta_start: col,
+                delta_line: line_idx - last_token_line,
+                delta_start: col - last_token_col,
                 length: length_cols,
                 token_type: lsp_token,
                 token_modifiers_bitset: 0,
             });
+
+            last_token_col = col;
+            last_token_line = line_idx;
         }
 
         writeln!(self.log_file.lock().unwrap(), "{:?}", data).unwrap();
