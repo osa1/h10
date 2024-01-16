@@ -48,7 +48,7 @@ jobs:
             override: true
 
       - name: 'Type check Prelude.hs'
-        run: cargo run
+        run: cargo run --bin h10
 
   check_formatting:
     name: 'Check formatting'
