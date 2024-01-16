@@ -2,7 +2,10 @@ use crate::token::Token;
 use crate::Lexer;
 
 fn lex(s: &str) -> Vec<Token> {
-    return Lexer::new(s).map(|t| t.unwrap().1).collect();
+    Lexer::new(s)
+        .map(|t| t.unwrap().1)
+        .filter(|t| !matches!(t, Token::Whitespace))
+        .collect()
 }
 
 #[test]

@@ -40,7 +40,7 @@ lexgen::lexer! {
     let qconsym = $qual $consym;
 
     rule Init {
-        $$whitespace,
+        $$whitespace+ = Token::Whitespace,
 
         '(' = Token::Special(Special::LParen),
         ')' = Token::Special(Special::RParen),

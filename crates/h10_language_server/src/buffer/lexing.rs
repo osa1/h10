@@ -44,13 +44,15 @@ impl Buffer {
     // - Scan until the line `line + n_lines_modified` is covered.
     // - Stop when we scan a line with identical tokens as before.
     // - Update tokens of scanned lines.
+
+    /// Re-lex the buffer after a change in given `line` (zero based) and `col` (zero based).
     pub fn lex_incremental(&mut self, line: u32, col: u32, n_lines_modified: u32) {
         let t_start = Instant::now();
 
         let start_line = self.find_incremental_lex_start(line, col);
         debug_assert!(start_line <= line, "start_line={start_line}, line={line}");
 
-        // Initial capacity somewhat random
+        // Initial capacity somewhat random.
         let mut line_tokens: Vec<Vec<Token>> = Vec::with_capacity(n_lines_modified as usize * 2);
 
         let mut last_line = start_line;

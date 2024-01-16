@@ -1,5 +1,7 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
+    Whitespace,
+
     /// Variable identifier, type (`tyvar`) or term (`varid`).
     VarId,
 
