@@ -1,11 +1,12 @@
 #![allow(unused)]
 
+mod lexing;
 mod line;
 
 #[cfg(test)]
 mod tests;
 
-use line::Line;
+pub use line::{Line, Token};
 
 use std::iter::Rev;
 use std::str::Chars;
@@ -84,6 +85,9 @@ impl Buffer {
         lines_inserted -= 1;
 
         self.lines[(line + lines_inserted) as usize].append(&rest);
+
+        // Update tokens.
+        self.lex_incremental(line, col, lines_inserted);
     }
 
     /// Remove the range between two cursors (inclusive).
@@ -132,6 +136,9 @@ impl Buffer {
         } else {
             self.remove_char_range_in_line(removed_text, line, col_start, col_end);
         }
+
+        // Update tokens.
+        self.lex_incremental(line, col_start, 1);
     }
 
     fn remove_multiple_lines(
@@ -166,7 +173,7 @@ impl Buffer {
         // Remove deleted part of the last line. Join the next line if virtual end-of-line is
         // included in selection.
         let last_line_idx = line_end - n_removed_lines;
-        let _joined = if col_end == self.line_len_chars(last_line_idx) {
+        let joined = if col_end == self.line_len_chars(last_line_idx) {
             if col_end == 0 {
                 removed_text.push_str(self.remove_line(last_line_idx).text());
             } else {
@@ -182,9 +189,12 @@ impl Buffer {
         };
 
         // Join first and last lines.
-        let _first_line_chars = self.line_len_chars(line_start);
+        let first_line_chars = self.line_len_chars(line_start);
         let last_line = self.remove_line(last_line_idx);
         self.lines[line_start as usize].insert_str(col_start, last_line.text());
+
+        // Update tokens.
+        self.lex_incremental(line_start, col_start, 1);
     }
 
     fn remove_line(&mut self, line: u32) -> Line {
@@ -230,6 +240,10 @@ impl Buffer {
     /// function returns `'\n`.
     pub fn get_char(&self, pos: Position) -> char {
         self.lines[pos.line as usize].nth_char(pos.character)
+    }
+
+    pub fn get_token(&self, pos: Position) -> Option<Token> {
+        self.lines[pos.line as usize].token_at_col(pos.character)
     }
 
     pub fn lines(&self) -> &[Line] {
@@ -364,6 +378,123 @@ impl Buffer {
             lines: &self.lines,
             line_idx: line,
             iter: self.lines[line as usize].text().chars().rev(),
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Iterating tokens from given line and column
+// -----------------------------------------------------------------------------
+
+/// Character iterator
+#[derive(Debug, Clone)]
+pub struct TokenIter<'a> {
+    lines: &'a [Line],
+    next_line_idx: u32,
+    iter: std::slice::Iter<'a, Token>,
+}
+
+impl<'a> Iterator for TokenIter<'a> {
+    type Item = (u32, Token);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(token) => Some((self.next_line_idx - 1, *token)),
+            None => {
+                if self.next_line_idx as usize >= self.lines.len() {
+                    None
+                } else {
+                    let line_idx = self.next_line_idx;
+                    self.next_line_idx += 1;
+                    self.iter = self.lines[line_idx as usize].tokens().iter();
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+impl Buffer {
+    // NB. This needs to be run after incremental lex, assumes tokens are updated/generated
+    pub fn iter_tokens_from(&self, line: u32, col: u32) -> TokenIter<'_> {
+        let tokens = self.lines[line as usize].tokens();
+
+        let mut token_idx = 0;
+        for token in tokens {
+            if col >= token.col && col < token.col + token.length_cols {
+                break;
+            }
+            token_idx += 1;
+        }
+
+        TokenIter {
+            lines: &self.lines,
+            next_line_idx: line + 1,
+            iter: self.lines[line as usize].tokens()[token_idx..].iter(),
+        }
+    }
+}
+
+/// Reverse token iterator
+#[derive(Debug, Clone)]
+pub struct TokenRevIter<'a> {
+    lines: &'a [Line],
+    line_idx: u32,
+    iter: std::iter::Rev<std::slice::Iter<'a, Token>>,
+}
+
+impl<'a> Iterator for TokenRevIter<'a> {
+    // (line index, token)
+    type Item = (u32, Token);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(token) => Some((self.line_idx, *token)),
+            None => {
+                if self.line_idx == 0 {
+                    None
+                } else {
+                    self.line_idx -= 1;
+                    self.iter = self.lines[self.line_idx as usize].tokens().iter().rev();
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+impl Buffer {
+    // NB. This needs to be run after incremental lex, assumes tokens are updated/generated.
+    pub fn iter_tokens_rev_from(&self, pos: Position) -> TokenRevIter<'_> {
+        let tokens = self.lines[pos.line as usize].tokens();
+        let mut token_idx = 0;
+        let mut token_col = 0;
+        for token in tokens {
+            if pos.character >= token_col && pos.character < token_col + token.length_cols {
+                break;
+            }
+            token_col = token.col + token.length_cols;
+            token_idx += 1;
+        }
+
+        if token_idx == tokens.len() {
+            if token_idx == 0 {
+                return TokenRevIter {
+                    lines: &self.lines,
+                    line_idx: pos.line,
+                    iter: [].iter().rev(),
+                };
+            } else {
+                token_idx -= 1;
+            }
+        }
+
+        TokenRevIter {
+            lines: &self.lines,
+            line_idx: pos.line,
+            iter: self.lines[pos.line as usize].tokens()[..=token_idx]
+                .iter()
+                .rev(),
         }
     }
 }

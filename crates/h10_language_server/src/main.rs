@@ -1,6 +1,7 @@
 #![allow(clippy::field_reassign_with_default)]
 
 mod buffer;
+mod token;
 
 use buffer::Buffer;
 
@@ -68,14 +69,15 @@ impl LanguageServer for Backend {
             semantic_tokens_provider: Some(
                 SemanticTokensOptions {
                     legend: SemanticTokensLegend {
+                        // TODO: This needs to be in sync with `to_lsp_token_type` values.
                         token_types: vec![
                             SemanticTokenType::COMMENT,
+                            SemanticTokenType::DECORATOR,
                             SemanticTokenType::KEYWORD,
-                            SemanticTokenType::NAMESPACE, // module
                             SemanticTokenType::NUMBER,
                             SemanticTokenType::OPERATOR,
-                            SemanticTokenType::STRUCT, // data constructors
-                            SemanticTokenType::TYPE,   // type constructors
+                            SemanticTokenType::STRING,
+                            SemanticTokenType::TYPE,
                             SemanticTokenType::VARIABLE,
                         ],
                         token_modifiers: vec![],

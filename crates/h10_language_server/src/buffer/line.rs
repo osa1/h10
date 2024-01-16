@@ -1,4 +1,4 @@
-#![allow(unused)]
+use crate::token::TokenKind;
 
 // TODO: Add a field for the indentation, drop leading whitespace from `text`.
 #[derive(Debug)]
@@ -12,7 +12,23 @@ pub struct Line {
     /// Length of the string, in characters. When `single_byte_chars` is true, this is the same as
     /// `text.len()`.
     len_chars: u32,
+
+    /// Tokens in the line.
+    tokens: Vec<Token>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Token {
+    pub kind: TokenKind,
+
+    /// Start column of the token in the line.
+    pub col: u32,
+
+    /// Length of the token, in columns.
+    pub length_cols: u32,
+}
+
+const _: () = assert!(std::mem::size_of::<Token>() == 12);
 
 // -----------------------------------------------------------------------------
 // Creating a new line
@@ -28,6 +44,7 @@ impl Line {
             text,
             single_byte_chars,
             len_chars,
+            tokens: vec![],
         }
     }
 }
@@ -150,6 +167,20 @@ impl Line {
         &self.text
     }
 
+    /// Get the token at column.
+    pub fn token_at_col(&self, col: u32) -> Option<Token> {
+        for token in &self.tokens {
+            if token.col <= col && col < token.col + token.length_cols {
+                return Some(*token);
+            }
+        }
+        None
+    }
+
+    pub fn tokens(&self) -> &[Token] {
+        &self.tokens
+    }
+
     pub fn len_chars(&self) -> u32 {
         if cfg!(debug_assertions) {
             let (len, single_byte) = len_chars(&self.text);
@@ -202,5 +233,21 @@ impl Line {
             "byte_idx_to_char: no char at byte index (text={:?}, byte_idx={})",
             self.text, byte_idx
         )
+    }
+
+    pub fn token_text(&self, token: &Token) -> &str {
+        let token_col = token.col;
+        let token_n_chars = token.length_cols;
+        let token_start = self.char_byte_idx(token_col);
+        let token_end = self.char_byte_idx(token_col + token_n_chars);
+
+        // TODO HACK FIXME: It looks like `TokenSplitIterator` includes the virtual newline
+        // character in tokens sometimes, ignore it.
+        let token_end = std::cmp::min(token_end, self.text.len());
+        &self.text[token_start..token_end]
+    }
+
+    pub(super) fn set_tokens(&mut self, tokens: Vec<Token>) {
+        self.tokens = tokens;
     }
 }
