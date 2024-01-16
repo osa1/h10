@@ -102,9 +102,7 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
         let uri = params.text_document.uri;
-        let path = uri.path();
-        let path_contents = std::fs::read_to_string(path).unwrap();
-        *self.buffer.lock().unwrap() = Some(Buffer::with_contents(&path_contents));
+        *self.buffer.lock().unwrap() = Some(Buffer::with_contents(&params.text_document.text));
         *self.file_uri.lock().unwrap() = Some(uri);
     }
 
