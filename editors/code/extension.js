@@ -6,8 +6,10 @@ let client;
 function activate(context) {
     console.log('Activating h10 language server');
     const command = '/home/omer/rust/h10/target/debug/h10_language_server';
+    const options = { env: { "RUST_BACKTRACE": "1" } };
     const run = {
         command,
+        options,
     };
     const serverOptions = {
         run,
