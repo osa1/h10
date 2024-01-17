@@ -23,8 +23,8 @@ fn range_removal_1() {
 
     buffer.remove(
         &mut removed_text,
-        pos(0, 6), // end of first line
-        pos(1, 6), // end of second line
+        pos(0, 6), // end of the first line
+        pos(1, 7), // end of the second line
     );
 
     assert_eq!(removed_text, "\nline 2\n");
@@ -47,8 +47,8 @@ fn range_removal_2() {
 
     buffer.remove(
         &mut removed_text,
-        pos(0, 6), // end of first line
-        pos(1, 5), // end of second line, excluding newline
+        pos(0, 6), // end of the first line
+        pos(1, 6), // end of the second line, excluding newline
     );
 
     assert_eq!(removed_text, "\nline 2");
@@ -66,7 +66,7 @@ fn range_removal_3() {
 
     let mut removed_text = String::new();
 
-    buffer.remove(&mut removed_text, pos(0, 0), pos(0, 6));
+    buffer.remove(&mut removed_text, pos(0, 0), pos(0, 7));
 
     assert_eq!(removed_text, "line 1\n");
     assert_eq!(buffer.len_lines(), 1);
@@ -81,7 +81,7 @@ fn range_removal_4() {
 
     let mut removed_text = String::new();
 
-    buffer.remove(&mut removed_text, pos(0, 0), pos(0, 5));
+    buffer.remove(&mut removed_text, pos(0, 0), pos(0, 6));
 
     assert_eq!(removed_text, "line 1");
     assert_eq!(buffer.len_lines(), 2);
@@ -99,7 +99,7 @@ fn range_removal_5() {
 
     let mut removed_text = String::new();
 
-    buffer.remove(&mut removed_text, pos(0, 0), pos(2, 6));
+    buffer.remove(&mut removed_text, pos(0, 0), pos(2, 7));
 
     assert_eq!(removed_text, "line 1\n\nline 3\n");
     assert_eq!(buffer.len_lines(), 1);
@@ -115,7 +115,7 @@ fn range_removal_6() {
 
     let mut removed_text = String::new();
 
-    buffer.remove(&mut removed_text, pos(0, 0), pos(1, 0));
+    buffer.remove(&mut removed_text, pos(0, 0), pos(1, 1));
 
     assert_eq!(removed_text, "a\n\n");
     assert_eq!(buffer.len_lines(), 1);
@@ -132,7 +132,7 @@ fn range_removal_7() {
 
     let mut removed_text = String::new();
 
-    buffer.remove(&mut removed_text, pos(0, 0), pos(2, 0));
+    buffer.remove(&mut removed_text, pos(0, 0), pos(2, 1));
 
     assert_eq!(removed_text, "line 1\n\nl");
     assert_eq!(buffer.len_lines(), 2);

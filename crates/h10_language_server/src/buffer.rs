@@ -90,7 +90,7 @@ impl Buffer {
         self.lex_incremental(line, col, lines_inserted);
     }
 
-    /// Remove the range between two cursors (inclusive).
+    /// Remove the range between inclusive `start` and exclusive `end`.
     pub fn remove(&mut self, removed_text: &mut String, start: Position, end: Position) {
         debug_assert!(removed_text.is_empty());
 
@@ -109,6 +109,8 @@ impl Buffer {
         }
     }
 
+    /// Remove between `col_start` (zero-based, inclusive) and `col_end` (zero-based, exclusive) in
+    /// line at index `line` (zero-based).
     fn remove_single_line(
         &mut self,
         removed_text: &mut String,
@@ -121,14 +123,18 @@ impl Buffer {
             "col_start: {col_start}, col_end: {col_end}"
         );
 
-        let line_len_chars = self.line_len_chars(line);
-        debug_assert!(col_end <= line_len_chars);
+        if col_start == col_end {
+            return;
+        }
 
-        let remove_newline = col_end == line_len_chars;
+        let line_len_chars = self.line_len_chars(line);
+        debug_assert!(col_end <= line_len_chars + 1);
+
+        let remove_newline = col_end != 0 && col_end - 1 == line_len_chars;
 
         if remove_newline {
             if col_start != col_end {
-                // col_end is virtual newline.
+                // col_end covers virtual newline, back up one character.
                 self.remove_char_range_in_line(removed_text, line, col_start, col_end - 1);
             }
             self.join(line);
@@ -141,6 +147,8 @@ impl Buffer {
         self.lex_incremental(line, col_start, 1);
     }
 
+    /// Remove text starting from (line_start, col_start) (zero-based, inclusive) to
+    /// (line_end, col_end) (zero-based, exlusive).
     fn remove_multiple_lines(
         &mut self,
         removed_text: &mut String,
@@ -149,16 +157,11 @@ impl Buffer {
         line_end: u32,
         col_end: u32,
     ) {
+        debug_assert_ne!(line_start, line_end);
+
         // Remove deleted part of the first line.
         let first_line_len_chars = self.line_len_chars(line_start);
-        if col_start != first_line_len_chars {
-            self.remove_char_range_in_line(
-                removed_text,
-                line_start,
-                col_start,
-                first_line_len_chars - 1,
-            );
-        }
+        self.remove_char_range_in_line(removed_text, line_start, col_start, first_line_len_chars);
 
         removed_text.push('\n');
 
@@ -173,12 +176,12 @@ impl Buffer {
         // Remove deleted part of the last line. Join the next line if virtual end-of-line is
         // included in selection.
         let last_line_idx = line_end - n_removed_lines;
-        let joined = if col_end == self.line_len_chars(last_line_idx) {
+        let joined = if col_end != 0 && col_end - 1 == self.line_len_chars(last_line_idx) {
             if col_end == 0 {
                 removed_text.push_str(self.remove_line(last_line_idx).text());
             } else {
                 // col_end is virtual newline.
-                self.remove_char_range_in_line(removed_text, last_line_idx, 0, col_end - 1);
+                self.remove_char_range_in_line(removed_text, last_line_idx, 0, col_end);
                 self.join(last_line_idx);
             }
             removed_text.push('\n');
@@ -211,13 +214,14 @@ impl Buffer {
         self.lines[line as usize].append(next.text());
     }
 
-    /// INVARIANT: Line is not empty. Range is inclusive.
+    /// Remove characters in line `line` (zero-based) from `range_start` (zero-based, inclusive) to
+    /// `range_end` (zero-based, exclusive).
     fn remove_char_range_in_line(
         &mut self,
         removed_text: &mut String,
         line: u32,
-        range_start: u32, // inclusive
-        range_end: u32,   // inclusive
+        range_start: u32, // zero-based, inclusive
+        range_end: u32,   // zero-based, exclusive
     ) {
         self.lines[line as usize].remove_char_range(removed_text, range_start, range_end);
     }

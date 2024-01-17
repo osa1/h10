@@ -111,6 +111,8 @@ impl LanguageServer for Backend {
         let mut buffer_lock = self.buffer.lock().unwrap();
         let buffer: &mut Buffer = buffer_lock.as_mut().unwrap();
 
+        // TODO: Are the changes sorted by range? We may need to sort it and apply changes starting
+        // from the later ones in the document to avoid invalidating positions.
         for change in params.content_changes {
             let range = match &change.range {
                 Some(range) => range,
@@ -120,13 +122,8 @@ impl LanguageServer for Backend {
                 }
             };
 
-            let text = change.text;
-
-            // TODO: Buffer end position is inclusive, but lsp end position is exclusive.
-            if range.start != range.end {
-                buffer.remove(&mut Default::default(), range.start, range.end);
-            }
-            buffer.insert(range.start, &text);
+            buffer.remove(&mut Default::default(), range.start, range.end);
+            buffer.insert(range.start, &change.text);
         }
     }
 

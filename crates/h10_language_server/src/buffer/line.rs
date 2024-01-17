@@ -109,31 +109,36 @@ impl Line {
         rest
     }
 
-    /// Returns the range as an inclusive pair. Argument range is inclusive.
+    /// Remove characters from `range_start` (zero-based, inclusive) to `range_end` (zero-based,
+    /// exclusive).
     pub(super) fn remove_char_range(
         &mut self,
         removed_text: &mut String,
         range_start: u32, // inclusive
-        range_end: u32,   // inclusive
+        range_end: u32,   // exclusive
     ) {
-        debug_assert!(!self.text.is_empty());
+        if range_start == range_end {
+            return;
+        }
 
         let start_char_byte_idx = self
             .text
             .char_indices()
             .nth(range_start as usize)
-            .unwrap()
-            .0;
+            .map(|(idx, _)| idx)
+            .unwrap_or_else(|| self.text.len());
 
-        let (end_char_byte_idx, end_char) =
-            self.text.char_indices().nth(range_end as usize).unwrap();
+        let end_char_byte_idx = self
+            .text
+            .char_indices()
+            .nth(range_end as usize)
+            .map(|(idx, _)| idx)
+            .unwrap_or_else(|| self.text.len());
 
-        let byte_range_end = end_char_byte_idx + end_char.len_utf8();
-
-        removed_text.push_str(&self.text[start_char_byte_idx..byte_range_end]);
+        removed_text.push_str(&self.text[start_char_byte_idx..end_char_byte_idx]);
 
         self.text
-            .replace_range(start_char_byte_idx..byte_range_end, "");
+            .replace_range(start_char_byte_idx..end_char_byte_idx, "");
 
         let (n_chars, single_byte) = len_chars(&self.text);
         self.len_chars = n_chars;
