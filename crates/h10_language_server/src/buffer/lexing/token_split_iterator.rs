@@ -152,6 +152,8 @@ fn h10_token_kind(token: &H10Token) -> TokenKind {
     match token {
         H10Token::Whitespace => TokenKind::Whitespace,
 
+        H10Token::Comment { documentation: _ } => TokenKind::Comment,
+
         H10Token::QVarId | H10Token::VarId | H10Token::VarSym => TokenKind::Variable,
 
         H10Token::QConId | H10Token::ConSym | H10Token::ConId => TokenKind::Type,

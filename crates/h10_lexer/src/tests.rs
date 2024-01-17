@@ -26,3 +26,20 @@ fn lex_id_sym() {
         ]
     );
 }
+
+#[test]
+fn comments() {
+    let toks = lex(r#"
+-- test
+--| test
+{- test -}
+{-| test -}
+"#);
+    let doc = Token::Comment {
+        documentation: true,
+    };
+    let not_doc = Token::Comment {
+        documentation: false,
+    };
+    assert_eq!(toks, vec![not_doc, doc, not_doc, doc]);
+}

@@ -8,6 +8,7 @@ use token::{Literal, ReservedId, ReservedOp, Special, Token};
 #[derive(Debug, Default, Clone)]
 pub struct LexerState {
     comment_depth: u32,
+    doc_comment: bool,
 }
 
 lexgen::lexer! {
@@ -65,10 +66,17 @@ lexgen::lexer! {
         '"' (_ # '"')* '"' = Token::Literal(Literal::String),
 
         // Comments
-        "--" (_ # '\n')* > '\n',
+        "--|" (_ # '\n')* > '\n' = Token::Comment { documentation: true },
+        "--" (_ # '\n')* > '\n' = Token::Comment { documentation: false },
 
+        "{-|" => |lexer| {
+            lexer.state().comment_depth = 1;
+            lexer.state().doc_comment = true;
+            lexer.switch(LexerRule::MultiLineComment)
+        },
         "{-" => |lexer| {
             lexer.state().comment_depth = 1;
+            lexer.state().doc_comment = false;
             lexer.switch(LexerRule::MultiLineComment)
         },
 
@@ -133,7 +141,8 @@ lexgen::lexer! {
         "-}" => |lexer| {
             lexer.state().comment_depth -= 1;
             if lexer.state().comment_depth == 0 {
-                lexer.switch(LexerRule::Init)
+                let documentation = lexer.state().doc_comment;
+                lexer.switch_and_return(LexerRule::Init, Token::Comment { documentation })
             } else {
                 lexer.continue_()
             }

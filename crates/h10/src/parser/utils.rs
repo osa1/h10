@@ -117,7 +117,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     }
 
     pub(super) fn skip_all(&mut self, token: Token) {
-        while self.skip_token(token.clone()) {}
+        while self.skip_token(token) {}
     }
 
     pub(super) fn expect_token(&mut self, token: Token) -> ParserResult<(Loc, Loc)> {

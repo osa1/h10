@@ -33,7 +33,9 @@ impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I>
 
     fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
         match <Self as Iterator>::next(self) {
-            Some(Ok((_, Token::Whitespace, _))) => <Self as LayoutLexer_>::next(self),
+            Some(Ok((_, Token::Whitespace | Token::Comment { .. }, _))) => {
+                <Self as LayoutLexer_>::next(self)
+            }
             other => adjust_infallible(other),
         }
     }
@@ -141,7 +143,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
     /// > where n is the indentation of the lexeme.
     fn initialize(&mut self) {
         match self.lexer.peek() {
-            Some(Ok((_, Token::Whitespace, _))) => {
+            Some(Ok((_, Token::Whitespace | Token::Comment { .. }, _))) => {
                 self.lexer.next(); // skip whitepace
                 self.initialize();
             }
@@ -173,7 +175,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
 
         let (start, token, end) = match self.lexer.peek() {
             Some(Ok(tok)) => {
-                if matches!(tok.1, Token::Whitespace) {
+                if matches!(tok.1, Token::Whitespace | Token::Comment { .. }) {
                     self.lexer.next(); // skip whitespace
                     return self.next();
                 }
@@ -316,7 +318,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
         }
 
         self.last_token_line = Some(start.line);
-        let ret = (*start, token.clone(), *end);
+        let ret = (*start, *token, *end);
         self.lexer.next(); // consume token
 
         self.do_layout = matches!(

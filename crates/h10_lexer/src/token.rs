@@ -1,6 +1,10 @@
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Token {
     Whitespace,
+
+    Comment {
+        documentation: bool,
+    },
 
     /// Variable identifier, type (`tyvar`) or term (`varid`).
     VarId,
@@ -36,7 +40,9 @@ pub enum Token {
     ReservedId(ReservedId),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+const _: () = assert!(std::mem::size_of::<Token>() == 2);
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Literal {
     Int,
     Float,

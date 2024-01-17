@@ -515,7 +515,7 @@ impl Renamer {
                 ast::Pat_::As(self.rename_var(var), Box::new(self.rename_pat(pat)))
             }
 
-            ast::Pat_::Lit(lit) => ast::Pat_::Lit(lit.clone()),
+            ast::Pat_::Lit(lit) => ast::Pat_::Lit(*lit),
 
             ast::Pat_::Wildcard => ast::Pat_::Wildcard,
 
@@ -609,7 +609,7 @@ impl Renamer {
 
                 ast::Exp_::Con(var) => ast::Exp_::Con(self.rename_var(var)),
 
-                ast::Exp_::Lit(lit) => ast::Exp_::Lit(lit.clone()),
+                ast::Exp_::Lit(lit) => ast::Exp_::Lit(*lit),
 
                 ast::Exp_::Lam(pats, exp) => {
                     self.new_value_scope();
