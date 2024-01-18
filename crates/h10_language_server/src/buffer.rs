@@ -47,7 +47,16 @@ impl Buffer {
 // -----------------------------------------------------------------------------
 
 impl Buffer {
-    pub fn insert(&mut self, pos: Position, str: &str) {
+    /// Implements updating the buffer for a LSP "did change" event: remove text from `range_start`
+    /// (inclusive) to `range_end` (exclusive), insert `insert` at `range_start`.
+    pub fn update(&mut self, range_start: Position, range_end: Position, insert: &str) {
+        self.remove(&mut Default::default(), range_start, range_end);
+        let lines_inserted = self.insert(range_start, insert);
+        self.lex_incremental(range_start.line, range_start.character, lines_inserted);
+    }
+
+    /// Insert `str` at `pos`, return number of lines inserted.
+    fn insert(&mut self, pos: Position, str: &str) -> u32 {
         let line = pos.line;
         let col = pos.character;
 
@@ -86,12 +95,11 @@ impl Buffer {
 
         self.lines[(line + lines_inserted) as usize].append(&rest);
 
-        // Update tokens.
-        self.lex_incremental(line, col, lines_inserted);
+        lines_inserted
     }
 
     /// Remove the range between inclusive `start` and exclusive `end`.
-    pub fn remove(&mut self, removed_text: &mut String, start: Position, end: Position) {
+    fn remove(&mut self, removed_text: &mut String, start: Position, end: Position) {
         debug_assert!(removed_text.is_empty());
 
         debug_assert!(start <= end, "start={:?}, end={:?}", start, end);
@@ -142,9 +150,6 @@ impl Buffer {
         } else {
             self.remove_char_range_in_line(removed_text, line, col_start, col_end);
         }
-
-        // Update tokens.
-        self.lex_incremental(line, col_start, 1);
     }
 
     /// Remove text starting from (line_start, col_start) (zero-based, inclusive) to
@@ -195,9 +200,6 @@ impl Buffer {
         let first_line_chars = self.line_len_chars(line_start);
         let last_line = self.remove_line(last_line_idx);
         self.lines[line_start as usize].insert_str(col_start, last_line.text());
-
-        // Update tokens.
-        self.lex_incremental(line_start, col_start, 1);
     }
 
     fn remove_line(&mut self, line: u32) -> Line {

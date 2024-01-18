@@ -122,8 +122,7 @@ impl LanguageServer for Backend {
                 }
             };
 
-            buffer.remove(&mut Default::default(), range.start, range.end);
-            buffer.insert(range.start, &change.text);
+            buffer.update(range.start, range.end, &change.text);
         }
     }
 
