@@ -1,6 +1,5 @@
 use crate::token::TokenKind;
 
-// TODO: Add a field for the indentation, drop leading whitespace from `text`.
 #[derive(Debug)]
 pub struct Line {
     /// The line contents. Does not include the newline at the end.
