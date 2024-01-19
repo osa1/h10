@@ -3,7 +3,6 @@
 pub mod alloc;
 mod ast;
 mod ast_to_ty;
-mod base64;
 mod bind_groups;
 mod class_collector;
 mod class_env;
@@ -13,7 +12,6 @@ mod id;
 mod kind_inference;
 mod layout_lexer;
 mod parser;
-mod rc_id;
 mod renaming;
 mod scc;
 mod type_inference;

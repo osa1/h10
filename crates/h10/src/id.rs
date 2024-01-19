@@ -1,4 +1,4 @@
-use crate::rc_id::RcId;
+use rc_id::RcId;
 
 use std::fmt;
 
