@@ -39,6 +39,18 @@ impl TokenNodeRef {
             node: RcId::new(TokenNode::new(token, span)),
         }
     }
+
+    pub fn token(&self) -> Token {
+        self.node.token
+    }
+
+    pub fn span(&self) -> Span {
+        self.node.span.borrow().clone()
+    }
+
+    pub fn set_next(&self, next: TokenNodeRef) {
+        *self.node.next.borrow_mut() = Some(next);
+    }
 }
 
 impl TokenNode {
