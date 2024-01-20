@@ -42,7 +42,8 @@ fn collect_implicitly_kinded_types(
             ast::TopDeclKind_::Default(_)
             | ast::TopDeclKind_::Instance(_)
             | ast::TopDeclKind_::KindSig(_)
-            | ast::TopDeclKind_::Value(_) => {
+            | ast::TopDeclKind_::Value(_)
+            | ast::TopDeclKind_::Unparsed => {
                 continue;
             }
         };
@@ -95,7 +96,8 @@ fn analyze_decl(
         ast::TopDeclKind_::Default(_)
         | ast::TopDeclKind_::Instance(_)
         | ast::TopDeclKind_::KindSig(_)
-        | ast::TopDeclKind_::Value(_) => {}
+        | ast::TopDeclKind_::Value(_)
+        | ast::TopDeclKind_::Unparsed => {}
     }
 }
 

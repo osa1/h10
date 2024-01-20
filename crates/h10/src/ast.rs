@@ -241,6 +241,10 @@ pub enum TopDeclKind_<Id> {
     Class(ClassDecl<Id>),
     Instance(InstanceDecl<Id>),
     Default(DefaultDecl<Id>),
+
+    /// A top-level declaration that's either not parsed yet, or was modified and needs re-parsing.
+    #[allow(unused)]
+    Unparsed,
 }
 
 pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;

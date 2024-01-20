@@ -9,6 +9,7 @@ mod class_env;
 mod collections;
 mod dependency_analysis;
 mod id;
+mod indentation_groups;
 mod kind_inference;
 mod layout_lexer;
 mod parser;
@@ -30,6 +31,8 @@ use type_inference::ti_module;
 use typing::TyRef;
 
 use wasm_bindgen::prelude::wasm_bindgen;
+
+pub use indentation_groups::parse_indentation_groups;
 
 #[global_allocator]
 static ALLOC: alloc::AllocStats = alloc::AllocStats;

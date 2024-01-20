@@ -127,8 +127,9 @@ impl Renamer {
             ast::TopDeclKind_::Data(decl) => self.bind_data_decl(decl),
             ast::TopDeclKind_::Newtype(decl) => self.bind_newtype_decl(decl),
             ast::TopDeclKind_::Class(decl) => self.bind_class_decl(decl),
-            ast::TopDeclKind_::Instance(_) => {}
-            ast::TopDeclKind_::Default(_) => {}
+            ast::TopDeclKind_::Instance(_)
+            | ast::TopDeclKind_::Default(_)
+            | ast::TopDeclKind_::Unparsed => {}
         }
     }
 
@@ -260,6 +261,7 @@ impl Renamer {
             ast::TopDeclKind_::Default(decl) => {
                 ast::TopDeclKind_::Default(self.rename_default_decl(decl))
             }
+            ast::TopDeclKind_::Unparsed => ast::TopDeclKind_::Unparsed,
         })
     }
 
