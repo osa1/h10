@@ -14,6 +14,7 @@ mod layout_lexer;
 mod parser;
 mod renaming;
 mod scc;
+mod token_node;
 mod type_inference;
 mod type_scheme;
 mod typing;
@@ -34,7 +35,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 static ALLOC: alloc::AllocStats = alloc::AllocStats;
 
 pub fn type_check_module(input: &str) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
-    let ast: Vec<ast::ParsedDecl> = parse_module(input).unwrap();
+    let ast: Vec<ast::ParsedTopDecl> = parse_module(input).unwrap();
     let renamed: Vec<ast::RenamedDecl> = rename_module(&ast);
     ti_module(&renamed)
 }

@@ -12,7 +12,7 @@ pub type ParsedAlt = Alt<String>;
 pub type ParsedClassDecl = ClassDecl<String>;
 pub type ParsedCon = Con<String>;
 pub type ParsedDataDecl = DataDecl<String>;
-pub type ParsedDecl = Decl<String>;
+pub type ParsedTopDecl = TopDecl<String>;
 pub type ParsedDefaultDecl = DefaultDecl<String>;
 pub type ParsedExp = Exp<String>;
 pub type ParsedFieldDecl = FieldDecl<String>;
@@ -39,7 +39,7 @@ pub type RenamedAlt = Alt<Id>;
 pub type RenamedClassDecl = ClassDecl<Id>;
 pub type RenamedCon = Con<Id>;
 pub type RenamedDataDecl = DataDecl<Id>;
-pub type RenamedDecl = Decl<Id>;
+pub type RenamedDecl = TopDecl<Id>;
 pub type RenamedDefaultDecl = DefaultDecl<Id>;
 pub type RenamedExp = Exp<Id>;
 pub type RenamedFieldDecl = FieldDecl<Id>;
@@ -121,55 +121,55 @@ impl fmt::Display for Span {
     }
 }
 
-pub type Decl<Id> = AstNode<Decl_<Id>>;
+pub type TopDecl<Id> = AstNode<TopDeclKind<Id>>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> Decl<Id> {
+impl<Id: fmt::Debug> TopDecl<Id> {
     pub fn class(&self) -> &ClassDecl<Id> {
         match &self.node {
-            Decl_::Class(class_decl) => class_decl,
-            other => panic!("Not class decl: {:?}", other),
+            TopDeclKind::Class(class_decl) => class_decl,
+            other => panic!("Not class TopDecl: {:?}", other),
         }
     }
 
     pub fn instance(&self) -> &InstanceDecl<Id> {
         match &self.node {
-            Decl_::Instance(instance_decl) => instance_decl,
-            other => panic!("Not instance decl: {:?}", other),
+            TopDeclKind::Instance(instance_decl) => instance_decl,
+            other => panic!("Not instance TopDecl: {:?}", other),
         }
     }
 
     pub fn value(&self) -> &ValueDecl<Id> {
         match &self.node {
-            Decl_::Value(value_decl) => value_decl,
-            other => panic!("Not value decl: {:?}", other),
+            TopDeclKind::Value(value_decl) => value_decl,
+            other => panic!("Not value TopDecl: {:?}", other),
         }
     }
 
     pub fn data(&self) -> &DataDecl<Id> {
         match &self.node {
-            Decl_::Data(data_decl) => data_decl,
-            other => panic!("Not type decl: {:?}", other),
+            TopDeclKind::Data(data_decl) => data_decl,
+            other => panic!("Not type TopDecl: {:?}", other),
         }
     }
 
     pub fn kind_sig(&self) -> &KindSigDecl<Id> {
         match &self.node {
-            Decl_::KindSig(kind_sig) => kind_sig,
+            TopDeclKind::KindSig(kind_sig) => kind_sig,
             other => panic!("Not kind signature: {:?}", other),
         }
     }
 
     pub fn type_syn(&self) -> &TypeDecl<Id> {
         match &self.node {
-            Decl_::Type(type_syn) => type_syn,
+            TopDeclKind::Type(type_syn) => type_syn,
             other => panic!("Not type synonym: {:?}", other),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum Decl_<Id> {
+pub enum TopDeclKind<Id> {
     Value(ValueDecl<Id>),
     Type(TypeDecl<Id>),
     KindSig(KindSigDecl<Id>),

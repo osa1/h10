@@ -10,7 +10,7 @@ use std::hash::Hash;
 /// Note: for now we don't allow imports and rename a whole program as just one module. The only
 /// built-ins the renamed module gets is the Haskell 2010 built-ins that can't be implemented in
 /// Haskell 2010, such as the list type, and `Int` and `Float` types.
-pub fn rename_module(module: &[ast::ParsedDecl]) -> Vec<ast::RenamedDecl> {
+pub fn rename_module(module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedDecl> {
     let mut renamer = Renamer::new();
     renamer.rename_module(module)
 }
@@ -72,7 +72,7 @@ impl Renamer {
         self.values.bind(ty.to_owned(), id);
     }
 
-    pub(crate) fn rename_module(&mut self, module: &[ast::ParsedDecl]) -> Vec<ast::RenamedDecl> {
+    pub(crate) fn rename_module(&mut self, module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedDecl> {
         // TODO: Bind imported stuff here
         for decl in module {
             self.bind_top_decl(decl);
@@ -116,16 +116,16 @@ impl Renamer {
     }
 
     /// Bind names defined in top-level declarations.
-    fn bind_top_decl(&mut self, decl: &ast::ParsedDecl) {
+    fn bind_top_decl(&mut self, decl: &ast::ParsedTopDecl) {
         match &decl.node {
-            ast::Decl_::Value(decl) => self.bind_value_decl(decl),
-            ast::Decl_::Type(decl) => self.bind_type_decl(decl),
-            ast::Decl_::KindSig(decl) => self.bind_kind_sig_decl(decl),
-            ast::Decl_::Data(decl) => self.bind_data_decl(decl),
-            ast::Decl_::Newtype(decl) => self.bind_newtype_decl(decl),
-            ast::Decl_::Class(decl) => self.bind_class_decl(decl),
-            ast::Decl_::Instance(_) => {}
-            ast::Decl_::Default(_) => {}
+            ast::TopDeclKind::Value(decl) => self.bind_value_decl(decl),
+            ast::TopDeclKind::Type(decl) => self.bind_type_decl(decl),
+            ast::TopDeclKind::KindSig(decl) => self.bind_kind_sig_decl(decl),
+            ast::TopDeclKind::Data(decl) => self.bind_data_decl(decl),
+            ast::TopDeclKind::Newtype(decl) => self.bind_newtype_decl(decl),
+            ast::TopDeclKind::Class(decl) => self.bind_class_decl(decl),
+            ast::TopDeclKind::Instance(_) => {}
+            ast::TopDeclKind::Default(_) => {}
         }
     }
 
@@ -235,16 +235,24 @@ impl Renamer {
         }
     }
 
-    fn rename_decl(&mut self, decl: &ast::ParsedDecl) -> ast::RenamedDecl {
+    fn rename_decl(&mut self, decl: &ast::ParsedTopDecl) -> ast::RenamedDecl {
         decl.map(|decl| match decl {
-            ast::Decl_::Value(decl) => ast::Decl_::Value(self.rename_value_decl(decl)),
-            ast::Decl_::Type(decl) => ast::Decl_::Type(self.rename_type_decl(decl)),
-            ast::Decl_::KindSig(decl) => ast::Decl_::KindSig(self.rename_kind_sig_decl(decl)),
-            ast::Decl_::Data(decl) => ast::Decl_::Data(self.rename_data_decl(decl)),
-            ast::Decl_::Newtype(decl) => ast::Decl_::Newtype(self.rename_newtype_decl(decl)),
-            ast::Decl_::Class(decl) => ast::Decl_::Class(self.rename_class_decl(decl)),
-            ast::Decl_::Instance(decl) => ast::Decl_::Instance(self.rename_instance_decl(decl)),
-            ast::Decl_::Default(decl) => ast::Decl_::Default(self.rename_default_decl(decl)),
+            ast::TopDeclKind::Value(decl) => ast::TopDeclKind::Value(self.rename_value_decl(decl)),
+            ast::TopDeclKind::Type(decl) => ast::TopDeclKind::Type(self.rename_type_decl(decl)),
+            ast::TopDeclKind::KindSig(decl) => {
+                ast::TopDeclKind::KindSig(self.rename_kind_sig_decl(decl))
+            }
+            ast::TopDeclKind::Data(decl) => ast::TopDeclKind::Data(self.rename_data_decl(decl)),
+            ast::TopDeclKind::Newtype(decl) => {
+                ast::TopDeclKind::Newtype(self.rename_newtype_decl(decl))
+            }
+            ast::TopDeclKind::Class(decl) => ast::TopDeclKind::Class(self.rename_class_decl(decl)),
+            ast::TopDeclKind::Instance(decl) => {
+                ast::TopDeclKind::Instance(self.rename_instance_decl(decl))
+            }
+            ast::TopDeclKind::Default(decl) => {
+                ast::TopDeclKind::Default(self.rename_default_decl(decl))
+            }
         })
     }
 

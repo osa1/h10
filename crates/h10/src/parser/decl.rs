@@ -4,6 +4,7 @@ use crate::ast::*;
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::{Error, ErrorKind, GrammarItem};
 use crate::parser::{Parser, ParserResult};
+use crate::token_node::TokenNodeRef;
 use h10_lexer::token::{Literal, ReservedId, ReservedOp, Special, Token};
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
@@ -74,7 +75,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     Note: Parses until a `}`.
     */
-    pub(super) fn topdecls(&mut self) -> ParserResult<Vec<ParsedDecl>> {
+    pub(super) fn topdecls(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
         self.in_context(GrammarItem::TopDecls, |self_| {
             let mut decls = vec![];
             while self_.skip_token(Token::Special(Special::Semi)) {}
@@ -96,42 +97,42 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             | foreign fdecl
             | decl
     */
-    fn topdecl(&mut self) -> ParserResult<ParsedDecl> {
+    fn topdecl(&mut self) -> ParserResult<ParsedTopDecl> {
         let (_, t, _) = self.peek()?;
         match t {
-            Token::ReservedId(ReservedId::Kind) => self
-                .kind_sig_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::KindSig(node))),
+            Token::ReservedId(ReservedId::Kind) => self.kind_sig_decl().map(|node| {
+                self.spanned(node.span.start, node.span.end, TopDeclKind::KindSig(node))
+            }),
 
             Token::ReservedId(ReservedId::Type) => self
                 .type_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Type(node))),
+                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Type(node))),
 
             Token::ReservedId(ReservedId::Data) => self
                 .data_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Data(node))),
+                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Data(node))),
 
-            Token::ReservedId(ReservedId::Newtype) => self
-                .newtype_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Newtype(node))),
+            Token::ReservedId(ReservedId::Newtype) => self.newtype_decl().map(|node| {
+                self.spanned(node.span.start, node.span.end, TopDeclKind::Newtype(node))
+            }),
 
             Token::ReservedId(ReservedId::Class) => self
                 .class_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Class(node))),
+                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Class(node))),
 
-            Token::ReservedId(ReservedId::Instance) => self
-                .instance_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Instance(node))),
+            Token::ReservedId(ReservedId::Instance) => self.instance_decl().map(|node| {
+                self.spanned(node.span.start, node.span.end, TopDeclKind::Instance(node))
+            }),
 
-            Token::ReservedId(ReservedId::Default) => self
-                .default_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Default(node))),
+            Token::ReservedId(ReservedId::Default) => self.default_decl().map(|node| {
+                self.spanned(node.span.start, node.span.end, TopDeclKind::Default(node))
+            }),
 
             Token::ReservedId(ReservedId::Foreign) => unimplemented!("FFI not supported"),
 
             _ => self
                 .value_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, Decl_::Value(node))),
+                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Value(node))),
         }
     }
 
@@ -144,7 +145,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             if self.skip_token(Token::Special(Special::Semi)) {
             } else if matches!(self.peek(), Ok((_, Token::Special(Special::RBrace), _))) {
                 break;
-            } else if self.lexer.in_explicit_layout() {
+            } else if self.in_explicit_layout() {
                 decls.push(self.value_decl()?);
             } else {
                 let mut parser = self.clone();
@@ -153,7 +154,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                         decls.push(decl);
                     }
                     Err(err) => {
-                        if parser.lexer.pop_layout() {
+                        if parser.pop_layout() {
                             *self = parser;
                             return Ok(decls);
                         } else {

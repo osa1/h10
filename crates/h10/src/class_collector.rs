@@ -14,7 +14,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
 
     // Collect classes.
     for decl in module {
-        if let ast::Decl_::Class(ast::AstNode {
+        if let ast::TopDeclKind::Class(ast::AstNode {
             node:
                 ast::ClassDecl_ {
                     context: _, // handled in the next pass
@@ -107,7 +107,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
 
     // Add superclasses.
     for decl in module {
-        if let ast::Decl_::Class(ast::AstNode {
+        if let ast::TopDeclKind::Class(ast::AstNode {
             node:
                 ast::ClassDecl_ {
                     context,
@@ -138,7 +138,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
 
     // Add instances.
     for decl in module {
-        if let ast::Decl_::Instance(ast::AstNode {
+        if let ast::TopDeclKind::Instance(ast::AstNode {
             node:
                 ast::InstanceDecl_ {
                     context,

@@ -143,7 +143,7 @@ where
 fn extract_top_bind_lhs_rhs(
     decl: &ast::RenamedDecl,
 ) -> Option<(&ast::RenamedLhs, &ast::RenamedRhs)> {
-    if let ast::Decl_::Value(value_decl) = &decl.node {
+    if let ast::TopDeclKind::Value(value_decl) = &decl.node {
         extract_bind_lhs_rhs(value_decl)
     } else {
         None

@@ -21,7 +21,7 @@ use rpds::List;
 pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module. Handles layout.
-pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedDecl>> {
+pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
     Parser::new(module_str, "<input>".into(), LayoutLexer::new(module_str)).module()
 }
 
@@ -54,6 +54,7 @@ pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
 struct Parser<'input, L: LayoutLexer_> {
     source: Rc<str>,
 
+    /// The lexer. Do not use this directly, use the `Self` `next`, `peek` etc. methods instead.
     lexer: L,
 
     /// Next peeked token. We can't use std `Peekable` as we need to be able to pop current layout
@@ -84,7 +85,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     module → module modid [exports] where body
            | body
     */
-    fn module(&mut self) -> ParserResult<Vec<ParsedDecl>> {
+    fn module(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
         self.in_context(GrammarItem::Module, |self_| {
             if self_.skip_token(Token::ReservedId(ReservedId::Module)) {
                 self_.expect_token_pred(|token| matches!(token, Token::ConId | Token::QConId))?;
@@ -131,7 +132,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
          | { impdecls }
          | { topdecls }
     */
-    fn body(&mut self) -> ParserResult<Vec<ParsedDecl>> {
+    fn body(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
         // TODO: Currently only parsing topdecls
         self.expect_token(Token::Special(Special::LBrace))?;
         let decls = self.topdecls()?;
@@ -248,7 +249,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                     *self = parser;
                 }
                 Err(err) => {
-                    if parser.lexer.pop_layout() {
+                    if parser.pop_layout() {
                         println!("pop_layout success");
                         *self = parser;
                         return Ok(stmts);

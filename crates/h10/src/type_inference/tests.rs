@@ -333,7 +333,7 @@ fn top_binder_ids(module: &[ast::RenamedDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in module {
         match &decl.node {
-            ast::Decl_::Value(ast::AstNode {
+            ast::TopDeclKind::Value(ast::AstNode {
                 node: ast::ValueDecl_::Value { lhs, .. },
                 ..
             }) => match &lhs.node {
@@ -345,7 +345,7 @@ fn top_binder_ids(module: &[ast::RenamedDecl]) -> Set<Id> {
                 }
             },
 
-            ast::Decl_::Class(ast::AstNode {
+            ast::TopDeclKind::Class(ast::AstNode {
                 node: ast::ClassDecl_ { decls, .. },
                 ..
             }) => {

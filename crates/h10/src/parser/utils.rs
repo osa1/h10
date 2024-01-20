@@ -7,6 +7,14 @@ use h10_lexer::token::Token;
 use lexgen_util::Loc;
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
+    pub(super) fn in_explicit_layout(&self) -> bool {
+        self.lexer.in_explicit_layout()
+    }
+
+    pub(super) fn pop_layout(&mut self) -> bool {
+        self.lexer.pop_layout()
+    }
+
     /// Get the next token without incrementing the lexer. This handles indentation/layout and
     /// returns virtual semicolons and braces when necessary.
     pub(super) fn peek(&mut self) -> ParserResult<(Loc, Token, Loc)> {
