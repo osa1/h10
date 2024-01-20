@@ -34,10 +34,13 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[global_allocator]
 static ALLOC: alloc::AllocStats = alloc::AllocStats;
 
-pub fn type_check_module(input: &str) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
+pub fn type_check_module(
+    input: &str,
+) -> (Vec<ast::ParsedTopDecl>, Map<Id, TyRef>, TrieMap<Id, Scheme>) {
     let ast: Vec<ast::ParsedTopDecl> = parse_module(input).unwrap();
-    let renamed: Vec<ast::RenamedDecl> = rename_module(&ast);
-    ti_module(&renamed)
+    let renamed: Vec<ast::RenamedTopDecl> = rename_module(&ast);
+    let (kinds, types) = ti_module(&renamed);
+    (ast, kinds, types)
 }
 
 #[wasm_bindgen]
@@ -68,7 +71,7 @@ pub fn type_check(input: &str) {
         input.lines().count()
     ));
 
-    let (ty_kinds, bind_tys) = type_check_module(input);
+    let (_, ty_kinds, bind_tys) = type_check_module(input);
 
     for (ty, kind) in ty_kinds {
         add_compiler_output(&format!("{} : {}", ty, kind));

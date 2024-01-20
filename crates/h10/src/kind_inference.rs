@@ -74,7 +74,7 @@ use crate::unification::unify;
 use std::ops::Deref;
 
 /// Infers kinds of type constructors.
-pub(crate) fn infer_type_kinds(decls: &[ast::RenamedDecl]) -> Map<Id, TyRef> {
+pub(crate) fn infer_type_kinds(decls: &[ast::RenamedTopDecl]) -> Map<Id, TyRef> {
     let types: Vec<TypeDecl> = collect_types(decls);
 
     // `ty_arg_kinds[i]` maps type arguments of `types[i]` to their kinds.
@@ -313,7 +313,7 @@ struct TypeDecl {
     stars: Vec<ast::RenamedType>,
 }
 
-fn collect_types(decls: &[ast::RenamedDecl]) -> Vec<TypeDecl> {
+fn collect_types(decls: &[ast::RenamedTopDecl]) -> Vec<TypeDecl> {
     fn data_to_type_decl(decl: &ast::RenamedDataDecl) -> TypeDecl {
         TypeDecl {
             con: decl.node.ty_con.clone(),
@@ -412,11 +412,11 @@ fn collect_types(decls: &[ast::RenamedDecl]) -> Vec<TypeDecl> {
 
     decls
         .iter()
-        .filter_map(|decl| match &decl.node {
-            ast::TopDeclKind::Data(d) => Some(data_to_type_decl(d)),
-            ast::TopDeclKind::Newtype(d) => Some(newtype_to_type_decl(d)),
-            ast::TopDeclKind::Class(d) => Some(typeclass_to_type_decl(d)),
-            ast::TopDeclKind::Type(d) => Some(type_to_type_decl(d)),
+        .filter_map(|decl| match &decl.kind {
+            ast::TopDeclKind_::Data(d) => Some(data_to_type_decl(d)),
+            ast::TopDeclKind_::Newtype(d) => Some(newtype_to_type_decl(d)),
+            ast::TopDeclKind_::Class(d) => Some(typeclass_to_type_decl(d)),
+            ast::TopDeclKind_::Type(d) => Some(type_to_type_decl(d)),
             _ => None,
         })
         .collect()

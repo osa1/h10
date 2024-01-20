@@ -3,7 +3,23 @@ use h10::type_check_module;
 use h10::utils::comma_sep;
 
 fn main() {
-    let (ty_kinds, bind_tys) = type_check_module(&std::fs::read_to_string("Prelude.hs").unwrap());
+    let (_decls, ty_kinds, bind_tys) =
+        type_check_module(&std::fs::read_to_string("Prelude.hs").unwrap());
+
+    /*
+    for (decl_idx, decl) in decls.iter().enumerate() {
+        let tokens = decl.tokens();
+        println!(
+            "Decl {} tokens: {}",
+            decl_idx,
+            tokens
+                .iter()
+                .map(|t| format!("{:?}", t))
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+    }
+    */
 
     for (ty, kind) in ty_kinds {
         println!("{} : {}", ty, kind);

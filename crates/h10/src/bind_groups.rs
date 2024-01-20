@@ -67,7 +67,7 @@ pub(crate) struct FunDef<'a> {
     pub(crate) rhs: &'a ast::RenamedRhs,
 }
 
-pub(crate) fn group_top_binds(decls: &[ast::RenamedDecl]) -> Vec<BindingGroup> {
+pub(crate) fn group_top_binds(decls: &[ast::RenamedTopDecl]) -> Vec<BindingGroup> {
     group_binds_(decls, extract_top_bind_lhs_rhs)
 }
 
@@ -141,9 +141,9 @@ where
 }
 
 fn extract_top_bind_lhs_rhs(
-    decl: &ast::RenamedDecl,
+    decl: &ast::RenamedTopDecl,
 ) -> Option<(&ast::RenamedLhs, &ast::RenamedRhs)> {
-    if let ast::TopDeclKind::Value(value_decl) = &decl.node {
+    if let ast::TopDeclKind_::Value(value_decl) = &decl.kind {
         extract_bind_lhs_rhs(value_decl)
     } else {
         None

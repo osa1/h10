@@ -9,12 +9,12 @@ use crate::typing::TyRef;
 
 /// Creates the class environment for a module. The returned environment is not type checked, use
 /// `TI::ti_module` to type check it.
-pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRef>) -> ClassEnv {
+pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, TyRef>) -> ClassEnv {
     let mut class_env: Map<Id, Class> = Default::default();
 
     // Collect classes.
     for decl in module {
-        if let ast::TopDeclKind::Class(ast::AstNode {
+        if let ast::TopDeclKind_::Class(ast::AstNode {
             node:
                 ast::ClassDecl_ {
                     context: _, // handled in the next pass
@@ -23,7 +23,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
                     decls,
                 },
             span,
-        }) = &decl.node
+        }) = &decl.kind
         {
             let class_kind: &TyRef = kinds.get(ty_con).unwrap();
 
@@ -107,7 +107,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
 
     // Add superclasses.
     for decl in module {
-        if let ast::TopDeclKind::Class(ast::AstNode {
+        if let ast::TopDeclKind_::Class(ast::AstNode {
             node:
                 ast::ClassDecl_ {
                     context,
@@ -116,7 +116,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
                     decls: _,
                 },
             ..
-        }) = &decl.node
+        }) = &decl.kind
         {
             for pred in context {
                 // pred must be `S t` where `t` is ty_arg
@@ -138,7 +138,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
 
     // Add instances.
     for decl in module {
-        if let ast::TopDeclKind::Instance(ast::AstNode {
+        if let ast::TopDeclKind_::Instance(ast::AstNode {
             node:
                 ast::InstanceDecl_ {
                     context,
@@ -147,7 +147,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedDecl], kinds: &Map<Id, TyRe
                     decls: _,
                 },
             ..
-        }) = &decl.node
+        }) = &decl.kind
         {
             // Argument kiund of `ty_con`, expected kind of `ty`.
             let ty_con_arg_kind: TyRef = kinds.get(ty_con).unwrap().get_kind_arrow_star_kind();

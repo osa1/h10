@@ -77,10 +77,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     pub(super) fn topdecls(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
         self.in_context(GrammarItem::TopDecls, |self_| {
-            let mut decls = vec![];
+            let mut decls: Vec<ParsedTopDecl> = vec![];
             while self_.skip_token(Token::Special(Special::Semi)) {}
             while !matches!(self_.peek(), Ok((_, Token::Special(Special::RBrace), _))) {
-                decls.push(self_.topdecl()?);
+                let decl: ParsedTopDecl = self_.topdecl()?;
+                decls.push(decl);
                 while self_.skip_token(Token::Special(Special::Semi)) {}
             }
             Ok(decls)
@@ -98,42 +99,38 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             | decl
     */
     fn topdecl(&mut self) -> ParserResult<ParsedTopDecl> {
-        let (_, t, _) = self.peek()?;
-        match t {
-            Token::ReservedId(ReservedId::Kind) => self.kind_sig_decl().map(|node| {
-                self.spanned(node.span.start, node.span.end, TopDeclKind::KindSig(node))
-            }),
+        let t = self.peek_()?;
+        let top_decl_kind: ParsedTopDeclKind = match t.token() {
+            Token::ReservedId(ReservedId::Kind) => self.kind_sig_decl().map(TopDeclKind_::KindSig),
 
-            Token::ReservedId(ReservedId::Type) => self
-                .type_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Type(node))),
+            Token::ReservedId(ReservedId::Type) => self.type_decl().map(TopDeclKind_::Type),
 
-            Token::ReservedId(ReservedId::Data) => self
-                .data_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Data(node))),
+            Token::ReservedId(ReservedId::Data) => self.data_decl().map(TopDeclKind_::Data),
 
-            Token::ReservedId(ReservedId::Newtype) => self.newtype_decl().map(|node| {
-                self.spanned(node.span.start, node.span.end, TopDeclKind::Newtype(node))
-            }),
+            Token::ReservedId(ReservedId::Newtype) => {
+                self.newtype_decl().map(TopDeclKind_::Newtype)
+            }
 
-            Token::ReservedId(ReservedId::Class) => self
-                .class_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Class(node))),
+            Token::ReservedId(ReservedId::Class) => self.class_decl().map(TopDeclKind_::Class),
 
-            Token::ReservedId(ReservedId::Instance) => self.instance_decl().map(|node| {
-                self.spanned(node.span.start, node.span.end, TopDeclKind::Instance(node))
-            }),
+            Token::ReservedId(ReservedId::Instance) => {
+                self.instance_decl().map(TopDeclKind_::Instance)
+            }
 
-            Token::ReservedId(ReservedId::Default) => self.default_decl().map(|node| {
-                self.spanned(node.span.start, node.span.end, TopDeclKind::Default(node))
-            }),
+            Token::ReservedId(ReservedId::Default) => {
+                self.default_decl().map(TopDeclKind_::Default)
+            }
 
             Token::ReservedId(ReservedId::Foreign) => unimplemented!("FFI not supported"),
 
-            _ => self
-                .value_decl()
-                .map(|node| self.spanned(node.span.start, node.span.end, TopDeclKind::Value(node))),
-        }
+            _ => self.value_decl().map(TopDeclKind_::Value),
+        }?;
+        let (_, r) = self.last_tok_span;
+        Ok(TopDecl {
+            kind: top_decl_kind,
+            first_token: t,
+            last_token: self.last_tok.clone().unwrap(),
+        })
     }
 
     // decls → { decl1 ; … ; decln }           (n ≥ 0)

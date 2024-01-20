@@ -27,7 +27,7 @@ use std::ops::Deref;
 /// Note: for now we don't allow imports and type check a whole program as just one module. The
 /// only built-ins the type checked module gets is the Haskell 2010 built-ins that can't be
 /// implemented in Haskell 2010, such as the list type, and `Int` and `Float` types.
-pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
+pub fn ti_module(module: &[ast::RenamedTopDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
     let ty_kinds: Map<Id, TyRef> = infer_type_kinds(module);
     let class_env: ClassEnv = module_class_env(module, &ty_kinds);
     let con_tys: Map<Id, Scheme> = collect_con_tys(module, &ty_kinds);
@@ -37,30 +37,30 @@ pub fn ti_module(module: &[ast::RenamedDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Sc
     (ti.ty_kinds, bind_tys)
 }
 
-fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
+fn collect_con_tys(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     // Collect data con types, to be used in field types.
     let mut con_ty_refs: Map<Id, TyRef> = Default::default();
 
     for decl in decls {
-        match &decl.node {
-            ast::TopDeclKind::Data(decl) => {
+        match &decl.kind {
+            ast::TopDeclKind_::Data(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
                 for con in &decl.node.cons {
                     con_ty_refs.insert(con.node.con.clone(), ty_con.clone());
                 }
             }
 
-            ast::TopDeclKind::Newtype(decl) => {
+            ast::TopDeclKind_::Newtype(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
                 con_ty_refs.insert(decl.node.con.node.con.clone(), ty_con);
             }
 
-            ast::TopDeclKind::Type(_)
-            | ast::TopDeclKind::KindSig(_)
-            | ast::TopDeclKind::Value(_)
-            | ast::TopDeclKind::Class(_)
-            | ast::TopDeclKind::Instance(_)
-            | ast::TopDeclKind::Default(_) => {}
+            ast::TopDeclKind_::Type(_)
+            | ast::TopDeclKind_::KindSig(_)
+            | ast::TopDeclKind_::Value(_)
+            | ast::TopDeclKind_::Class(_)
+            | ast::TopDeclKind_::Instance(_)
+            | ast::TopDeclKind_::Default(_) => {}
         }
     }
 
@@ -68,8 +68,8 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map
     let mut con_tys: Map<Id, Scheme> = Default::default();
 
     for decl in decls {
-        match &decl.node {
-            ast::TopDeclKind::Data(decl) => {
+        match &decl.kind {
+            ast::TopDeclKind_::Data(decl) => {
                 let ty_con_kind: &TyRef = ty_kinds.get(&decl.node.ty_con).unwrap();
                 let ty_con_args: &[Id] = &decl.node.ty_args;
 
@@ -121,16 +121,16 @@ fn collect_con_tys(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map
                 }
             }
 
-            ast::TopDeclKind::Newtype(_decl) => {
+            ast::TopDeclKind_::Newtype(_decl) => {
                 todo!("Newtype in collect_con_tys")
             }
 
-            ast::TopDeclKind::Type(_)
-            | ast::TopDeclKind::KindSig(_)
-            | ast::TopDeclKind::Value(_)
-            | ast::TopDeclKind::Class(_)
-            | ast::TopDeclKind::Instance(_)
-            | ast::TopDeclKind::Default(_) => {}
+            ast::TopDeclKind_::Type(_)
+            | ast::TopDeclKind_::KindSig(_)
+            | ast::TopDeclKind_::Value(_)
+            | ast::TopDeclKind_::Class(_)
+            | ast::TopDeclKind_::Instance(_)
+            | ast::TopDeclKind_::Default(_) => {}
         }
     }
 
@@ -147,16 +147,16 @@ pub(crate) struct TypeSynonym {
 }
 
 fn collect_type_synonyms(
-    decls: &[ast::RenamedDecl],
+    decls: &[ast::RenamedTopDecl],
     ty_kinds: &Map<Id, TyRef>,
 ) -> Map<Id, TypeSynonym> {
     let mut type_synonyms: Map<Id, TypeSynonym> = Default::default();
 
     for decl in decls {
-        if let ast::TopDeclKind::Type(ast::AstNode {
+        if let ast::TopDeclKind_::Type(ast::AstNode {
             node: ast::TypeDecl_ { ty, vars, rhs },
             ..
-        }) = &decl.node
+        }) = &decl.kind
         {
             let ty_con_kind: &TyRef = ty_kinds.get(ty).unwrap();
             let ty_con_args = vars.clone();
@@ -311,7 +311,7 @@ impl TI {
     }
 
     /// Entry point for type checking a module: type checks a whole module.
-    fn ti_module(&mut self, module: &[ast::RenamedDecl]) -> Result<TrieMap<Id, Scheme>, String> {
+    fn ti_module(&mut self, module: &[ast::RenamedTopDecl]) -> Result<TrieMap<Id, Scheme>, String> {
         let mut module_assumps: TrieMap<Id, Scheme> = Default::default();
 
         // Add data constructors to assumptions.
@@ -350,7 +350,7 @@ impl TI {
     /// Type check everything except classes and instances.
     fn ti_top_level_binds(
         &mut self,
-        module: &[ast::RenamedDecl],
+        module: &[ast::RenamedTopDecl],
         assumps: &mut TrieMap<Id, Scheme>,
         sigs: &Map<Id, Scheme>,
     ) -> Result<(), String> {
@@ -367,12 +367,12 @@ impl TI {
     /// Type check class method implementations.
     fn ti_classes(
         &mut self,
-        module: &[ast::RenamedDecl],
+        module: &[ast::RenamedTopDecl],
         assumps: &mut TrieMap<Id, Scheme>,
         sigs: &Map<Id, Scheme>,
     ) -> Result<(), String> {
         for decl in module {
-            if let ast::TopDeclKind::Class(class_decl) = &decl.node {
+            if let ast::TopDeclKind_::Class(class_decl) = &decl.kind {
                 let groups = group_binds(&class_decl.node.decls);
                 for method in groups {
                     let binds = vec![method];
@@ -392,12 +392,12 @@ impl TI {
     /// Type check instances.
     fn ti_instances(
         &mut self,
-        module: &[ast::RenamedDecl],
+        module: &[ast::RenamedTopDecl],
         assumps: &mut TrieMap<Id, Scheme>,
         mut sigs: Map<Id, Scheme>,
     ) -> Result<(), String> {
         for decl in module {
-            if let ast::TopDeclKind::Instance(instance_decl) = &decl.node {
+            if let ast::TopDeclKind_::Instance(instance_decl) = &decl.kind {
                 self.ti_instance(instance_decl, assumps, &mut sigs)?;
             }
         }
@@ -1256,10 +1256,10 @@ fn generalize(level: u32, preds: &[Pred], ty: &TyRef) -> Scheme {
     }
 }
 
-fn collect_top_sigs(decls: &[ast::RenamedDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
+fn collect_top_sigs(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
-        if let ast::TopDeclKind::Value(value_decl) = &decl.node {
+        if let ast::TopDeclKind_::Value(value_decl) = &decl.kind {
             collect_sig(value_decl, ty_kinds, &mut sigs);
         }
     }

@@ -329,10 +329,10 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     }
 }
 
-fn top_binder_ids(module: &[ast::RenamedDecl]) -> Set<Id> {
+fn top_binder_ids(module: &[ast::RenamedTopDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in module {
-        match &decl.node {
+        match &decl.kind {
             ast::TopDeclKind::Value(ast::AstNode {
                 node: ast::ValueDecl_::Value { lhs, .. },
                 ..

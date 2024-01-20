@@ -10,7 +10,7 @@ use std::hash::Hash;
 /// Note: for now we don't allow imports and rename a whole program as just one module. The only
 /// built-ins the renamed module gets is the Haskell 2010 built-ins that can't be implemented in
 /// Haskell 2010, such as the list type, and `Int` and `Float` types.
-pub fn rename_module(module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedDecl> {
+pub fn rename_module(module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedTopDecl> {
     let mut renamer = Renamer::new();
     renamer.rename_module(module)
 }
@@ -72,7 +72,10 @@ impl Renamer {
         self.values.bind(ty.to_owned(), id);
     }
 
-    pub(crate) fn rename_module(&mut self, module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedDecl> {
+    pub(crate) fn rename_module(
+        &mut self,
+        module: &[ast::ParsedTopDecl],
+    ) -> Vec<ast::RenamedTopDecl> {
         // TODO: Bind imported stuff here
         for decl in module {
             self.bind_top_decl(decl);
@@ -117,15 +120,15 @@ impl Renamer {
 
     /// Bind names defined in top-level declarations.
     fn bind_top_decl(&mut self, decl: &ast::ParsedTopDecl) {
-        match &decl.node {
-            ast::TopDeclKind::Value(decl) => self.bind_value_decl(decl),
-            ast::TopDeclKind::Type(decl) => self.bind_type_decl(decl),
-            ast::TopDeclKind::KindSig(decl) => self.bind_kind_sig_decl(decl),
-            ast::TopDeclKind::Data(decl) => self.bind_data_decl(decl),
-            ast::TopDeclKind::Newtype(decl) => self.bind_newtype_decl(decl),
-            ast::TopDeclKind::Class(decl) => self.bind_class_decl(decl),
-            ast::TopDeclKind::Instance(_) => {}
-            ast::TopDeclKind::Default(_) => {}
+        match &decl.kind {
+            ast::TopDeclKind_::Value(decl) => self.bind_value_decl(decl),
+            ast::TopDeclKind_::Type(decl) => self.bind_type_decl(decl),
+            ast::TopDeclKind_::KindSig(decl) => self.bind_kind_sig_decl(decl),
+            ast::TopDeclKind_::Data(decl) => self.bind_data_decl(decl),
+            ast::TopDeclKind_::Newtype(decl) => self.bind_newtype_decl(decl),
+            ast::TopDeclKind_::Class(decl) => self.bind_class_decl(decl),
+            ast::TopDeclKind_::Instance(_) => {}
+            ast::TopDeclKind_::Default(_) => {}
         }
     }
 
@@ -235,23 +238,27 @@ impl Renamer {
         }
     }
 
-    fn rename_decl(&mut self, decl: &ast::ParsedTopDecl) -> ast::RenamedDecl {
+    fn rename_decl(&mut self, decl: &ast::ParsedTopDecl) -> ast::RenamedTopDecl {
         decl.map(|decl| match decl {
-            ast::TopDeclKind::Value(decl) => ast::TopDeclKind::Value(self.rename_value_decl(decl)),
-            ast::TopDeclKind::Type(decl) => ast::TopDeclKind::Type(self.rename_type_decl(decl)),
-            ast::TopDeclKind::KindSig(decl) => {
-                ast::TopDeclKind::KindSig(self.rename_kind_sig_decl(decl))
+            ast::TopDeclKind_::Value(decl) => {
+                ast::TopDeclKind_::Value(self.rename_value_decl(decl))
             }
-            ast::TopDeclKind::Data(decl) => ast::TopDeclKind::Data(self.rename_data_decl(decl)),
-            ast::TopDeclKind::Newtype(decl) => {
-                ast::TopDeclKind::Newtype(self.rename_newtype_decl(decl))
+            ast::TopDeclKind_::Type(decl) => ast::TopDeclKind_::Type(self.rename_type_decl(decl)),
+            ast::TopDeclKind_::KindSig(decl) => {
+                ast::TopDeclKind_::KindSig(self.rename_kind_sig_decl(decl))
             }
-            ast::TopDeclKind::Class(decl) => ast::TopDeclKind::Class(self.rename_class_decl(decl)),
-            ast::TopDeclKind::Instance(decl) => {
-                ast::TopDeclKind::Instance(self.rename_instance_decl(decl))
+            ast::TopDeclKind_::Data(decl) => ast::TopDeclKind_::Data(self.rename_data_decl(decl)),
+            ast::TopDeclKind_::Newtype(decl) => {
+                ast::TopDeclKind_::Newtype(self.rename_newtype_decl(decl))
             }
-            ast::TopDeclKind::Default(decl) => {
-                ast::TopDeclKind::Default(self.rename_default_decl(decl))
+            ast::TopDeclKind_::Class(decl) => {
+                ast::TopDeclKind_::Class(self.rename_class_decl(decl))
+            }
+            ast::TopDeclKind_::Instance(decl) => {
+                ast::TopDeclKind_::Instance(self.rename_instance_decl(decl))
+            }
+            ast::TopDeclKind_::Default(decl) => {
+                ast::TopDeclKind_::Default(self.rename_default_decl(decl))
             }
         })
     }

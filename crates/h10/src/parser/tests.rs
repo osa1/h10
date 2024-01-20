@@ -272,8 +272,10 @@ x = 123
 #[test]
 fn parse_prelude() {
     let pgm = std::fs::read_to_string("../../Prelude.hs").unwrap();
-    let ast = parse_module(&pgm);
-    println!("{:#?}", ast);
+    let ast: Vec<ast::ParsedTopDecl> = parse_module(&pgm).unwrap();
+    for decl in &ast {
+        decl.first_token.check_loops();
+    }
 }
 
 #[test]

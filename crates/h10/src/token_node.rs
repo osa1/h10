@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use crate::ast::Span;
+use crate::collections::Set;
 use crate::layout_lexer::LayoutLexer_;
 
 use h10_lexer::token::Token;
@@ -10,8 +11,8 @@ use std::cell::RefCell;
 
 /// Wraps lexer tokens in a shared reference to allow attaching them to AST nodes.
 ///
-/// Equality is implemented based on reference equality.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Equality and hash are implemented based on reference equality.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenNodeRef {
     node: RcId<TokenNode>,
 }
@@ -49,7 +50,56 @@ impl TokenNodeRef {
     }
 
     pub fn set_next(&self, next: TokenNodeRef) {
+        assert_ne!(&next, self);
         *self.node.next.borrow_mut() = Some(next);
+    }
+
+    pub fn next(&self) -> Option<TokenNodeRef> {
+        self.node.next.borrow().clone()
+    }
+
+    pub fn check_loops(&self) {
+        let mut tokens: Set<TokenNodeRef> = Default::default();
+
+        let mut token: TokenNodeRef = self.clone();
+        loop {
+            let new = tokens.insert(token.clone());
+            if !new {
+                if &token == self {
+                    panic!("Token {:?} linked to itself", token.token());
+                }
+
+                // We've seen `token` twice, add tokens from `self` to the first occurrence of
+                // `token`.
+                let mut token_list: Vec<Token> = Vec::with_capacity(tokens.len());
+                let mut debug_list_token = self.clone();
+                while debug_list_token != token {
+                    token_list.push(debug_list_token.token());
+                    debug_list_token = debug_list_token.next().unwrap();
+                }
+
+                // Add the loop.
+                token_list.push(debug_list_token.token());
+                debug_list_token = debug_list_token.next().unwrap();
+                while debug_list_token != token {
+                    token_list.push(debug_list_token.token());
+                    debug_list_token = debug_list_token.next().unwrap();
+                }
+
+                panic!(
+                    "Token loop: {}",
+                    token_list
+                        .into_iter()
+                        .map(|t| format!("{:?}", t))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+            }
+            match token.next() {
+                Some(next) => token = next,
+                None => break,
+            }
+        }
     }
 }
 

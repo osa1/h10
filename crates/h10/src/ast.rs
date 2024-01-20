@@ -1,6 +1,7 @@
 use crate::collections::Set;
 use crate::id::Id;
-use h10_lexer::token::Literal;
+use crate::token_node::TokenNodeRef;
+use h10_lexer::token::{Literal, Token};
 
 use std::fmt;
 use std::hash::Hash;
@@ -13,6 +14,7 @@ pub type ParsedClassDecl = ClassDecl<String>;
 pub type ParsedCon = Con<String>;
 pub type ParsedDataDecl = DataDecl<String>;
 pub type ParsedTopDecl = TopDecl<String>;
+pub type ParsedTopDeclKind = TopDeclKind<String>;
 pub type ParsedDefaultDecl = DefaultDecl<String>;
 pub type ParsedExp = Exp<String>;
 pub type ParsedFieldDecl = FieldDecl<String>;
@@ -39,7 +41,7 @@ pub type RenamedAlt = Alt<Id>;
 pub type RenamedClassDecl = ClassDecl<Id>;
 pub type RenamedCon = Con<Id>;
 pub type RenamedDataDecl = DataDecl<Id>;
-pub type RenamedDecl = TopDecl<Id>;
+pub type RenamedTopDecl = TopDecl<Id>;
 pub type RenamedDefaultDecl = DefaultDecl<Id>;
 pub type RenamedExp = Exp<Id>;
 pub type RenamedFieldDecl = FieldDecl<Id>;
@@ -121,55 +123,116 @@ impl fmt::Display for Span {
     }
 }
 
-pub type TopDecl<Id> = AstNode<TopDeclKind<Id>>;
+#[derive(Debug)]
+pub struct TopDecl<Id> {
+    // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
+    pub kind: TopDeclKind_<Id>,
+    pub first_token: TokenNodeRef,
+    pub last_token: TokenNodeRef,
+}
+
+impl<Id> TopDecl<Id> {
+    pub fn map<Id2, F: FnOnce(&TopDeclKind_<Id>) -> TopDeclKind_<Id2>>(
+        &self,
+        f: F,
+    ) -> TopDecl<Id2> {
+        TopDecl {
+            kind: f(&self.kind),
+            first_token: self.first_token.clone(),
+            last_token: self.last_token.clone(),
+        }
+    }
+
+    /// For debugging. Get the tokens of the declaration. Panics if the tokens form a loop.
+    pub fn tokens(&self) -> Vec<Token> {
+        self.first_token.check_loops();
+
+        let mut tokens: Vec<Token> = vec![];
+        let mut token = Some(self.first_token.clone());
+        while let Some(token_) = token {
+            tokens.push(token_.token());
+            token = token_.next();
+        }
+        tokens
+    }
+}
 
 #[cfg(test)]
 impl<Id: fmt::Debug> TopDecl<Id> {
     pub fn class(&self) -> &ClassDecl<Id> {
-        match &self.node {
-            TopDeclKind::Class(class_decl) => class_decl,
+        self.kind.class()
+    }
+
+    pub fn instance(&self) -> &InstanceDecl<Id> {
+        self.kind.instance()
+    }
+
+    pub fn value(&self) -> &ValueDecl<Id> {
+        self.kind.value()
+    }
+
+    pub fn data(&self) -> &DataDecl<Id> {
+        self.kind.data()
+    }
+
+    pub fn kind_sig(&self) -> &KindSigDecl<Id> {
+        self.kind.kind_sig()
+    }
+
+    pub fn type_syn(&self) -> &TypeDecl<Id> {
+        self.kind.type_syn()
+    }
+}
+
+pub type TopDeclKind<Id> = TopDeclKind_<Id>;
+
+#[cfg(test)]
+impl<Id: fmt::Debug> TopDeclKind<Id> {
+    pub fn class(&self) -> &ClassDecl<Id> {
+        match self {
+            TopDeclKind_::Class(class_decl) => class_decl,
             other => panic!("Not class TopDecl: {:?}", other),
         }
     }
 
     pub fn instance(&self) -> &InstanceDecl<Id> {
-        match &self.node {
-            TopDeclKind::Instance(instance_decl) => instance_decl,
+        match self {
+            TopDeclKind_::Instance(instance_decl) => instance_decl,
             other => panic!("Not instance TopDecl: {:?}", other),
         }
     }
 
     pub fn value(&self) -> &ValueDecl<Id> {
-        match &self.node {
-            TopDeclKind::Value(value_decl) => value_decl,
+        match self {
+            TopDeclKind_::Value(value_decl) => value_decl,
             other => panic!("Not value TopDecl: {:?}", other),
         }
     }
 
     pub fn data(&self) -> &DataDecl<Id> {
-        match &self.node {
-            TopDeclKind::Data(data_decl) => data_decl,
+        match self {
+            TopDeclKind_::Data(data_decl) => data_decl,
             other => panic!("Not type TopDecl: {:?}", other),
         }
     }
 
     pub fn kind_sig(&self) -> &KindSigDecl<Id> {
-        match &self.node {
-            TopDeclKind::KindSig(kind_sig) => kind_sig,
+        match self {
+            TopDeclKind_::KindSig(kind_sig) => kind_sig,
             other => panic!("Not kind signature: {:?}", other),
         }
     }
 
     pub fn type_syn(&self) -> &TypeDecl<Id> {
-        match &self.node {
-            TopDeclKind::Type(type_syn) => type_syn,
+        match self {
+            TopDeclKind_::Type(type_syn) => type_syn,
             other => panic!("Not type synonym: {:?}", other),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum TopDeclKind<Id> {
+pub enum TopDeclKind_<Id> {
     Value(ValueDecl<Id>),
     Type(TypeDecl<Id>),
     KindSig(KindSigDecl<Id>),
