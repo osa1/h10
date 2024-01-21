@@ -7,6 +7,8 @@ use crate::layout_lexer::LayoutLexer_;
 use h10_lexer::token::Token;
 use rc_id::RcId;
 
+use lexgen_util::Loc;
+
 use std::cell::RefCell;
 
 /// Wraps lexer tokens in a shared reference to allow attaching them to AST nodes.
@@ -39,6 +41,17 @@ impl TokenNodeRef {
         Self {
             node: RcId::new(TokenNode::new(token, span)),
         }
+    }
+
+    pub fn from_lexer_token(source: &str, (start, t, end): (Loc, Token, Loc)) -> Self {
+        Self::new(
+            t,
+            Span {
+                source: source.into(),
+                start,
+                end,
+            },
+        )
     }
 
     pub fn token(&self) -> Token {

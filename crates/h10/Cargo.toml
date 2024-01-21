@@ -18,6 +18,7 @@ h10_lexer = { path = "../h10_lexer" }
 rc_id = { path = "../rc_id" }
 
 console_error_panic_hook = "0.1.7"
+indoc = "2.0.4"
 lazy_static = "1.4.0"
 lexgen_util = "0.15"
 rpds = "0.13"
