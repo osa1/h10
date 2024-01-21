@@ -35,8 +35,10 @@ pub struct TokenNode {
     /// Span of the token.
     span: RefCell<Span>,
 
-    /// The token after this one in the input.
-    // TODO: Do we need the previous token?
+    /// The previous token.
+    prev: RefCell<Option<TokenNodeRef>>,
+
+    /// The next token.
     next: RefCell<Option<TokenNodeRef>>,
 
     /// When this token is a part of an AST node, the reference to the node.
@@ -83,11 +85,17 @@ impl TokenNodeRef {
 
     pub fn set_next(&self, next: TokenNodeRef) {
         assert_ne!(&next, self);
-        *self.node.next.borrow_mut() = Some(next);
+        *self.node.next.borrow_mut() = Some(next.clone());
+        *next.node.prev.borrow_mut() = Some(self.clone());
     }
 
     pub fn next(&self) -> Option<TokenNodeRef> {
         self.node.next.borrow().clone()
+    }
+
+    pub fn clear_links(&self) {
+        *self.node.next.borrow_mut() = None;
+        *self.node.prev.borrow_mut() = None;
     }
 
     pub fn set_ast_node(&self, node_idx: DeclIdx) {
@@ -161,6 +169,7 @@ impl TokenNode {
         Self {
             token,
             span: RefCell::new(span),
+            prev: RefCell::new(None),
             next: RefCell::new(None),
             ast_node: RefCell::new(None),
             text: RefCell::new(text),

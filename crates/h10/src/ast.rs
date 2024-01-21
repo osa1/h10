@@ -123,7 +123,6 @@ impl fmt::Display for Span {
     }
 }
 
-#[derive(Debug)]
 pub struct TopDecl<Id> {
     // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
     pub kind: TopDeclKind_<Id>,
@@ -131,7 +130,22 @@ pub struct TopDecl<Id> {
     pub last_token: TokenNodeRef,
 }
 
+impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Skip tokens as they form a double linked list.
+        <TopDeclKind_<Id> as fmt::Debug>::fmt(&self.kind, f)
+    }
+}
+
 impl<Id> TopDecl<Id> {
+    pub fn contains_location(&self, line: u32, char: u32) -> bool {
+        let start_loc = self.first_token.span().start;
+        let end_loc = self.last_token.span().end;
+
+        (start_loc.line <= line || (start_loc.line == line && start_loc.col <= char))
+            && (end_loc.line > line || (end_loc.line == line && end_loc.col > char))
+    }
+
     pub fn map<Id2, F: FnOnce(&TopDeclKind_<Id>) -> TopDeclKind_<Id2>>(
         &self,
         f: F,

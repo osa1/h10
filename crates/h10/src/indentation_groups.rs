@@ -29,6 +29,23 @@ pub fn parse_indentation_groups(mut token: TokenNodeRef, arena: &mut DeclArena) 
     groups
 }
 
+#[allow(unused)]
+pub fn apply_changes(
+    _arena: &mut DeclArena,
+    _defs: &[DeclIdx],
+    _range_start_line: u32,
+    _range_start_char: u32,
+    _range_end_line: u32,
+    _range_end_char: u32,
+    _new_text: &str,
+) {
+    // Find the first modified token. Using lookback (which we don't generate right now, but I
+    // think we can assume "1 token"), mark the tokens as "dirty" and update texts of modified
+    // tokens. Then re-lex starting from the lookback, marking AST nodes as dirty. Then re-parse
+    // the dirty nodes.
+    todo!()
+}
+
 fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
     let mut last_token = first_token.clone();
 
