@@ -1,8 +1,5 @@
-#![allow(unused)]
-
 use crate::ast::Span;
 use crate::collections::Set;
-use crate::layout_lexer::LayoutLexer_;
 
 use h10_lexer::token::Token;
 use rc_id::RcId;
