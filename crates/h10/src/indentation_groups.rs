@@ -31,18 +31,37 @@ pub fn parse_indentation_groups(mut token: TokenNodeRef, arena: &mut DeclArena) 
 
 #[allow(unused)]
 pub fn apply_changes(
-    _arena: &mut DeclArena,
-    _defs: &[DeclIdx],
-    _range_start_line: u32,
-    _range_start_char: u32,
-    _range_end_line: u32,
-    _range_end_char: u32,
+    arena: &mut DeclArena,
+    defs: &[DeclIdx],
+    range_start_line: u32,
+    range_start_char: u32,
+    range_end_line: u32,
+    range_end_char: u32,
     _new_text: &str,
 ) {
     // Find the first modified token. Using lookback (which we don't generate right now, but I
     // think we can assume "1 token"), mark the tokens as "dirty" and update texts of modified
     // tokens. Then re-lex starting from the lookback, marking AST nodes as dirty. Then re-parse
     // the dirty nodes.
+
+    // Update removals.
+    if (range_start_line, range_start_char) != (range_end_line, range_end_char) {
+        for decl_idx in defs {
+            let decl = arena.get(*decl_idx);
+            if decl.contains_location(range_start_line, range_start_char) {
+                // TODO: This can remove tokens of other declarations, we should mark those
+                // declarations for re-parsing.
+                decl.first_token.remove_range(
+                    range_start_line,
+                    range_start_char,
+                    range_end_line,
+                    range_end_char,
+                );
+                break;
+            }
+        }
+    }
+
     todo!()
 }
 
@@ -94,7 +113,7 @@ mod tests {
             if first_token.is_none() {
                 first_token = Some(t.clone());
             } else if let Some(last_token_) = last_token {
-                last_token_.set_next(t.clone());
+                last_token_.set_next(Some(t.clone()));
             }
             last_token = Some(t.clone());
         }

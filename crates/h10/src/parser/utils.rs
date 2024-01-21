@@ -61,7 +61,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 self.last_tok_span = (token.span().start, token.span().end);
 
                 if let Some(last_tok) = self.last_tok.take() {
-                    last_tok.set_next(token.clone());
+                    last_tok.set_next(Some(token.clone()));
                 }
 
                 self.last_tok = Some(token.clone());
