@@ -1,9 +1,10 @@
 use crate::ast;
+use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::token_node::TokenNodeRef;
 use h10_lexer::token::Token;
 
 /// Parse indentation groups as [`ast::TopDeclKind_::Unparsed`] declarations.
-pub fn parse_indentation_groups(mut token: TokenNodeRef) -> Vec<ast::ParsedTopDecl> {
+pub fn parse_indentation_groups(mut token: TokenNodeRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
     while matches!(token.token(), Token::Whitespace) {
         match token.next() {
@@ -12,12 +13,12 @@ pub fn parse_indentation_groups(mut token: TokenNodeRef) -> Vec<ast::ParsedTopDe
         }
     }
 
-    let mut groups: Vec<ast::ParsedTopDecl> = vec![];
+    let mut groups: Vec<DeclIdx> = vec![];
 
     loop {
-        let group = parse_group(token.clone());
-        let next = group.last_token.next();
-        groups.push(group);
+        let group_idx = parse_group(token.clone(), arena);
+        groups.push(group_idx);
+        let next = arena.get(group_idx).last_token.next();
 
         match next {
             Some(next) => token = next,
@@ -28,7 +29,7 @@ pub fn parse_indentation_groups(mut token: TokenNodeRef) -> Vec<ast::ParsedTopDe
     groups
 }
 
-fn parse_group(first_token: TokenNodeRef) -> ast::ParsedTopDecl {
+fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
     let mut last_token = first_token.clone();
 
     while let Some(next_token) = last_token.next() {
@@ -39,11 +40,25 @@ fn parse_group(first_token: TokenNodeRef) -> ast::ParsedTopDecl {
         last_token = next_token;
     }
 
-    ast::ParsedTopDecl {
+    let group = ast::ParsedTopDecl {
         kind: ast::TopDeclKind_::Unparsed,
-        first_token,
-        last_token,
+        first_token: first_token.clone(),
+        last_token: last_token.clone(),
+    };
+
+    let group_idx = arena.allocate(group);
+
+    // Set AST nodes of tokens in the group.
+    let mut token = first_token;
+    loop {
+        token.set_ast_node(group_idx);
+        token = token.next().unwrap();
+        if token == last_token {
+            break;
+        }
     }
+
+    group_idx
 }
 
 #[cfg(test)]
@@ -75,13 +90,14 @@ mod tests {
             data A
             data B
         "};
+        let mut arena = DeclArena::new();
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone());
+        let groups = parse_indentation_groups(token.clone(), &mut arena);
         assert_eq!(groups.len(), 2);
-        assert_eq!(groups[0].first_token.span().start.line, 0);
-        assert_eq!(groups[0].first_token.span().start.col, 0);
-        assert_eq!(groups[1].first_token.span().start.line, 1);
-        assert_eq!(groups[1].first_token.span().start.col, 0);
+        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 0);
+        assert_eq!(arena.get(groups[0]).first_token.span().start.col, 0);
+        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 1);
+        assert_eq!(arena.get(groups[1]).first_token.span().start.col, 0);
 
         token.check_token_str(pgm);
     }
@@ -93,13 +109,14 @@ mod tests {
 
             data B
         "};
+        let mut arena = DeclArena::new();
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone());
+        let groups = parse_indentation_groups(token.clone(), &mut arena);
         assert_eq!(groups.len(), 2);
-        assert_eq!(groups[0].first_token.span().start.line, 0);
-        assert_eq!(groups[0].first_token.span().start.col, 0);
-        assert_eq!(groups[1].first_token.span().start.line, 2);
-        assert_eq!(groups[1].first_token.span().start.col, 0);
+        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 0);
+        assert_eq!(arena.get(groups[0]).first_token.span().start.col, 0);
+        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 2);
+        assert_eq!(arena.get(groups[1]).first_token.span().start.col, 0);
 
         token.check_token_str(pgm);
     }
@@ -120,12 +137,13 @@ mod tests {
               where
                 t = 5       -- 11
         "};
+        let mut arena = DeclArena::new();
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone());
+        let groups = parse_indentation_groups(token.clone(), &mut arena);
         assert_eq!(groups.len(), 3);
-        assert_eq!(groups[0].first_token.span().start.line, 1);
-        assert_eq!(groups[1].first_token.span().start.line, 3);
-        assert_eq!(groups[2].first_token.span().start.line, 7);
+        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 1);
+        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 3);
+        assert_eq!(arena.get(groups[2]).first_token.span().start.line, 7);
 
         token.check_token_str(pgm);
     }

@@ -1,5 +1,6 @@
 use crate::ast::Span;
 use crate::collections::Set;
+use crate::decl_arena::DeclIdx;
 
 use h10_lexer::token::Token;
 use rc_id::RcId;
@@ -37,6 +38,13 @@ pub struct TokenNode {
     /// The token after this one in the input.
     // TODO: Do we need the previous token?
     next: RefCell<Option<TokenNodeRef>>,
+
+    /// When this token is a part of an AST node, the reference to the node.
+    ///
+    /// Currently only update top-level declarations when re-parsing, so this holds an index to a
+    /// top-level declaration. In the future we may want to hold references to arbitrary AST nodes
+    /// to allow more fine-grained incremental updates.
+    ast_node: RefCell<Option<DeclIdx>>,
 
     /// The token text.
     pub text: RefCell<String>,
@@ -80,6 +88,14 @@ impl TokenNodeRef {
 
     pub fn next(&self) -> Option<TokenNodeRef> {
         self.node.next.borrow().clone()
+    }
+
+    pub fn set_ast_node(&self, node_idx: DeclIdx) {
+        *self.ast_node.borrow_mut() = Some(node_idx);
+    }
+
+    pub fn ast_node(&self) -> Option<DeclIdx> {
+        *self.ast_node.borrow()
     }
 
     pub fn check_loops(&self) {
@@ -146,6 +162,7 @@ impl TokenNode {
             token,
             span: RefCell::new(span),
             next: RefCell::new(None),
+            ast_node: RefCell::new(None),
             text: RefCell::new(text),
         }
     }

@@ -7,6 +7,7 @@ mod bind_groups;
 mod class_collector;
 mod class_env;
 mod collections;
+mod decl_arena;
 mod dependency_analysis;
 mod id;
 mod indentation_groups;
