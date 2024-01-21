@@ -58,7 +58,7 @@ mod tests {
         let mut first_token: Option<TokenNodeRef> = None;
         let mut last_token: Option<TokenNodeRef> = None;
         for t in lexer {
-            let t: TokenNodeRef = TokenNodeRef::from_lexer_token("test", t.unwrap());
+            let t: TokenNodeRef = TokenNodeRef::from_lexer_token("test", t.unwrap(), s);
             if first_token.is_none() {
                 first_token = Some(t.clone());
             } else if let Some(last_token_) = last_token {
@@ -76,12 +76,14 @@ mod tests {
             data B
         "};
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token);
+        let groups = parse_indentation_groups(token.clone());
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].first_token.span().start.line, 0);
         assert_eq!(groups[0].first_token.span().start.col, 0);
         assert_eq!(groups[1].first_token.span().start.line, 1);
         assert_eq!(groups[1].first_token.span().start.col, 0);
+
+        token.check_token_str(pgm);
     }
 
     #[test]
@@ -92,12 +94,14 @@ mod tests {
             data B
         "};
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token);
+        let groups = parse_indentation_groups(token.clone());
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].first_token.span().start.line, 0);
         assert_eq!(groups[0].first_token.span().start.col, 0);
         assert_eq!(groups[1].first_token.span().start.line, 2);
         assert_eq!(groups[1].first_token.span().start.col, 0);
+
+        token.check_token_str(pgm);
     }
 
     #[test]
@@ -117,10 +121,12 @@ mod tests {
                 t = 5       -- 11
         "};
         let token = lex(pgm);
-        let groups = parse_indentation_groups(token);
+        let groups = parse_indentation_groups(token.clone());
         assert_eq!(groups.len(), 3);
         assert_eq!(groups[0].first_token.span().start.line, 1);
         assert_eq!(groups[1].first_token.span().start.line, 3);
         assert_eq!(groups[2].first_token.span().start.line, 7);
+
+        token.check_token_str(pgm);
     }
 }

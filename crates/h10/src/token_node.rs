@@ -10,6 +10,7 @@ use rc_id::RcId;
 use lexgen_util::Loc;
 
 use std::cell::RefCell;
+use std::ops::Deref;
 
 /// Wraps lexer tokens in a shared reference to allow attaching them to AST nodes.
 ///
@@ -17,6 +18,15 @@ use std::cell::RefCell;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenNodeRef {
     node: RcId<TokenNode>,
+}
+
+impl Deref for TokenNodeRef {
+    type Target = TokenNode;
+
+    #[inline(always)]
+    fn deref(&self) -> &TokenNode {
+        &self.node
+    }
 }
 
 #[derive(Debug)]
@@ -28,22 +38,25 @@ pub struct TokenNode {
     span: RefCell<Span>,
 
     /// The token after this one in the input.
-    next: RefCell<Option<TokenNodeRef>>,
     // TODO: Do we need the previous token?
+    next: RefCell<Option<TokenNodeRef>>,
 
-    // TODO: Do we need a reference to the AST node? I think probably not: all AST nodes have spans
-    // so we know starting from the root which declaration node needs to be marked as "dirty" by
-    // just comparing the modified span with the node's span.
+    /// The token text.
+    pub text: RefCell<String>,
 }
 
 impl TokenNodeRef {
-    pub fn new(token: Token, span: Span) -> Self {
+    pub fn new(token: Token, span: Span, text: String) -> Self {
         Self {
-            node: RcId::new(TokenNode::new(token, span)),
+            node: RcId::new(TokenNode::new(token, span, text)),
         }
     }
 
-    pub fn from_lexer_token(source: &str, (start, t, end): (Loc, Token, Loc)) -> Self {
+    pub fn from_lexer_token(
+        source: &str,
+        (start, t, end): (Loc, Token, Loc),
+        lexer_input: &str,
+    ) -> Self {
         Self::new(
             t,
             Span {
@@ -51,6 +64,7 @@ impl TokenNodeRef {
                 start,
                 end,
             },
+            lexer_input[start.byte_idx..end.byte_idx].to_owned(),
         )
     }
 
@@ -114,14 +128,28 @@ impl TokenNodeRef {
             }
         }
     }
+
+    /// For testing. Checks that the texts of tokens starting with `self` make the expected string
+    /// `text`. This cna be used to make sure lexing does not miss any characters.
+    pub fn check_token_str(&self, expected: &str) {
+        // Check that the token texts make the original program.
+        let mut token_text = String::with_capacity(expected.len());
+        let mut token: Option<TokenNodeRef> = Some(self.clone());
+        while let Some(token_) = token {
+            token_text.extend(token_.deref().text.borrow().chars());
+            token = token_.next();
+        }
+        assert_eq!(token_text, expected);
+    }
 }
 
 impl TokenNode {
-    fn new(token: Token, span: Span) -> Self {
+    fn new(token: Token, span: Span, text: String) -> Self {
         Self {
             token,
             span: RefCell::new(span),
             next: RefCell::new(None),
+            text: RefCell::new(text),
         }
     }
 }
