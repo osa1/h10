@@ -8,7 +8,7 @@ use crate::token::TokenRef;
 use h10_lexer::token::Token;
 use h10_lexer::Lexer;
 
-/// Parse indentation groups as [`ast::TopDeclKind_::Unparsed`] declarations.
+/// Parse indentation groups as [`ast::TopDeclKind::Unparsed`] declarations.
 fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
     while matches!(token.token(), Token::Whitespace) {
@@ -48,7 +48,7 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     let first_token_line_number = first_token.span().start.line;
 
     let group = ast::ParsedTopDecl {
-        kind: ast::TopDeclKind_::Unparsed,
+        kind: ast::TopDeclKind::Unparsed,
         line_number: first_token_line_number,
         first_token: first_token.clone(),
         last_token: last_token.clone(),

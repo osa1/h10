@@ -101,29 +101,25 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn topdecl(&mut self) -> ParserResult<ParsedTopDecl> {
         let t = self.peek_()?;
         let top_decl_kind: ParsedTopDeclKind = match t.token() {
-            Token::ReservedId(ReservedId::Kind) => self.kind_sig_decl().map(TopDeclKind_::KindSig),
+            Token::ReservedId(ReservedId::Kind) => self.kind_sig_decl().map(TopDeclKind::KindSig),
 
-            Token::ReservedId(ReservedId::Type) => self.type_decl().map(TopDeclKind_::Type),
+            Token::ReservedId(ReservedId::Type) => self.type_decl().map(TopDeclKind::Type),
 
-            Token::ReservedId(ReservedId::Data) => self.data_decl().map(TopDeclKind_::Data),
+            Token::ReservedId(ReservedId::Data) => self.data_decl().map(TopDeclKind::Data),
 
-            Token::ReservedId(ReservedId::Newtype) => {
-                self.newtype_decl().map(TopDeclKind_::Newtype)
-            }
+            Token::ReservedId(ReservedId::Newtype) => self.newtype_decl().map(TopDeclKind::Newtype),
 
-            Token::ReservedId(ReservedId::Class) => self.class_decl().map(TopDeclKind_::Class),
+            Token::ReservedId(ReservedId::Class) => self.class_decl().map(TopDeclKind::Class),
 
             Token::ReservedId(ReservedId::Instance) => {
-                self.instance_decl().map(TopDeclKind_::Instance)
+                self.instance_decl().map(TopDeclKind::Instance)
             }
 
-            Token::ReservedId(ReservedId::Default) => {
-                self.default_decl().map(TopDeclKind_::Default)
-            }
+            Token::ReservedId(ReservedId::Default) => self.default_decl().map(TopDeclKind::Default),
 
             Token::ReservedId(ReservedId::Foreign) => unimplemented!("FFI not supported"),
 
-            _ => self.value_decl().map(TopDeclKind_::Value),
+            _ => self.value_decl().map(TopDeclKind::Value),
         }?;
         let (_, r) = self.last_tok_span;
         let line_number = t.span().start.line;

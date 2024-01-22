@@ -121,15 +121,15 @@ impl Renamer {
     /// Bind names defined in top-level declarations.
     fn bind_top_decl(&mut self, decl: &ast::ParsedTopDecl) {
         match &decl.kind {
-            ast::TopDeclKind_::Value(decl) => self.bind_value_decl(decl),
-            ast::TopDeclKind_::Type(decl) => self.bind_type_decl(decl),
-            ast::TopDeclKind_::KindSig(decl) => self.bind_kind_sig_decl(decl),
-            ast::TopDeclKind_::Data(decl) => self.bind_data_decl(decl),
-            ast::TopDeclKind_::Newtype(decl) => self.bind_newtype_decl(decl),
-            ast::TopDeclKind_::Class(decl) => self.bind_class_decl(decl),
-            ast::TopDeclKind_::Instance(_)
-            | ast::TopDeclKind_::Default(_)
-            | ast::TopDeclKind_::Unparsed => {}
+            ast::TopDeclKind::Value(decl) => self.bind_value_decl(decl),
+            ast::TopDeclKind::Type(decl) => self.bind_type_decl(decl),
+            ast::TopDeclKind::KindSig(decl) => self.bind_kind_sig_decl(decl),
+            ast::TopDeclKind::Data(decl) => self.bind_data_decl(decl),
+            ast::TopDeclKind::Newtype(decl) => self.bind_newtype_decl(decl),
+            ast::TopDeclKind::Class(decl) => self.bind_class_decl(decl),
+            ast::TopDeclKind::Instance(_)
+            | ast::TopDeclKind::Default(_)
+            | ast::TopDeclKind::Unparsed => {}
         }
     }
 
@@ -241,27 +241,23 @@ impl Renamer {
 
     fn rename_decl(&mut self, decl: &ast::ParsedTopDecl) -> ast::RenamedTopDecl {
         decl.map(|decl| match decl {
-            ast::TopDeclKind_::Value(decl) => {
-                ast::TopDeclKind_::Value(self.rename_value_decl(decl))
+            ast::TopDeclKind::Value(decl) => ast::TopDeclKind::Value(self.rename_value_decl(decl)),
+            ast::TopDeclKind::Type(decl) => ast::TopDeclKind::Type(self.rename_type_decl(decl)),
+            ast::TopDeclKind::KindSig(decl) => {
+                ast::TopDeclKind::KindSig(self.rename_kind_sig_decl(decl))
             }
-            ast::TopDeclKind_::Type(decl) => ast::TopDeclKind_::Type(self.rename_type_decl(decl)),
-            ast::TopDeclKind_::KindSig(decl) => {
-                ast::TopDeclKind_::KindSig(self.rename_kind_sig_decl(decl))
+            ast::TopDeclKind::Data(decl) => ast::TopDeclKind::Data(self.rename_data_decl(decl)),
+            ast::TopDeclKind::Newtype(decl) => {
+                ast::TopDeclKind::Newtype(self.rename_newtype_decl(decl))
             }
-            ast::TopDeclKind_::Data(decl) => ast::TopDeclKind_::Data(self.rename_data_decl(decl)),
-            ast::TopDeclKind_::Newtype(decl) => {
-                ast::TopDeclKind_::Newtype(self.rename_newtype_decl(decl))
+            ast::TopDeclKind::Class(decl) => ast::TopDeclKind::Class(self.rename_class_decl(decl)),
+            ast::TopDeclKind::Instance(decl) => {
+                ast::TopDeclKind::Instance(self.rename_instance_decl(decl))
             }
-            ast::TopDeclKind_::Class(decl) => {
-                ast::TopDeclKind_::Class(self.rename_class_decl(decl))
+            ast::TopDeclKind::Default(decl) => {
+                ast::TopDeclKind::Default(self.rename_default_decl(decl))
             }
-            ast::TopDeclKind_::Instance(decl) => {
-                ast::TopDeclKind_::Instance(self.rename_instance_decl(decl))
-            }
-            ast::TopDeclKind_::Default(decl) => {
-                ast::TopDeclKind_::Default(self.rename_default_decl(decl))
-            }
-            ast::TopDeclKind_::Unparsed => ast::TopDeclKind_::Unparsed,
+            ast::TopDeclKind::Unparsed => ast::TopDeclKind::Unparsed,
         })
     }
 

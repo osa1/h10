@@ -14,7 +14,7 @@ pub(super) fn dependency_analysis(decls: &[ast::RenamedTopDecl]) -> Vec<Set<u32>
 fn collect_explicitly_kinded_tys(decls: &[ast::RenamedTopDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in decls {
-        if let ast::TopDeclKind_::KindSig(sig) = &decl.kind {
+        if let ast::TopDeclKind::KindSig(sig) = &decl.kind {
             ids.insert(sig.node.ty.clone());
         }
     }
@@ -31,19 +31,19 @@ fn collect_implicitly_kinded_types(
         let decl_idx = decl_idx as u32;
 
         let id = match &decl.kind {
-            ast::TopDeclKind_::Type(type_decl) => &type_decl.node.ty,
+            ast::TopDeclKind::Type(type_decl) => &type_decl.node.ty,
 
-            ast::TopDeclKind_::Data(data_decl) => &data_decl.node.ty_con,
+            ast::TopDeclKind::Data(data_decl) => &data_decl.node.ty_con,
 
-            ast::TopDeclKind_::Newtype(newtype_decl) => &newtype_decl.node.ty_con,
+            ast::TopDeclKind::Newtype(newtype_decl) => &newtype_decl.node.ty_con,
 
-            ast::TopDeclKind_::Class(class_decl) => &class_decl.node.ty_con,
+            ast::TopDeclKind::Class(class_decl) => &class_decl.node.ty_con,
 
-            ast::TopDeclKind_::Default(_)
-            | ast::TopDeclKind_::Instance(_)
-            | ast::TopDeclKind_::KindSig(_)
-            | ast::TopDeclKind_::Value(_)
-            | ast::TopDeclKind_::Unparsed => {
+            ast::TopDeclKind::Default(_)
+            | ast::TopDeclKind::Instance(_)
+            | ast::TopDeclKind::KindSig(_)
+            | ast::TopDeclKind::Value(_)
+            | ast::TopDeclKind::Unparsed => {
                 continue;
             }
         };
@@ -77,27 +77,27 @@ fn analyze_decl(
     dep_graph: &mut DepGraph,
 ) {
     match &decl.kind {
-        ast::TopDeclKind_::Type(type_decl) => {
+        ast::TopDeclKind::Type(type_decl) => {
             analyze_type_decl(decl_idx, type_decl, defs, dep_graph)
         }
 
-        ast::TopDeclKind_::Data(data_decl) => {
+        ast::TopDeclKind::Data(data_decl) => {
             analyze_data_decl(decl_idx, data_decl, defs, dep_graph)
         }
 
-        ast::TopDeclKind_::Newtype(newtype_decl) => {
+        ast::TopDeclKind::Newtype(newtype_decl) => {
             analyze_newtype_decl(decl_idx, newtype_decl, defs, dep_graph)
         }
 
-        ast::TopDeclKind_::Class(class_decl) => {
+        ast::TopDeclKind::Class(class_decl) => {
             analyze_class_decl(decl_idx, class_decl, defs, dep_graph)
         }
 
-        ast::TopDeclKind_::Default(_)
-        | ast::TopDeclKind_::Instance(_)
-        | ast::TopDeclKind_::KindSig(_)
-        | ast::TopDeclKind_::Value(_)
-        | ast::TopDeclKind_::Unparsed => {}
+        ast::TopDeclKind::Default(_)
+        | ast::TopDeclKind::Instance(_)
+        | ast::TopDeclKind::KindSig(_)
+        | ast::TopDeclKind::Value(_)
+        | ast::TopDeclKind::Unparsed => {}
     }
 }
 

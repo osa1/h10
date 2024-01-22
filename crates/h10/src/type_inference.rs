@@ -43,25 +43,25 @@ fn collect_con_tys(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> 
 
     for decl in decls {
         match &decl.kind {
-            ast::TopDeclKind_::Data(decl) => {
+            ast::TopDeclKind::Data(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
                 for con in &decl.node.cons {
                     con_ty_refs.insert(con.node.con.clone(), ty_con.clone());
                 }
             }
 
-            ast::TopDeclKind_::Newtype(decl) => {
+            ast::TopDeclKind::Newtype(decl) => {
                 let ty_con = TyRef::new_con(decl.node.ty_con.clone());
                 con_ty_refs.insert(decl.node.con.node.con.clone(), ty_con);
             }
 
-            ast::TopDeclKind_::Type(_)
-            | ast::TopDeclKind_::KindSig(_)
-            | ast::TopDeclKind_::Value(_)
-            | ast::TopDeclKind_::Class(_)
-            | ast::TopDeclKind_::Instance(_)
-            | ast::TopDeclKind_::Default(_)
-            | ast::TopDeclKind_::Unparsed => {}
+            ast::TopDeclKind::Type(_)
+            | ast::TopDeclKind::KindSig(_)
+            | ast::TopDeclKind::Value(_)
+            | ast::TopDeclKind::Class(_)
+            | ast::TopDeclKind::Instance(_)
+            | ast::TopDeclKind::Default(_)
+            | ast::TopDeclKind::Unparsed => {}
         }
     }
 
@@ -70,7 +70,7 @@ fn collect_con_tys(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> 
 
     for decl in decls {
         match &decl.kind {
-            ast::TopDeclKind_::Data(decl) => {
+            ast::TopDeclKind::Data(decl) => {
                 let ty_con_kind: &TyRef = ty_kinds.get(&decl.node.ty_con).unwrap();
                 let ty_con_args: &[Id] = &decl.node.ty_args;
 
@@ -122,17 +122,17 @@ fn collect_con_tys(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> 
                 }
             }
 
-            ast::TopDeclKind_::Newtype(_decl) => {
+            ast::TopDeclKind::Newtype(_decl) => {
                 todo!("Newtype in collect_con_tys")
             }
 
-            ast::TopDeclKind_::Type(_)
-            | ast::TopDeclKind_::KindSig(_)
-            | ast::TopDeclKind_::Value(_)
-            | ast::TopDeclKind_::Class(_)
-            | ast::TopDeclKind_::Instance(_)
-            | ast::TopDeclKind_::Default(_)
-            | ast::TopDeclKind_::Unparsed => {}
+            ast::TopDeclKind::Type(_)
+            | ast::TopDeclKind::KindSig(_)
+            | ast::TopDeclKind::Value(_)
+            | ast::TopDeclKind::Class(_)
+            | ast::TopDeclKind::Instance(_)
+            | ast::TopDeclKind::Default(_)
+            | ast::TopDeclKind::Unparsed => {}
         }
     }
 
@@ -155,7 +155,7 @@ fn collect_type_synonyms(
     let mut type_synonyms: Map<Id, TypeSynonym> = Default::default();
 
     for decl in decls {
-        if let ast::TopDeclKind_::Type(ast::AstNode {
+        if let ast::TopDeclKind::Type(ast::AstNode {
             node: ast::TypeDecl_ { ty, vars, rhs },
             ..
         }) = &decl.kind
@@ -374,7 +374,7 @@ impl TI {
         sigs: &Map<Id, Scheme>,
     ) -> Result<(), String> {
         for decl in module {
-            if let ast::TopDeclKind_::Class(class_decl) = &decl.kind {
+            if let ast::TopDeclKind::Class(class_decl) = &decl.kind {
                 let groups = group_binds(&class_decl.node.decls);
                 for method in groups {
                     let binds = vec![method];
@@ -399,7 +399,7 @@ impl TI {
         mut sigs: Map<Id, Scheme>,
     ) -> Result<(), String> {
         for decl in module {
-            if let ast::TopDeclKind_::Instance(instance_decl) = &decl.kind {
+            if let ast::TopDeclKind::Instance(instance_decl) = &decl.kind {
                 self.ti_instance(instance_decl, assumps, &mut sigs)?;
             }
         }
@@ -1261,7 +1261,7 @@ fn generalize(level: u32, preds: &[Pred], ty: &TyRef) -> Scheme {
 fn collect_top_sigs(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
-        if let ast::TopDeclKind_::Value(value_decl) = &decl.kind {
+        if let ast::TopDeclKind::Value(value_decl) = &decl.kind {
             collect_sig(value_decl, ty_kinds, &mut sigs);
         }
     }

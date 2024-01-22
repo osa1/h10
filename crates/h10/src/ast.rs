@@ -128,7 +128,7 @@ impl fmt::Display for Span {
 
 pub struct TopDecl<Id> {
     // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
-    pub kind: TopDeclKind_<Id>,
+    pub kind: TopDeclKind<Id>,
 
     /// Line number of the `first_token` in the source file.
     ///
@@ -149,7 +149,7 @@ pub struct TopDecl<Id> {
 impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Skip tokens as they form a double linked list.
-        <TopDeclKind_<Id> as fmt::Debug>::fmt(&self.kind, f)
+        <TopDeclKind<Id> as fmt::Debug>::fmt(&self.kind, f)
     }
 }
 
@@ -169,10 +169,7 @@ impl<Id> TopDecl<Id> {
         pos >= start && pos < end
     }
 
-    pub fn map<Id2, F: FnOnce(&TopDeclKind_<Id>) -> TopDeclKind_<Id2>>(
-        &self,
-        f: F,
-    ) -> TopDecl<Id2> {
+    pub fn map<Id2, F: FnOnce(&TopDeclKind<Id>) -> TopDeclKind<Id2>>(&self, f: F) -> TopDecl<Id2> {
         TopDecl {
             kind: f(&self.kind),
             line_number: self.line_number,
@@ -213,55 +210,53 @@ impl<Id: fmt::Debug> TopDecl<Id> {
     }
 }
 
-pub type TopDeclKind<Id> = TopDeclKind_<Id>;
-
 #[cfg(test)]
 impl<Id: fmt::Debug> TopDeclKind<Id> {
     pub fn class(&self) -> &ClassDecl<Id> {
         match self {
-            TopDeclKind_::Class(class_decl) => class_decl,
+            TopDeclKind::Class(class_decl) => class_decl,
             other => panic!("Not class TopDecl: {:?}", other),
         }
     }
 
     pub fn instance(&self) -> &InstanceDecl<Id> {
         match self {
-            TopDeclKind_::Instance(instance_decl) => instance_decl,
+            TopDeclKind::Instance(instance_decl) => instance_decl,
             other => panic!("Not instance TopDecl: {:?}", other),
         }
     }
 
     pub fn value(&self) -> &ValueDecl<Id> {
         match self {
-            TopDeclKind_::Value(value_decl) => value_decl,
+            TopDeclKind::Value(value_decl) => value_decl,
             other => panic!("Not value TopDecl: {:?}", other),
         }
     }
 
     pub fn data(&self) -> &DataDecl<Id> {
         match self {
-            TopDeclKind_::Data(data_decl) => data_decl,
+            TopDeclKind::Data(data_decl) => data_decl,
             other => panic!("Not type TopDecl: {:?}", other),
         }
     }
 
     pub fn kind_sig(&self) -> &KindSigDecl<Id> {
         match self {
-            TopDeclKind_::KindSig(kind_sig) => kind_sig,
+            TopDeclKind::KindSig(kind_sig) => kind_sig,
             other => panic!("Not kind signature: {:?}", other),
         }
     }
 
     pub fn type_syn(&self) -> &TypeDecl<Id> {
         match self {
-            TopDeclKind_::Type(type_syn) => type_syn,
+            TopDeclKind::Type(type_syn) => type_syn,
             other => panic!("Not type synonym: {:?}", other),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum TopDeclKind_<Id> {
+pub enum TopDeclKind<Id> {
     Value(ValueDecl<Id>),
     Type(TypeDecl<Id>),
     KindSig(KindSigDecl<Id>),

@@ -413,10 +413,10 @@ fn collect_types(decls: &[ast::RenamedTopDecl]) -> Vec<TypeDecl> {
     decls
         .iter()
         .filter_map(|decl| match &decl.kind {
-            ast::TopDeclKind_::Data(d) => Some(data_to_type_decl(d)),
-            ast::TopDeclKind_::Newtype(d) => Some(newtype_to_type_decl(d)),
-            ast::TopDeclKind_::Class(d) => Some(typeclass_to_type_decl(d)),
-            ast::TopDeclKind_::Type(d) => Some(type_to_type_decl(d)),
+            ast::TopDeclKind::Data(d) => Some(data_to_type_decl(d)),
+            ast::TopDeclKind::Newtype(d) => Some(newtype_to_type_decl(d)),
+            ast::TopDeclKind::Class(d) => Some(typeclass_to_type_decl(d)),
+            ast::TopDeclKind::Type(d) => Some(type_to_type_decl(d)),
             _ => None,
         })
         .collect()
