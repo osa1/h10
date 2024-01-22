@@ -3,7 +3,7 @@ mod tests;
 
 use crate::ast::Span;
 use crate::collections::Set;
-use crate::decl_arena::DeclIdx;
+use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 
 use h10_lexer::token::Token as LexerToken;
@@ -90,8 +90,24 @@ impl TokenRef {
         self.node.token
     }
 
+    /// Get the span of the token.
+    ///
+    /// When the token is attached to an AST (i.e. [`ast_node`] is not `None`), the line numbers will
+    /// be relative to the AST node. If you need absolute line numbers, use [`absolute_span`].
     pub fn span(&self) -> Span {
         self.node.span.borrow().clone()
+    }
+
+    /// Similar to [`span`], but the returned span will have absolute line numbers even when the
+    /// token is a part of an AST.
+    pub fn absolute_span(&self, arena: &DeclArena) -> Span {
+        let mut span = self.span();
+        if let Some(ast_idx) = self.ast_node() {
+            let ast = arena.get(ast_idx);
+            span.start.line += ast.line_number;
+            span.end.line += ast.line_number;
+        }
+        span
     }
 
     pub fn set_next(&self, next: Option<TokenRef>) {
