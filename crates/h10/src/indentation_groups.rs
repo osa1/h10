@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::ast;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::token_node::TokenNodeRef;
@@ -37,7 +40,7 @@ pub fn apply_changes(
     range_start_char: u32,
     range_end_line: u32,
     range_end_char: u32,
-    _new_text: &str,
+    new_text: &str,
 ) {
     // Find the first modified token. Using lookback (which we don't generate right now, but I
     // think we can assume "1 token"), mark the tokens as "dirty" and update texts of modified
@@ -47,22 +50,47 @@ pub fn apply_changes(
     // Update removals.
     if (range_start_line, range_start_char) != (range_end_line, range_end_char) {
         for decl_idx in defs {
-            let decl = arena.get(*decl_idx);
+            let decl = arena.get_mut(*decl_idx);
+
             if decl.contains_location(range_start_line, range_start_char) {
                 // TODO: This can remove tokens of other declarations, we should mark those
                 // declarations for re-parsing.
-                decl.first_token.remove_range(
-                    range_start_line,
-                    range_start_char,
-                    range_end_line,
-                    range_end_char,
-                );
+                // TODO: Handle the `None` case.
+                let new_first_token = decl
+                    .first_token
+                    .remove_range(
+                        range_start_line,
+                        range_start_char,
+                        range_end_line,
+                        range_end_char,
+                    )
+                    .unwrap();
+
+                decl.first_token = new_first_token;
+
+                // TODO: Make sure to update last token after insertions.
+
                 break;
             }
         }
     }
 
-    todo!()
+    // Insert new text.
+    // TODO: We don't have to search again here, we know the block from the previous pass above.
+    let mut inserted = false;
+    for decl_idx in defs {
+        let decl = arena.get_mut(*decl_idx);
+        if decl.contains_location(range_start_line, range_start_char) {
+            decl.first_token
+                .insert(range_start_line, range_start_char, new_text);
+            inserted = true;
+            break;
+        }
+    }
+
+    assert!(inserted);
+
+    // TODO: Re-parse indentation groups.
 }
 
 fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
@@ -76,8 +104,11 @@ fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
         last_token = next_token;
     }
 
+    let first_token_line_number = first_token.span().start.line;
+
     let group = ast::ParsedTopDecl {
         kind: ast::TopDeclKind_::Unparsed,
+        line_number: first_token_line_number,
         first_token: first_token.clone(),
         last_token: last_token.clone(),
     };
@@ -85,102 +116,13 @@ fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
     let group_idx = arena.allocate(group);
 
     // Set AST nodes of tokens in the group.
-    let mut token = first_token;
-    loop {
+    for token in first_token.iter_until(&last_token) {
         token.set_ast_node(group_idx);
-        token = token.next().unwrap();
-        if token == last_token {
-            break;
-        }
+
+        // Line numbers of tokens attached to AST nodes will be relative to the AST node.
+        token.span.borrow_mut().start.line -= first_token_line_number;
+        token.span.borrow_mut().end.line -= first_token_line_number;
     }
 
     group_idx
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use h10_lexer::Lexer;
-
-    use indoc::indoc;
-
-    fn lex(s: &str) -> TokenNodeRef {
-        let lexer = Lexer::new(s);
-        let mut first_token: Option<TokenNodeRef> = None;
-        let mut last_token: Option<TokenNodeRef> = None;
-        for t in lexer {
-            let t: TokenNodeRef = TokenNodeRef::from_lexer_token("test", t.unwrap(), s);
-            if first_token.is_none() {
-                first_token = Some(t.clone());
-            } else if let Some(last_token_) = last_token {
-                last_token_.set_next(Some(t.clone()));
-            }
-            last_token = Some(t.clone());
-        }
-        first_token.unwrap()
-    }
-
-    #[test]
-    fn simple1() {
-        let pgm = indoc! {"
-            data A
-            data B
-        "};
-        let mut arena = DeclArena::new();
-        let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone(), &mut arena);
-        assert_eq!(groups.len(), 2);
-        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 0);
-        assert_eq!(arena.get(groups[0]).first_token.span().start.col, 0);
-        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 1);
-        assert_eq!(arena.get(groups[1]).first_token.span().start.col, 0);
-
-        token.check_token_str(pgm);
-    }
-
-    #[test]
-    fn simple2() {
-        let pgm = indoc! {"
-            data A
-
-            data B
-        "};
-        let mut arena = DeclArena::new();
-        let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone(), &mut arena);
-        assert_eq!(groups.len(), 2);
-        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 0);
-        assert_eq!(arena.get(groups[0]).first_token.span().start.col, 0);
-        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 2);
-        assert_eq!(arena.get(groups[1]).first_token.span().start.col, 0);
-
-        token.check_token_str(pgm);
-    }
-
-    #[test]
-    fn simple3() {
-        let pgm = indoc! {"
-
-            data A          -- 1
-
-            data B          -- 3
-              = X
-              | Y
-
-            f x y =         -- 7
-              x
-
-              where
-                t = 5       -- 11
-        "};
-        let mut arena = DeclArena::new();
-        let token = lex(pgm);
-        let groups = parse_indentation_groups(token.clone(), &mut arena);
-        assert_eq!(groups.len(), 3);
-        assert_eq!(arena.get(groups[0]).first_token.span().start.line, 1);
-        assert_eq!(arena.get(groups[1]).first_token.span().start.line, 3);
-        assert_eq!(arena.get(groups[2]).first_token.span().start.line, 7);
-
-        token.check_token_str(pgm);
-    }
 }

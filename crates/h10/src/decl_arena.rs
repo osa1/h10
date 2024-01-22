@@ -78,4 +78,11 @@ impl DeclArena {
             DeclAllocation::Used { decl } => decl,
         }
     }
+
+    pub fn get_mut(&mut self, idx: DeclIdx) -> &mut ast::ParsedTopDecl {
+        match &mut self.decls[idx.as_usize()] {
+            DeclAllocation::Free { .. } => panic!("Declaration index is not in use"),
+            DeclAllocation::Used { decl } => decl,
+        }
+    }
 }

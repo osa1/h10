@@ -126,8 +126,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             _ => self.value_decl().map(TopDeclKind_::Value),
         }?;
         let (_, r) = self.last_tok_span;
+        let line_number = t.span().start.line;
         Ok(TopDecl {
             kind: top_decl_kind,
+            line_number,
             first_token: t,
             last_token: self.last_tok.clone().unwrap(),
         })

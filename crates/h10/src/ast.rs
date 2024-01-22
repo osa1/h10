@@ -1,7 +1,7 @@
 use crate::collections::Set;
 use crate::id::Id;
 use crate::token_node::TokenNodeRef;
-use h10_lexer::token::{Literal, Token};
+use h10_lexer::token::Literal;
 
 use std::fmt;
 use std::hash::Hash;
@@ -105,6 +105,8 @@ pub struct Span {
     /// "REPL" etc.
     pub source: Rc<str>,
 
+    // TODO: We should use a line and column type, without the byte index. Byte index is not useful
+    // when we store all text in AST.
     pub start: Loc,
 
     pub end: Loc,
@@ -126,6 +128,12 @@ impl fmt::Display for Span {
 pub struct TopDecl<Id> {
     // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
     pub kind: TopDeclKind_<Id>,
+
+    /// Line number of the `first_token` in the source file.
+    ///
+    /// Line numbers of tokens attached to this declaration will be relative to this number.
+    pub line_number: u32,
+
     pub first_token: TokenNodeRef,
     pub last_token: TokenNodeRef,
 }
@@ -139,11 +147,11 @@ impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
 
 impl<Id> TopDecl<Id> {
     pub fn contains_location(&self, line: u32, char: u32) -> bool {
-        let start_loc = self.first_token.span().start;
-        let end_loc = self.last_token.span().end;
+        let start = self.first_token.span().start;
+        let end = self.last_token.span().end;
 
-        (start_loc.line <= line || (start_loc.line == line && start_loc.col <= char))
-            && (end_loc.line > line || (end_loc.line == line && end_loc.col > char))
+        (start.line <= line || (start.line == line && start.col <= char))
+            && (end.line > line || (end.line == line && end.col > char))
     }
 
     pub fn map<Id2, F: FnOnce(&TopDeclKind_<Id>) -> TopDeclKind_<Id2>>(
@@ -152,22 +160,14 @@ impl<Id> TopDecl<Id> {
     ) -> TopDecl<Id2> {
         TopDecl {
             kind: f(&self.kind),
+            line_number: self.line_number,
             first_token: self.first_token.clone(),
             last_token: self.last_token.clone(),
         }
     }
 
-    /// For debugging. Get the tokens of the declaration. Panics if the tokens form a loop.
-    pub fn tokens(&self) -> Vec<Token> {
-        self.first_token.check_loops();
-
-        let mut tokens: Vec<Token> = vec![];
-        let mut token = Some(self.first_token.clone());
-        while let Some(token_) = token {
-            tokens.push(token_.token());
-            token = token_.next();
-        }
-        tokens
+    pub fn iter_tokens(&self) -> impl Iterator<Item = TokenNodeRef> {
+        self.first_token.iter_until(&self.last_token)
     }
 }
 

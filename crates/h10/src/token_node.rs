@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::ast::Span;
 use crate::collections::Set;
 use crate::decl_arena::DeclIdx;
@@ -11,7 +14,8 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::ops::Deref;
 
-/// Wraps lexer tokens in a shared reference to allow attaching them to AST nodes.
+/// Wraps lexer tokens in a shared reference to allow various information and linking to other
+/// tokens.
 ///
 /// Equality and hash are implemented based on reference equality.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -34,7 +38,13 @@ pub struct TokenNode {
     token: Token,
 
     /// Span of the token.
-    span: RefCell<Span>,
+    ///
+    /// When the token is attached to an AST node (`ast_node`), line number is relative to the AST
+    /// node.
+    ///
+    /// Column number is also relative, but it's also absolute as top-level groups always start at
+    /// column 0.
+    pub span: RefCell<Span>,
 
     /// The previous token.
     prev: RefCell<Option<TokenNodeRef>>,
@@ -99,6 +109,23 @@ impl TokenNodeRef {
         self.node.prev.borrow().clone()
     }
 
+    /// Returns an iterator that iterates all tokens starting from `self` until the end of the
+    /// list.
+    pub fn iter(&self) -> impl Iterator<Item = TokenNodeRef> {
+        TokenIterator {
+            current: Some(self.clone()),
+        }
+    }
+
+    /// Returns an iterator that iterates all tokens starting from `sel`, until `last`, including
+    /// `last`.
+    pub fn iter_until(&self, last: &TokenNodeRef) -> impl Iterator<Item = TokenNodeRef> {
+        TokenUntilIterator {
+            current: Some(self.clone()),
+            last: last.clone(),
+        }
+    }
+
     pub fn clear_links(&self) {
         *self.node.next.borrow_mut() = None;
         *self.node.prev.borrow_mut() = None;
@@ -112,6 +139,9 @@ impl TokenNodeRef {
         *self.ast_node.borrow()
     }
 
+    /// Whether the token contains the given location.
+    ///
+    /// Does not search next or previous tokens.
     pub fn contains_location(&self, line: u32, char: u32) -> bool {
         let pos = Pos::new(line, char);
         self.contains_location_(pos)
@@ -130,6 +160,8 @@ impl TokenNodeRef {
     /// `(range_end_line, `range_end_char`).
     ///
     /// Returns the new head of the list. Returns `None` when the whole token list is removed.
+    //
+    // TODO: Update spans.
     pub fn remove_range(
         &self,
         range_start_line: u32,
@@ -254,6 +286,50 @@ impl TokenNodeRef {
         self.text.borrow_mut().drain(start_byte_idx..end_byte_idx);
     }
 
+    /// Starting from the current token find the token with the given position and insert the text.
+    ///
+    /// Updates the span of the updated token and spans of the rest of the tokens.
+    //
+    // TODO: Update spans.
+    pub fn insert(&self, line: u32, char: u32, text: &str) {
+        let insert_pos = Pos::new(line, char);
+
+        let mut token = self.clone();
+        while !token.contains_location_(insert_pos) {
+            match token.next() {
+                Some(next_token) => token = next_token,
+                None => panic!(
+                    "Location ({}, {}) are not reachable from the token at {}:{}",
+                    line,
+                    char,
+                    self.span().start.line,
+                    self.span().start.col,
+                ),
+            }
+        }
+
+        let mut token_pos = Pos::from_loc(&token.span().start);
+        let token_text = token.text.borrow();
+        let mut iter = token_text.char_indices();
+
+        while token_pos != insert_pos {
+            let (_, char) = iter.next().unwrap();
+
+            if char == '\n' {
+                token_pos.line += 1;
+                token_pos.char = 0;
+            } else {
+                token_pos.char += 1;
+            }
+        }
+
+        let byte_idx = iter.next().unwrap().0;
+
+        drop(token_text);
+
+        token.text.borrow_mut().insert_str(byte_idx, text);
+    }
+
     pub fn check_loops(&self) {
         let mut tokens: Set<TokenNodeRef> = Default::default();
 
@@ -314,6 +390,22 @@ impl TokenNodeRef {
 
 impl TokenNode {
     fn new(token: Token, span: Span, text: String) -> Self {
+        /*
+        TODO: Figure out why this is failing.
+        if cfg!(debug_assertions) {
+            let mut pos = Pos::from_loc(&span.start);
+            for char in text.chars() {
+                if char == '\n' {
+                    pos.line += 1;
+                    pos.char = 0;
+                } else {
+                    pos.char += 1;
+                }
+            }
+            assert_eq!(pos, Pos::from_loc(&span.end));
+        }
+        */
+
         Self {
             token,
             span: RefCell::new(span),
@@ -322,6 +414,41 @@ impl TokenNode {
             ast_node: RefCell::new(None),
             text: RefCell::new(text),
         }
+    }
+}
+
+struct TokenIterator {
+    current: Option<TokenNodeRef>,
+}
+
+impl Iterator for TokenIterator {
+    type Item = TokenNodeRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.current.take();
+        if let Some(item) = &item {
+            self.current = item.next();
+        }
+        item
+    }
+}
+
+struct TokenUntilIterator {
+    current: Option<TokenNodeRef>,
+    last: TokenNodeRef,
+}
+
+impl Iterator for TokenUntilIterator {
+    type Item = TokenNodeRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.current.take();
+        if let Some(item) = &item {
+            if item != &self.last {
+                self.current = item.next();
+            }
+        }
+        item
     }
 }
 
