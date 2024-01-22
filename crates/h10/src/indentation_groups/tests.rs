@@ -20,7 +20,7 @@ fn lex(s: &str) -> TokenRef {
 }
 
 #[test]
-fn simple1() {
+fn simple_parsing_1() {
     let pgm = indoc! {"
             data A
             data B
@@ -52,7 +52,7 @@ fn simple1() {
 }
 
 #[test]
-fn simple2() {
+fn simple_parsing_2() {
     let pgm = indoc! {"
             data A
 
@@ -86,7 +86,7 @@ fn simple2() {
 }
 
 #[test]
-fn simple3() {
+fn simple_parsing_3() {
     let pgm = indoc! {"
 
             data A          -- 1

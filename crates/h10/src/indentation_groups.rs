@@ -3,11 +3,13 @@ mod tests;
 
 use crate::ast;
 use crate::decl_arena::{DeclArena, DeclIdx};
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::token::Token;
+use h10_lexer::Lexer;
 
 /// Parse indentation groups as [`ast::TopDeclKind_::Unparsed`] declarations.
-pub fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
+fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
     while matches!(token.token(), Token::Whitespace) {
         match token.next() {
@@ -30,67 +32,6 @@ pub fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> V
     }
 
     groups
-}
-
-#[allow(unused)]
-pub fn apply_changes(
-    arena: &mut DeclArena,
-    defs: &[DeclIdx],
-    range_start_line: u32,
-    range_start_char: u32,
-    range_end_line: u32,
-    range_end_char: u32,
-    new_text: &str,
-) {
-    // Find the first modified token. Using lookback (which we don't generate right now, but I
-    // think we can assume "1 token"), mark the tokens as "dirty" and update texts of modified
-    // tokens. Then re-lex starting from the lookback, marking AST nodes as dirty. Then re-parse
-    // the dirty nodes.
-
-    // Update removals.
-    if (range_start_line, range_start_char) != (range_end_line, range_end_char) {
-        for decl_idx in defs {
-            let decl = arena.get_mut(*decl_idx);
-
-            if decl.contains_location(range_start_line, range_start_char) {
-                // TODO: This can remove tokens of other declarations, we should mark those
-                // declarations for re-parsing.
-                // TODO: Handle the `None` case.
-                let new_first_token = decl
-                    .first_token
-                    .remove_range(
-                        range_start_line,
-                        range_start_char,
-                        range_end_line,
-                        range_end_char,
-                    )
-                    .unwrap();
-
-                decl.first_token = new_first_token;
-
-                // TODO: Make sure to update last token after insertions.
-
-                break;
-            }
-        }
-    }
-
-    // Insert new text.
-    // TODO: We don't have to search again here, we know the block from the previous pass above.
-    let mut inserted = false;
-    for decl_idx in defs {
-        let decl = arena.get_mut(*decl_idx);
-        if decl.contains_location(range_start_line, range_start_char) {
-            decl.first_token
-                .insert(range_start_line, range_start_char, new_text);
-            inserted = true;
-            break;
-        }
-    }
-
-    assert!(inserted);
-
-    // TODO: Re-parse indentation groups.
 }
 
 fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
@@ -125,4 +66,116 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     }
 
     group_idx
+}
+
+#[allow(unused)]
+pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+
+    if defs.is_empty() {
+        let tokens = lex(text);
+        *defs = parse_indentation_groups(tokens, arena);
+        return;
+    }
+
+    // Insert before the first group.
+    if pos < arena.get(defs[0]).span_start() {
+        todo!()
+    }
+
+    // Insert after the last group.
+    if pos >= arena.get(*defs.last().unwrap()).span_end() {
+        todo!()
+    }
+
+    // TODO: Binary search.
+    let (decl_idx_idx, decl_idx) = defs
+        .iter()
+        .copied()
+        .enumerate()
+        .find(|(decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
+        .unwrap();
+
+    insert_to_ast_node(arena.get_mut(decl_idx), pos, text);
+
+    // Tokenize the updated token, starting from the token at "lookback" of the updated token.
+    // TODO: We don't generate lookbacks right now, but I think lookback of 1 token should handle
+    // majority of the cases, if not all.
+
+    // Update line numbers of groups after the current one.
+    let n_lines_inserted = (text.lines().count() - 1) as u32;
+    if n_lines_inserted != 0 {
+        for decl_idx in &defs[decl_idx_idx + 1..] {
+            arena.get_mut(*decl_idx).line_number += n_lines_inserted;
+        }
+    }
+
+    // TODO: Reparse.
+}
+
+// TODO: This function should never fail, return error tokens instead.
+fn lex(s: &str) -> TokenRef {
+    let lexer = Lexer::new(s);
+    let mut first_token: Option<TokenRef> = None;
+    let mut last_token: Option<TokenRef> = None;
+    for t in lexer {
+        let t: TokenRef = TokenRef::from_lexer_token("", t.unwrap(), s);
+        if first_token.is_none() {
+            first_token = Some(t.clone());
+        } else if let Some(last_token_) = last_token {
+            last_token_.set_next(Some(t.clone()));
+        }
+        last_token = Some(t.clone());
+    }
+    first_token.unwrap()
+}
+
+/// Update the token in `node` with the inserted text.
+///
+/// Does not update spans of the tokens in the group, of spans of other groups.
+fn insert_to_ast_node(node: &mut ast::ParsedTopDecl, mut pos: Pos, text: &str) {
+    debug_assert!(!text.is_empty());
+
+    // Currently all changes force a full re-parse of the top-level declaration.
+
+    // Update `pos` so that the line number is relative to the declaration.
+    pos.line -= node.span_start().line;
+
+    // Find the token to update.
+    let token = node
+        .iter_tokens()
+        .find(|t| t.contains_location(pos))
+        .unwrap();
+
+    let insertion_byte_idx = find_byte_idx(
+        token.text.borrow().as_str(),
+        Pos::from_loc(&token.span().start),
+        pos,
+    );
+
+    token.text.borrow_mut().insert_str(insertion_byte_idx, text);
+}
+
+/// Given a string `text` and its position `text_start`, find the byte index in `text` of `pos`.
+///
+/// Assumes that `pos` is within the text.
+fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
+    let mut char_iter = text.char_indices();
+
+    let mut iter_pos = text_start;
+    let mut byte_idx = 0;
+    while iter_pos != pos {
+        let (byte_idx_, char) = char_iter.next().unwrap();
+        byte_idx = byte_idx_;
+        if char == '\n' {
+            iter_pos.line += 1;
+            iter_pos.char = 0;
+        } else {
+            iter_pos.char += 1;
+        }
+    }
+
+    byte_idx
 }

@@ -1,5 +1,6 @@
 use crate::collections::Set;
 use crate::id::Id;
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::token::Literal;
 
@@ -134,7 +135,14 @@ pub struct TopDecl<Id> {
     /// Line numbers of tokens attached to this declaration will be relative to this number.
     pub line_number: u32,
 
+    /// The first token where this top-level declaration starts. This token will always be at
+    /// column 0.
     pub first_token: TokenRef,
+
+    /// The last token (inclusive) where this top-level declaration ends.
+    ///
+    /// This will almost always be a whitespace token as there needs to be at least one new line
+    /// between top-level declarations, and files usually end with a new line.
     pub last_token: TokenRef,
 }
 
@@ -146,12 +154,19 @@ impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
 }
 
 impl<Id> TopDecl<Id> {
-    pub fn contains_location(&self, line: u32, char: u32) -> bool {
-        let start = self.first_token.span().start;
-        let end = self.last_token.span().end;
+    pub fn span_start(&self) -> Pos {
+        Pos::from_loc(&self.first_token.span().start)
+    }
 
-        (start.line <= line || (start.line == line && start.col <= char))
-            && (end.line > line || (end.line == line && end.col > char))
+    pub fn span_end(&self) -> Pos {
+        Pos::from_loc(&self.last_token.span().end)
+    }
+
+    pub fn contains_location(&self, pos: Pos) -> bool {
+        let start = Pos::from_loc(&self.first_token.span().start);
+        let end = Pos::from_loc(&self.last_token.span().end);
+
+        pos >= start && pos < end
     }
 
     pub fn map<Id2, F: FnOnce(&TopDeclKind_<Id>) -> TopDeclKind_<Id2>>(

@@ -4,6 +4,7 @@ mod tests;
 use crate::ast::Span;
 use crate::collections::Set;
 use crate::decl_arena::DeclIdx;
+use crate::pos::Pos;
 
 use h10_lexer::token::Token as LexerToken;
 use rc_id::RcId;
@@ -11,7 +12,6 @@ use rc_id::RcId;
 use lexgen_util::Loc;
 
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::ops::Deref;
 
 /// Wraps lexer tokens in a shared reference to allow various information and linking to other
@@ -142,192 +142,12 @@ impl TokenRef {
     /// Whether the token contains the given location.
     ///
     /// Does not search next or previous tokens.
-    pub fn contains_location(&self, line: u32, char: u32) -> bool {
-        let pos = Pos::new(line, char);
-        self.contains_location_(pos)
-    }
-
-    fn contains_location_(&self, pos: Pos) -> bool {
+    pub fn contains_location(&self, pos: Pos) -> bool {
         let span = self.span();
         let start = Pos::from_loc(&span.start);
         let end = Pos::from_loc(&span.end);
 
         pos >= start && pos < end
-    }
-
-    /// Starting from `self` find the token that contains the character at position
-    /// `(range_start_line, range_start_char)`, then remove token contents and whole tokens until
-    /// `(range_end_line, `range_end_char`).
-    ///
-    /// Returns the new head of the list. Returns `None` when the whole token list is removed.
-    //
-    // TODO: Update spans.
-    pub fn remove_range(
-        &self,
-        range_start_line: u32,
-        range_start_char: u32,
-        range_end_line: u32,
-        range_end_char: u32,
-    ) -> Option<TokenRef> {
-        let range_start = Pos::new(range_start_line, range_start_char);
-        let range_end = Pos::new(range_end_line, range_end_char);
-
-        // Find the start token.
-        let mut start_token = self.clone();
-        while !start_token.contains_location_(range_start) {
-            match start_token.next() {
-                Some(next_token) => start_token = next_token,
-                None => panic!(
-                    "Location ({}, {}) are not reachable from the token at {}:{}",
-                    range_start_line,
-                    range_start_char,
-                    self.span().start.line,
-                    self.span().start.col,
-                ),
-            }
-        }
-
-        // Find the end token.
-        let mut end_token = start_token.clone();
-        while !end_token.contains_location_(range_end) {
-            match end_token.next() {
-                Some(next_token) => end_token = next_token,
-                None => panic!(
-                    "Location ({}, {}) are not reachable from the token at {}:{}",
-                    range_end_line,
-                    range_end_char,
-                    self.span().start.line,
-                    self.span().start.col,
-                ),
-            }
-        }
-
-        // Remove tokens and text in the range: some part of the first token, all of the tokens in
-        // between, and some part of the last token.
-        start_token.remove_range_self(range_start, range_end);
-
-        if start_token == end_token {
-            if start_token.text.borrow().is_empty() {
-                if let Some(prev) = start_token.prev() {
-                    prev.set_next(start_token.next());
-                }
-                let new_head = start_token.next();
-                start_token.clear_links();
-                new_head
-            } else {
-                Some(start_token)
-            }
-        } else {
-            // Remove tokens in between.
-            let mut token = start_token.next().unwrap();
-            start_token.set_next(Some(end_token.clone()));
-
-            while token != end_token {
-                let next = token.next();
-                token.clear_links();
-                match next {
-                    Some(next) => token = next,
-                    None => break,
-                }
-            }
-
-            // Remove part of the last token.
-            end_token.remove_range_self(range_start, range_end);
-
-            if end_token.text.borrow().is_empty() {
-                start_token.set_next(end_token.next());
-                end_token.clear_links();
-            }
-
-            Some(start_token)
-        }
-    }
-
-    /// Remove the given range from the current token only. Does not update prev/next tokens.
-    fn remove_range_self(&self, range_start: Pos, range_end: Pos) {
-        let start = std::cmp::max(range_start, Pos::from_loc(&self.span().start));
-        let end = std::cmp::min(range_end, Pos::from_loc(&self.span().end));
-
-        let mut pos = Pos::from_loc(&self.span().start);
-        let text = self.text.borrow();
-        let mut iter = text.char_indices();
-        let mut byte_idx = 0;
-
-        while pos != start {
-            let (byte_idx_, char) = iter.next().unwrap();
-            byte_idx = byte_idx_;
-
-            if char == '\n' {
-                pos.line += 1;
-                pos.char = 0;
-            } else {
-                pos.char += 1;
-            }
-        }
-
-        let start_byte_idx = byte_idx;
-
-        while pos != end {
-            let (byte_idx_, char) = iter.next().unwrap();
-            byte_idx = byte_idx_;
-
-            if char == '\n' {
-                pos.line += 1;
-                pos.char = 0;
-            } else {
-                pos.char += 1;
-            }
-        }
-
-        let end_byte_idx = byte_idx;
-
-        drop(text);
-
-        self.text.borrow_mut().drain(start_byte_idx..end_byte_idx);
-    }
-
-    /// Starting from the current token find the token with the given position and insert the text.
-    ///
-    /// Updates the span of the updated token and spans of the rest of the tokens.
-    //
-    // TODO: Update spans.
-    pub fn insert(&self, line: u32, char: u32, text: &str) {
-        let insert_pos = Pos::new(line, char);
-
-        let mut token = self.clone();
-        while !token.contains_location_(insert_pos) {
-            match token.next() {
-                Some(next_token) => token = next_token,
-                None => panic!(
-                    "Location ({}, {}) are not reachable from the token at {}:{}",
-                    line,
-                    char,
-                    self.span().start.line,
-                    self.span().start.col,
-                ),
-            }
-        }
-
-        let mut token_pos = Pos::from_loc(&token.span().start);
-        let token_text = token.text.borrow();
-        let mut iter = token_text.char_indices();
-
-        while token_pos != insert_pos {
-            let (_, char) = iter.next().unwrap();
-
-            if char == '\n' {
-                token_pos.line += 1;
-                token_pos.char = 0;
-            } else {
-                token_pos.char += 1;
-            }
-        }
-
-        let byte_idx = iter.next().unwrap().0;
-
-        drop(token_text);
-
-        token.text.borrow_mut().insert_str(byte_idx, text);
     }
 
     pub fn check_loops(&self) {
@@ -449,39 +269,5 @@ impl Iterator for TokenUntilIterator {
             }
         }
         item
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Pos {
-    line: u32,
-    char: u32,
-}
-
-impl Pos {
-    fn new(line: u32, char: u32) -> Self {
-        Self { line, char }
-    }
-
-    fn from_loc(loc: &Loc) -> Self {
-        Self {
-            line: loc.line,
-            char: loc.col,
-        }
-    }
-}
-
-impl PartialOrd for Pos {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Pos {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.line.cmp(&other.line) {
-            Ordering::Equal => self.char.cmp(&other.char),
-            cmp => cmp,
-        }
     }
 }

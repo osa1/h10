@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::ast;
 
 #[derive(Debug)]
