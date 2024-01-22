@@ -11,7 +11,7 @@ mod tests;
 use crate::ast::*;
 use crate::layout_lexer::{LayoutError, LayoutLexer, LayoutLexer_};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
-use crate::token_node::TokenNodeRef;
+use crate::token::TokenRef;
 use h10_lexer::token::{ReservedId, ReservedOp, Special, Token};
 
 use std::rc::Rc;
@@ -62,14 +62,14 @@ struct Parser<'input, L: LayoutLexer_> {
     /// on parse error and `Peekable` doesn't give access to the inner iterator.
     ///
     /// This token has not been consumed yet and not linked to [`last_tok`].
-    peeked: Option<Result<TokenNodeRef, LexerError<LayoutError>>>,
+    peeked: Option<Result<TokenRef, LexerError<LayoutError>>>,
 
     /// Span of the last token returned by `next`.
     last_tok_span: (Loc, Loc),
 
     /// The last consumed token from [`lexer`]. This is used to create the linked list of tokens as
     /// we consume tokens.
-    last_tok: Option<TokenNodeRef>,
+    last_tok: Option<TokenRef>,
 
     input: &'input str,
 

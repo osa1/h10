@@ -3,11 +3,11 @@ mod tests;
 
 use crate::ast;
 use crate::decl_arena::{DeclArena, DeclIdx};
-use crate::token_node::TokenNodeRef;
+use crate::token::TokenRef;
 use h10_lexer::token::Token;
 
 /// Parse indentation groups as [`ast::TopDeclKind_::Unparsed`] declarations.
-pub fn parse_indentation_groups(mut token: TokenNodeRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
+pub fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
     while matches!(token.token(), Token::Whitespace) {
         match token.next() {
@@ -93,7 +93,7 @@ pub fn apply_changes(
     // TODO: Re-parse indentation groups.
 }
 
-fn parse_group(first_token: TokenNodeRef, arena: &mut DeclArena) -> DeclIdx {
+fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     let mut last_token = first_token.clone();
 
     while let Some(next_token) = last_token.next() {

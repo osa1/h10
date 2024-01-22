@@ -1,5 +1,5 @@
 use crate::ast::Span;
-use crate::token_node::TokenNodeRef;
+use crate::token::TokenRef;
 use h10_lexer::token::Token;
 
 use lexgen_util::Loc;
@@ -22,7 +22,7 @@ fn loc(line: u32, char: u32) -> Loc {
 
 #[test]
 fn simple_insertion() {
-    let token = TokenNodeRef::new(Token::Whitespace, span(0, 0, 0, 2), "  ".to_owned());
+    let token = TokenRef::new(Token::Whitespace, span(0, 0, 0, 2), "  ".to_owned());
 
     /*
     TODO: Token position update plan:

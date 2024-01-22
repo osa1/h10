@@ -5,7 +5,7 @@ use crate::ast::Span;
 use crate::collections::Set;
 use crate::decl_arena::DeclIdx;
 
-use h10_lexer::token::Token;
+use h10_lexer::token::Token as LexerToken;
 use rc_id::RcId;
 
 use lexgen_util::Loc;
@@ -19,23 +19,23 @@ use std::ops::Deref;
 ///
 /// Equality and hash are implemented based on reference equality.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TokenNodeRef {
-    node: RcId<TokenNode>,
+pub struct TokenRef {
+    node: RcId<Token>,
 }
 
-impl Deref for TokenNodeRef {
-    type Target = TokenNode;
+impl Deref for TokenRef {
+    type Target = Token;
 
     #[inline(always)]
-    fn deref(&self) -> &TokenNode {
+    fn deref(&self) -> &Token {
         &self.node
     }
 }
 
 #[derive(Debug)]
-pub struct TokenNode {
+pub struct Token {
     /// The token kind.
-    token: Token,
+    token: LexerToken,
 
     /// Span of the token.
     ///
@@ -47,10 +47,10 @@ pub struct TokenNode {
     pub span: RefCell<Span>,
 
     /// The previous token.
-    prev: RefCell<Option<TokenNodeRef>>,
+    prev: RefCell<Option<TokenRef>>,
 
     /// The next token.
-    next: RefCell<Option<TokenNodeRef>>,
+    next: RefCell<Option<TokenRef>>,
 
     /// When this token is a part of an AST node, the reference to the node.
     ///
@@ -63,16 +63,16 @@ pub struct TokenNode {
     pub text: RefCell<String>,
 }
 
-impl TokenNodeRef {
-    pub fn new(token: Token, span: Span, text: String) -> Self {
+impl TokenRef {
+    pub fn new(token: LexerToken, span: Span, text: String) -> Self {
         Self {
-            node: RcId::new(TokenNode::new(token, span, text)),
+            node: RcId::new(Token::new(token, span, text)),
         }
     }
 
     pub fn from_lexer_token(
         source: &str,
-        (start, t, end): (Loc, Token, Loc),
+        (start, t, end): (Loc, LexerToken, Loc),
         lexer_input: &str,
     ) -> Self {
         Self::new(
@@ -86,7 +86,7 @@ impl TokenNodeRef {
         )
     }
 
-    pub fn token(&self) -> Token {
+    pub fn token(&self) -> LexerToken {
         self.node.token
     }
 
@@ -94,24 +94,24 @@ impl TokenNodeRef {
         self.node.span.borrow().clone()
     }
 
-    pub fn set_next(&self, next: Option<TokenNodeRef>) {
+    pub fn set_next(&self, next: Option<TokenRef>) {
         *self.node.next.borrow_mut() = next.clone();
         if let Some(next) = next {
             *next.node.prev.borrow_mut() = Some(self.clone());
         }
     }
 
-    pub fn next(&self) -> Option<TokenNodeRef> {
+    pub fn next(&self) -> Option<TokenRef> {
         self.node.next.borrow().clone()
     }
 
-    pub fn prev(&self) -> Option<TokenNodeRef> {
+    pub fn prev(&self) -> Option<TokenRef> {
         self.node.prev.borrow().clone()
     }
 
     /// Returns an iterator that iterates all tokens starting from `self` until the end of the
     /// list.
-    pub fn iter(&self) -> impl Iterator<Item = TokenNodeRef> {
+    pub fn iter(&self) -> impl Iterator<Item = TokenRef> {
         TokenIterator {
             current: Some(self.clone()),
         }
@@ -119,7 +119,7 @@ impl TokenNodeRef {
 
     /// Returns an iterator that iterates all tokens starting from `sel`, until `last`, including
     /// `last`.
-    pub fn iter_until(&self, last: &TokenNodeRef) -> impl Iterator<Item = TokenNodeRef> {
+    pub fn iter_until(&self, last: &TokenRef) -> impl Iterator<Item = TokenRef> {
         TokenUntilIterator {
             current: Some(self.clone()),
             last: last.clone(),
@@ -168,7 +168,7 @@ impl TokenNodeRef {
         range_start_char: u32,
         range_end_line: u32,
         range_end_char: u32,
-    ) -> Option<TokenNodeRef> {
+    ) -> Option<TokenRef> {
         let range_start = Pos::new(range_start_line, range_start_char);
         let range_end = Pos::new(range_end_line, range_end_char);
 
@@ -331,9 +331,9 @@ impl TokenNodeRef {
     }
 
     pub fn check_loops(&self) {
-        let mut tokens: Set<TokenNodeRef> = Default::default();
+        let mut tokens: Set<TokenRef> = Default::default();
 
-        let mut token: TokenNodeRef = self.clone();
+        let mut token: TokenRef = self.clone();
         loop {
             let new = tokens.insert(token.clone());
             if !new {
@@ -343,7 +343,7 @@ impl TokenNodeRef {
 
                 // We've seen `token` twice, add tokens from `self` to the first occurrence of
                 // `token`.
-                let mut token_list: Vec<Token> = Vec::with_capacity(tokens.len());
+                let mut token_list: Vec<LexerToken> = Vec::with_capacity(tokens.len());
                 let mut debug_list_token = self.clone();
                 while debug_list_token != token {
                     token_list.push(debug_list_token.token());
@@ -379,7 +379,7 @@ impl TokenNodeRef {
     pub fn check_token_str(&self, expected: &str) {
         // Check that the token texts make the original program.
         let mut token_text = String::with_capacity(expected.len());
-        let mut token: Option<TokenNodeRef> = Some(self.clone());
+        let mut token: Option<TokenRef> = Some(self.clone());
         while let Some(token_) = token {
             token_text.extend(token_.deref().text.borrow().chars());
             token = token_.next();
@@ -388,8 +388,8 @@ impl TokenNodeRef {
     }
 }
 
-impl TokenNode {
-    fn new(token: Token, span: Span, text: String) -> Self {
+impl Token {
+    fn new(token: LexerToken, span: Span, text: String) -> Self {
         /*
         TODO: Figure out why this is failing.
         if cfg!(debug_assertions) {
@@ -418,11 +418,11 @@ impl TokenNode {
 }
 
 struct TokenIterator {
-    current: Option<TokenNodeRef>,
+    current: Option<TokenRef>,
 }
 
 impl Iterator for TokenIterator {
-    type Item = TokenNodeRef;
+    type Item = TokenRef;
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.current.take();
@@ -434,12 +434,12 @@ impl Iterator for TokenIterator {
 }
 
 struct TokenUntilIterator {
-    current: Option<TokenNodeRef>,
-    last: TokenNodeRef,
+    current: Option<TokenRef>,
+    last: TokenRef,
 }
 
 impl Iterator for TokenUntilIterator {
-    type Item = TokenNodeRef;
+    type Item = TokenRef;
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.current.take();

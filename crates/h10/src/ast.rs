@@ -1,6 +1,6 @@
 use crate::collections::Set;
 use crate::id::Id;
-use crate::token_node::TokenNodeRef;
+use crate::token::TokenRef;
 use h10_lexer::token::Literal;
 
 use std::fmt;
@@ -134,8 +134,8 @@ pub struct TopDecl<Id> {
     /// Line numbers of tokens attached to this declaration will be relative to this number.
     pub line_number: u32,
 
-    pub first_token: TokenNodeRef,
-    pub last_token: TokenNodeRef,
+    pub first_token: TokenRef,
+    pub last_token: TokenRef,
 }
 
 impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
@@ -166,7 +166,7 @@ impl<Id> TopDecl<Id> {
         }
     }
 
-    pub fn iter_tokens(&self) -> impl Iterator<Item = TokenNodeRef> {
+    pub fn iter_tokens(&self) -> impl Iterator<Item = TokenRef> {
         self.first_token.iter_until(&self.last_token)
     }
 }

@@ -3,12 +3,12 @@ use h10_lexer::Lexer;
 
 use indoc::indoc;
 
-fn lex(s: &str) -> TokenNodeRef {
+fn lex(s: &str) -> TokenRef {
     let lexer = Lexer::new(s);
-    let mut first_token: Option<TokenNodeRef> = None;
-    let mut last_token: Option<TokenNodeRef> = None;
+    let mut first_token: Option<TokenRef> = None;
+    let mut last_token: Option<TokenRef> = None;
     for t in lexer {
-        let t: TokenNodeRef = TokenNodeRef::from_lexer_token("test", t.unwrap(), s);
+        let t: TokenRef = TokenRef::from_lexer_token("test", t.unwrap(), s);
         if first_token.is_none() {
             first_token = Some(t.clone());
         } else if let Some(last_token_) = last_token {

@@ -16,7 +16,7 @@ mod layout_lexer;
 mod parser;
 mod renaming;
 mod scc;
-mod token_node;
+mod token;
 mod type_inference;
 mod type_scheme;
 mod typing;
