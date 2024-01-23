@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
-use h10_lexer::{ReservedOp, Special, Token};
+use h10_lexer::{ReservedOp, Special, TokenKind};
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /// Parses the part after `::` in a type signature. E.g. `x :: Show a => a -> String` the part
@@ -29,10 +29,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     pub(super) fn class(&mut self) -> ParserResult<ParsedType> {
         let (l, t, r) = self.next()?;
         match t {
-            Token::QConId | Token::ConId => {
+            TokenKind::QConId | TokenKind::ConId => {
                 let con_str = self.string(l, r);
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
-                let arg = if self.skip_token(Token::Special(Special::LParen)) {
+                let arg = if self.skip_token(TokenKind::Special(Special::LParen)) {
                     // qtycls ( tyvar atype1 ... atypen )
                     let (l_, _) = self.last_tok_span();
                     let cls = self.atype()?;
@@ -40,12 +40,12 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                     while self.atype_start() {
                         args.push(self.atype()?);
                     }
-                    self.expect_token(Token::Special(Special::RParen))?;
+                    self.expect_token(TokenKind::Special(Special::RParen))?;
                     let (_, r_) = self.last_tok_span();
                     self.spanned(l_, r_, Type_::App(Box::new(cls), args))
                 } else {
                     // qtycls tyvar
-                    let (l_, arg_str, r_) = self.expect_token_string(Token::VarId)?;
+                    let (l_, arg_str, r_) = self.expect_token_string(TokenKind::VarId)?;
                     self.spanned(l_, r_, Type_::Var(arg_str))
                 };
                 Ok(self.spanned(l, arg.span.end, Type_::App(Box::new(con), vec![arg])))
@@ -58,7 +58,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // type → btype [-> type]                  (function type)
     pub(crate) fn type_(&mut self) -> ParserResult<ParsedType> {
         let ty1 = self.btype()?;
-        if self.skip_token(Token::ReservedOp(ReservedOp::RightArrow)) {
+        if self.skip_token(TokenKind::ReservedOp(ReservedOp::RightArrow)) {
             let ty2 = self.type_()?;
             Ok(self.spanned(
                 ty1.span.start,
@@ -110,34 +110,34 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let (l, t, r) = self.peek()?;
 
         match t {
-            Token::VarId => {
+            TokenKind::VarId => {
                 self.skip(); // consume type id
                 let str = self.string(l, r);
                 Ok(self.spanned(l, r, Type_::Var(str)))
             }
 
-            Token::Special(Special::LParen) => {
+            TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
                 let ty1 = self.type_()?;
 
-                if self.skip_token(Token::Special(Special::RParen)) {
+                if self.skip_token(TokenKind::Special(Special::RParen)) {
                     return Ok(ty1);
                 }
 
-                self.expect_token(Token::Special(Special::Comma))?;
+                self.expect_token(TokenKind::Special(Special::Comma))?;
                 let mut tys = vec![ty1, self.type_()?];
-                while self.skip_token(Token::Special(Special::Comma)) {
+                while self.skip_token(TokenKind::Special(Special::Comma)) {
                     tys.push(self.type_()?);
                 }
-                self.expect_token(Token::Special(Special::RParen))?;
+                self.expect_token(TokenKind::Special(Special::RParen))?;
                 let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Type_::Tuple(tys)))
             }
 
-            Token::Special(Special::LBracket) => {
+            TokenKind::Special(Special::LBracket) => {
                 self.skip(); // consume '['
                 let ty = self.type_()?;
-                self.expect_token(Token::Special(Special::RBracket))?;
+                self.expect_token(TokenKind::Special(Special::RBracket))?;
                 let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Type_::List(Box::new(ty))))
             }
@@ -152,7 +152,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 self.peek(),
                 Ok((
                     _,
-                    Token::VarId | Token::Special(Special::LParen | Special::LBracket),
+                    TokenKind::VarId | TokenKind::Special(Special::LParen | Special::LBracket),
                     _
                 ))
             )
@@ -170,42 +170,42 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn gtycon(&mut self) -> ParserResult<ParsedTyCon> {
         let (l, t, r) = self.peek()?;
         match t {
-            Token::QConId | Token::ConId => {
+            TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume qualified type constructor
                 let str = self.string(l, r);
                 Ok(self.spanned(l, r, TyCon_::Id(str)))
             }
-            Token::Special(Special::LParen) => {
+            TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
                 let (_, t_, r_) = self.peek()?;
                 match t_ {
-                    Token::Special(Special::RParen) => {
+                    TokenKind::Special(Special::RParen) => {
                         self.skip(); // consume ')'
                         Ok(self.spanned(l, r_, TyCon_::Tuple(0)))
                     }
-                    Token::ReservedOp(ReservedOp::RightArrow) => {
+                    TokenKind::ReservedOp(ReservedOp::RightArrow) => {
                         self.skip(); // consume '->'
-                        self.expect_token(Token::Special(Special::RParen))?;
+                        self.expect_token(TokenKind::Special(Special::RParen))?;
                         let (_, r__) = self.last_tok_span();
                         Ok(self.spanned(l, r__, TyCon_::Arrow))
                     }
-                    Token::Special(Special::Comma) => {
+                    TokenKind::Special(Special::Comma) => {
                         self.skip(); // consume ','
                         let mut arity = 2;
-                        while matches!(self.peek()?, (_, Token::Special(Special::Comma), _)) {
+                        while matches!(self.peek()?, (_, TokenKind::Special(Special::Comma), _)) {
                             self.skip(); // consume ','
                             arity += 1;
                         }
-                        self.expect_token(Token::Special(Special::RParen))?;
+                        self.expect_token(TokenKind::Special(Special::RParen))?;
                         let (_, r__) = self.last_tok_span();
                         Ok(self.spanned(l, r__, TyCon_::Tuple(arity)))
                     }
                     _ => self.fail(l, ErrorKind::UnexpectedToken),
                 }
             }
-            Token::Special(Special::LBracket) => {
+            TokenKind::Special(Special::LBracket) => {
                 self.skip(); // consume '['
-                self.expect_token(Token::Special(Special::RBracket))?;
+                self.expect_token(TokenKind::Special(Special::RBracket))?;
                 let (_, r_) = self.last_tok_span();
                 Ok(self.spanned(l, r_, TyCon_::List))
             }
@@ -218,7 +218,9 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             self.peek(),
             Ok((
                 _,
-                Token::QConId | Token::ConId | Token::Special(Special::LParen | Special::LBracket),
+                TokenKind::QConId
+                    | TokenKind::ConId
+                    | TokenKind::Special(Special::LParen | Special::LBracket),
                 _
             ))
         )

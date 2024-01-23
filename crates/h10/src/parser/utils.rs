@@ -3,7 +3,7 @@ use crate::layout_lexer::{LayoutError, LayoutLexer_};
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
-use h10_lexer::Token;
+use h10_lexer::TokenKind;
 
 use lexgen_util::{LexerError, Loc};
 
@@ -72,13 +72,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     /// Get the next token without incrementing the lexer. This handles indentation/layout and
     /// returns virtual semicolons and braces when necessary.
-    pub(super) fn peek(&mut self) -> ParserResult<(Loc, Token, Loc)> {
+    pub(super) fn peek(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
         self.peek_()
             .map(|t| (t.span().start, t.token(), t.span().end))
     }
 
     /// Get the next token. This is the same as `peek`, but it increments the lexer.
-    pub(super) fn next(&mut self) -> ParserResult<(Loc, Token, Loc)> {
+    pub(super) fn next(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
         self.next_()
             .map(|t| (t.span().start, t.token(), t.span().end))
     }
@@ -111,7 +111,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
-    pub(super) fn skip_token(&mut self, token: Token) -> bool {
+    pub(super) fn skip_token(&mut self, token: TokenKind) -> bool {
         match self.peek() {
             Ok((_l, token_, _r)) if token_ == token => {
                 self.skip();
@@ -122,7 +122,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     }
 
     #[allow(unused)]
-    pub(super) fn skip_token_loc(&mut self, token: Token) -> Option<(Loc, Loc)> {
+    pub(super) fn skip_token_loc(&mut self, token: TokenKind) -> Option<(Loc, Loc)> {
         match self.peek() {
             Ok((l, token_, r)) if token_ == token => {
                 self.skip();
@@ -132,7 +132,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
-    pub(super) fn skip_token_string(&mut self, token: Token) -> Option<String> {
+    pub(super) fn skip_token_string(&mut self, token: TokenKind) -> Option<String> {
         match self.peek() {
             Ok((l, token_, r)) if token_ == token => {
                 self.skip();
@@ -142,7 +142,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
-    pub(super) fn skip_token_pred<F>(&mut self, token: Token, pred: F) -> bool
+    pub(super) fn skip_token_pred<F>(&mut self, token: TokenKind, pred: F) -> bool
     where
         F: Fn(&str) -> bool,
     {
@@ -155,17 +155,17 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
-    pub(super) fn skip_all(&mut self, token: Token) {
+    pub(super) fn skip_all(&mut self, token: TokenKind) {
         while self.skip_token(token) {}
     }
 
-    pub(super) fn expect_token(&mut self, token: Token) -> ParserResult<(Loc, Loc)> {
+    pub(super) fn expect_token(&mut self, token: TokenKind) -> ParserResult<(Loc, Loc)> {
         self.expect_token_pred(|token_| token_ == token)
     }
 
     pub(super) fn expect_token_pred<F>(&mut self, pred: F) -> ParserResult<(Loc, Loc)>
     where
-        F: Fn(Token) -> bool,
+        F: Fn(TokenKind) -> bool,
     {
         let (l, next_token, r) = self.next()?;
         if pred(next_token) {
@@ -175,7 +175,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
     }
 
-    pub(super) fn expect_token_string(&mut self, token: Token) -> ParserResult<(Loc, String, Loc)> {
+    pub(super) fn expect_token_string(
+        &mut self,
+        token: TokenKind,
+    ) -> ParserResult<(Loc, String, Loc)> {
         self.expect_token(token)
             .map(|(l, r)| (l, self.string(l, r), r))
     }
@@ -185,7 +188,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         pred: F,
     ) -> ParserResult<(Loc, String, Loc)>
     where
-        F: Fn(Token) -> bool,
+        F: Fn(TokenKind) -> bool,
     {
         self.expect_token_pred(pred)
             .map(|(l, r)| (l, self.string(l, r), r))

@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Token {
+pub enum TokenKind {
     Whitespace,
 
     Comment {
@@ -40,7 +40,7 @@ pub enum Token {
     ReservedId(ReservedId),
 }
 
-const _: () = assert!(std::mem::size_of::<Token>() == 2);
+const _: () = assert!(std::mem::size_of::<TokenKind>() == 2);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Literal {

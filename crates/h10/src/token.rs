@@ -6,7 +6,7 @@ use crate::collections::Set;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 
-use h10_lexer::Token as LexerToken;
+use h10_lexer::TokenKind as LexerToken;
 use rc_id::RcId;
 
 use lexgen_util::Loc;

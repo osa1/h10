@@ -1,5 +1,5 @@
 use crate::layout_lexer::LayoutLexer;
-use h10_lexer::{Literal, ReservedId, ReservedOp, Special, Token};
+use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
 // `module X where <body>` where `<body>` is indented the same amount as `module`.
 //
@@ -24,18 +24,18 @@ fn module_where_no_indent() {
 module X where
 a = 1"#;
     let lexer = LayoutLexer::new(input);
-    let tokens: Vec<Token> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
     assert_eq!(
         tokens,
         vec![
-            Token::ReservedId(ReservedId::Module),
-            Token::ConId,
-            Token::ReservedId(ReservedId::Where),
-            Token::Special(Special::LBrace),
-            Token::VarId,
-            Token::ReservedOp(ReservedOp::Equals),
-            Token::Literal(Literal::Int),
-            Token::Special(Special::RBrace),
+            TokenKind::ReservedId(ReservedId::Module),
+            TokenKind::ConId,
+            TokenKind::ReservedId(ReservedId::Where),
+            TokenKind::Special(Special::LBrace),
+            TokenKind::VarId,
+            TokenKind::ReservedOp(ReservedOp::Equals),
+            TokenKind::Literal(Literal::Int),
+            TokenKind::Special(Special::RBrace),
         ]
     );
 }
@@ -72,21 +72,21 @@ fn class_where_no_indent() {
 class X where
 a = 1"#;
     let lexer = LayoutLexer::new(input);
-    let tokens: Vec<Token> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
     assert_eq!(
         tokens,
         vec![
-            Token::Special(Special::LBrace),
-            Token::ReservedId(ReservedId::Class),
-            Token::ConId,
-            Token::ReservedId(ReservedId::Where),
-            Token::Special(Special::LBrace),
-            Token::Special(Special::RBrace),
-            Token::Special(Special::Semi),
-            Token::VarId,
-            Token::ReservedOp(ReservedOp::Equals),
-            Token::Literal(Literal::Int),
-            Token::Special(Special::RBrace),
+            TokenKind::Special(Special::LBrace),
+            TokenKind::ReservedId(ReservedId::Class),
+            TokenKind::ConId,
+            TokenKind::ReservedId(ReservedId::Where),
+            TokenKind::Special(Special::LBrace),
+            TokenKind::Special(Special::RBrace),
+            TokenKind::Special(Special::Semi),
+            TokenKind::VarId,
+            TokenKind::ReservedOp(ReservedOp::Equals),
+            TokenKind::Literal(Literal::Int),
+            TokenKind::Special(Special::RBrace),
         ]
     );
 }
@@ -97,19 +97,19 @@ fn record_literal() {
     // expected (i.e. after a `let`, `where`, `of`, `do`).
     let input = "data A = A { x :: Int }";
     let lexer = LayoutLexer::new_non_module(input);
-    let tokens: Vec<Token> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
     assert_eq!(
         tokens,
         vec![
-            Token::ReservedId(ReservedId::Data),
-            Token::ConId,
-            Token::ReservedOp(ReservedOp::Equals),
-            Token::ConId,
-            Token::Special(Special::LBrace),
-            Token::VarId,
-            Token::ReservedOp(ReservedOp::ColonColon),
-            Token::ConId,
-            Token::Special(Special::RBrace),
+            TokenKind::ReservedId(ReservedId::Data),
+            TokenKind::ConId,
+            TokenKind::ReservedOp(ReservedOp::Equals),
+            TokenKind::ConId,
+            TokenKind::Special(Special::LBrace),
+            TokenKind::VarId,
+            TokenKind::ReservedOp(ReservedOp::ColonColon),
+            TokenKind::ConId,
+            TokenKind::Special(Special::RBrace),
         ]
     );
 }

@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
-use h10_lexer::{Literal, ReservedId, ReservedOp, Special, Token};
+use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /*
@@ -32,11 +32,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
          | gcon apat1 … apatk               (arity gcon  =  k, k ≥ 1)
     */
     fn lpat(&mut self) -> ParserResult<ParsedPat> {
-        if let Ok((l, Token::VarSym, r)) = self.peek() {
+        if let Ok((l, TokenKind::VarSym, r)) = self.peek() {
             if self.str(l, r) == "-" {
                 self.skip(); // skip '-'
                 match self.next()? {
-                    (_, Token::Literal(lit @ (Literal::Int | Literal::Float)), r_) => {
+                    (_, TokenKind::Literal(lit @ (Literal::Int | Literal::Float)), r_) => {
                         // TODO negation
                         return Ok(self.spanned(l, r_, Pat_::Lit(lit)));
                     }
@@ -78,13 +78,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     pub(super) fn apat(&mut self) -> ParserResult<ParsedPat> {
         match self.peek()? {
-            (l, Token::Literal(lit), r) => {
+            (l, TokenKind::Literal(lit), r) => {
                 self.skip(); // consume literal
                 Ok(self.spanned(l, r, Pat_::Lit(lit)))
             }
 
             // Wildcard
-            (l, Token::ReservedId(ReservedId::Underscore), r) => {
+            (l, TokenKind::ReservedId(ReservedId::Underscore), r) => {
                 self.skip(); // consume '_'
                 Ok(self.spanned(l, r, Pat_::Wildcard))
             }
@@ -93,11 +93,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             // var → ( varsym )
             // gcon → () | (,+)
             // qcon → ( gconsym )
-            (l, Token::Special(Special::LParen), _) => {
+            (l, TokenKind::Special(Special::LParen), _) => {
                 self.skip(); // consume '('
 
                 // gcon → ()
-                if self.skip_token(Token::Special(Special::RParen)) {
+                if self.skip_token(TokenKind::Special(Special::RParen)) {
                     let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(
                         l,
@@ -107,12 +107,12 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 }
 
                 // gcon → (,+)
-                if self.skip_token(Token::Special(Special::Comma)) {
+                if self.skip_token(TokenKind::Special(Special::Comma)) {
                     let mut arity = 2;
-                    while self.skip_token(Token::Special(Special::Comma)) {
+                    while self.skip_token(TokenKind::Special(Special::Comma)) {
                         arity += 1;
                     }
-                    let (_, r) = self.expect_token(Token::Special(Special::RParen))?;
+                    let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
                     return Ok(self.spanned(
                         l,
                         r,
@@ -122,9 +122,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
                 // var → ( varsym )
                 let varsym = self.try_opt(|self_| {
-                    if let Ok((l_, Token::VarSym | Token::QVarSym, r_)) = self_.peek() {
+                    if let Ok((l_, TokenKind::VarSym | TokenKind::QVarSym, r_)) = self_.peek() {
                         self_.skip();
-                        let (_, r) = self_.expect_token(Token::Special(Special::RParen)).ok()?;
+                        let (_, r) = self_
+                            .expect_token(TokenKind::Special(Special::RParen))
+                            .ok()?;
                         let str = self_.string(l_, r_);
                         Some(self_.spanned(l, r, Pat_::Var(str)))
                     } else {
@@ -140,12 +142,16 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 let gconsym = self.try_opt(|self_| {
                     if let Ok((
                         l_,
-                        Token::ReservedOp(ReservedOp::Colon) | Token::QConSym | Token::ConSym,
+                        TokenKind::ReservedOp(ReservedOp::Colon)
+                        | TokenKind::QConSym
+                        | TokenKind::ConSym,
                         r_,
                     )) = self_.peek()
                     {
                         self_.skip();
-                        let (_, r) = self_.expect_token(Token::Special(Special::RParen)).ok()?;
+                        let (_, r) = self_
+                            .expect_token(TokenKind::Special(Special::RParen))
+                            .ok()?;
                         let str = self_.string(l_, r_);
                         Some(self_.spanned(
                             l,
@@ -163,10 +169,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
                 // apat → ( pat ) | ( pat1 , … , patk )
                 let mut pats = vec![self.pat()?];
-                while self.skip_token(Token::Special(Special::Comma)) {
+                while self.skip_token(TokenKind::Special(Special::Comma)) {
                     pats.push(self.pat()?);
                 }
-                let (_, r) = self.expect_token(Token::Special(Special::RParen))?;
+                let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
                 if pats.len() == 1 {
                     Ok(pats.pop().unwrap())
                 } else {
@@ -175,25 +181,25 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             }
 
             // List pattern
-            (l, Token::Special(Special::LBracket), _) => {
+            (l, TokenKind::Special(Special::LBracket), _) => {
                 self.skip(); // consume '['
-                if self.skip_token(Token::Special(Special::RBracket)) {
+                if self.skip_token(TokenKind::Special(Special::RBracket)) {
                     let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(l, r, Pat_::List(vec![])));
                 }
                 let mut pats = vec![];
                 loop {
                     pats.push(self.pat()?);
-                    if !self.skip_token(Token::Special(Special::Comma)) {
+                    if !self.skip_token(TokenKind::Special(Special::Comma)) {
                         break;
                     }
                 }
-                let (_, r) = self.expect_token(Token::Special(Special::RBracket))?;
+                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
                 Ok(self.spanned(l, r, Pat_::List(pats)))
             }
 
             // Irrefutable pattern
-            (l, Token::ReservedOp(ReservedOp::Tilde), _) => {
+            (l, TokenKind::ReservedOp(ReservedOp::Tilde), _) => {
                 self.skip(); // consume '~'
                 let apat = self.apat()?;
                 let r = apat.span.end;
@@ -206,7 +212,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             (l, _, _) => {
                 let pat = self.try_(|self_| {
                     let var = self_.var()?;
-                    if self_.skip_token(Token::ReservedOp(ReservedOp::At)) {
+                    if self_.skip_token(TokenKind::ReservedOp(ReservedOp::At)) {
                         let pat = self_.apat()?;
                         let r = pat.span.end;
                         Ok(self_.spanned(l, r, Pat_::As(var, Box::new(pat))))
@@ -224,18 +230,18 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                     let gcon = self_.gcon()?;
                     let l = gcon.span.start;
                     if let GCon_::QCon(_) = &gcon.node {
-                        if self_.skip_token(Token::Special(Special::LBrace)) {
+                        if self_.skip_token(TokenKind::Special(Special::LBrace)) {
                             let mut pats = vec![];
                             while !matches!(
                                 self_.peek(),
-                                Ok((_, Token::Special(Special::RBrace), _))
+                                Ok((_, TokenKind::Special(Special::RBrace), _))
                             ) {
                                 pats.push(self_.fpat()?);
-                                if !self_.skip_token(Token::Special(Special::Comma)) {
+                                if !self_.skip_token(TokenKind::Special(Special::Comma)) {
                                     break;
                                 }
                             }
-                            let (_, r) = self_.expect_token(Token::Special(Special::RBrace))?;
+                            let (_, r) = self_.expect_token(TokenKind::Special(Special::RBrace))?;
                             return Ok(self_.spanned(
                                 l,
                                 r,
@@ -263,11 +269,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             self.peek(),
             Ok((
                 _,
-                Token::Literal(_)
-                    | Token::ReservedId(ReservedId::Underscore)
-                    | Token::Special(Special::LParen)
-                    | Token::Special(Special::LBracket)
-                    | Token::ReservedOp(ReservedOp::Tilde),
+                TokenKind::Literal(_)
+                    | TokenKind::ReservedId(ReservedId::Underscore)
+                    | TokenKind::Special(Special::LParen)
+                    | TokenKind::Special(Special::LBracket)
+                    | TokenKind::ReservedOp(ReservedOp::Tilde),
                 _
             ))
         ) || self.var_start()

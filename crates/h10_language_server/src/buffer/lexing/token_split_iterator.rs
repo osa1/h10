@@ -4,7 +4,7 @@ use crate::token::TokenKind;
 
 use h10_lexer::Lexer as H10Lexer;
 use h10_lexer::Literal as H10Literal;
-use h10_lexer::Token as H10Token;
+use h10_lexer::TokenKind as H10Token;
 
 use lexgen_util::{LexerError, Loc};
 

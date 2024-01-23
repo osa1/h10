@@ -1,10 +1,10 @@
-use crate::token::Token;
+use crate::token::TokenKind;
 use crate::Lexer;
 
-fn lex(s: &str) -> Vec<Token> {
+fn lex(s: &str) -> Vec<TokenKind> {
     Lexer::new(s)
         .map(|t| t.unwrap().1)
-        .filter(|t| !matches!(t, Token::Whitespace))
+        .filter(|t| !matches!(t, TokenKind::Whitespace))
         .collect()
 }
 
@@ -13,16 +13,16 @@ fn lex_id_sym() {
     assert_eq!(
         lex("a A ++ :+: A.a A.A A.++ A.:+: * ."),
         vec![
-            Token::VarId,
-            Token::ConId,
-            Token::VarSym,
-            Token::ConSym,
-            Token::QVarId,
-            Token::QConId,
-            Token::QVarSym,
-            Token::QConSym,
-            Token::VarSym,
-            Token::VarSym,
+            TokenKind::VarId,
+            TokenKind::ConId,
+            TokenKind::VarSym,
+            TokenKind::ConSym,
+            TokenKind::QVarId,
+            TokenKind::QConId,
+            TokenKind::QVarSym,
+            TokenKind::QConSym,
+            TokenKind::VarSym,
+            TokenKind::VarSym,
         ]
     );
 }
@@ -35,10 +35,10 @@ fn comments() {
 {- test -}
 {-| test -}
 "#);
-    let doc = Token::Comment {
+    let doc = TokenKind::Comment {
         documentation: true,
     };
-    let not_doc = Token::Comment {
+    let not_doc = TokenKind::Comment {
         documentation: false,
     };
     assert_eq!(toks, vec![not_doc, doc, not_doc, doc]);

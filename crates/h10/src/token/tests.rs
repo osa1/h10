@@ -2,7 +2,7 @@
 
 use crate::ast::Span;
 use crate::token::TokenRef;
-use h10_lexer::Token;
+use h10_lexer::TokenKind;
 
 use lexgen_util::Loc;
 

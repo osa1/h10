@@ -6,12 +6,12 @@ use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Lexer;
-use h10_lexer::Token;
+use h10_lexer::TokenKind;
 
 /// Parse indentation groups as [`ast::TopDeclKind::Unparsed`] declarations.
 fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
-    while matches!(token.token(), Token::Whitespace) {
+    while matches!(token.token(), TokenKind::Whitespace) {
         match token.next() {
             Some(next) => token = next,
             None => return vec![],
@@ -39,7 +39,7 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
 
     while let Some(next_token) = last_token.next() {
         let indent = next_token.span().start.col;
-        if !matches!(next_token.token(), Token::Whitespace) && indent == 0 {
+        if !matches!(next_token.token(), TokenKind::Whitespace) && indent == 0 {
             break;
         }
         last_token = next_token;
@@ -192,7 +192,7 @@ fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
 /// `DeclArena` argument is needed to be able to get absolute spans of tokens, to be able to check
 /// if we've generated an identical token and stop.
 ///
-/// Token equality is based on: token kind, token text, token absolute position. I think
+/// TokenKind equality is based on: token kind, token text, token absolute position. I think
 /// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
 /// or a space (in a non-indentation position) is changed, but for now this will do.
 #[allow(unused)]

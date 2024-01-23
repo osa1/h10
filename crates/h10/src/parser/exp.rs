@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
-use h10_lexer::{ReservedId, ReservedOp, Special, Token};
+use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
 impl<'input, L: LayoutLexer_> Parser<'input, L> {
     /*
@@ -12,7 +12,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     pub fn exp(&mut self) -> ParserResult<ParsedExp> {
         let exp = self.infixexp()?;
         let l = exp.span.start;
-        if self.skip_token(Token::ReservedOp(ReservedOp::ColonColon)) {
+        if self.skip_token(TokenKind::ReservedOp(ReservedOp::ColonColon)) {
             // Type syntax subsumes context syntax
             let context = self.try_context_arrow().unwrap_or_default();
             let type_ = self.type_()?;
@@ -37,7 +37,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
              | lexp
     */
     pub(super) fn infixexp(&mut self) -> ParserResult<ParsedExp> {
-        if let Ok((l, Token::VarSym, r)) = self.peek() {
+        if let Ok((l, TokenKind::VarSym, r)) = self.peek() {
             if self.str(l, r) == "-" {
                 self.skip();
                 let exp = self.infixexp()?;
@@ -83,53 +83,53 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     fn lexp(&mut self) -> ParserResult<ParsedExp> {
         let (l, t, _) = self.peek()?;
         match t {
-            Token::ReservedOp(ReservedOp::Backslash) => {
+            TokenKind::ReservedOp(ReservedOp::Backslash) => {
                 self.skip(); // consume '\'
                 let mut args = vec![self.apat()?];
                 while self.apat_start() {
                     args.push(self.apat()?);
                 }
-                self.expect_token(Token::ReservedOp(ReservedOp::RightArrow))?;
+                self.expect_token(TokenKind::ReservedOp(ReservedOp::RightArrow))?;
                 let body = self.exp()?;
                 let r = body.span.end;
                 Ok(self.spanned(l, r, Exp_::Lam(args, Box::new(body))))
             }
 
-            Token::ReservedId(ReservedId::Let) => {
+            TokenKind::ReservedId(ReservedId::Let) => {
                 self.skip(); // consume 'let'
                 let decls = self.value_decls()?;
-                self.expect_token(Token::ReservedId(ReservedId::In))?;
+                self.expect_token(TokenKind::ReservedId(ReservedId::In))?;
                 let exp = self.exp()?;
                 let r = exp.span.end;
                 Ok(self.spanned(l, r, Exp_::Let(decls, Box::new(exp))))
             }
 
-            Token::ReservedId(ReservedId::If) => {
+            TokenKind::ReservedId(ReservedId::If) => {
                 self.skip(); // consume 'if'
                 let e1 = self.exp()?;
-                self.skip_token(Token::Special(Special::Semi));
-                self.expect_token(Token::ReservedId(ReservedId::Then))?;
+                self.skip_token(TokenKind::Special(Special::Semi));
+                self.expect_token(TokenKind::ReservedId(ReservedId::Then))?;
                 let e2 = self.exp()?;
-                self.skip_token(Token::Special(Special::Semi));
-                self.expect_token(Token::ReservedId(ReservedId::Else))?;
+                self.skip_token(TokenKind::Special(Special::Semi));
+                self.expect_token(TokenKind::ReservedId(ReservedId::Else))?;
                 let e3 = self.exp()?;
                 let r = e3.span.end;
                 Ok(self.spanned(l, r, Exp_::If(Box::new(e1), Box::new(e2), Box::new(e3))))
             }
 
-            Token::ReservedId(ReservedId::Case) => {
+            TokenKind::ReservedId(ReservedId::Case) => {
                 self.skip(); // consume 'case'
                 let scrut = self.exp()?;
-                self.expect_token(Token::ReservedId(ReservedId::Of))?;
-                self.expect_token(Token::Special(Special::LBrace))?;
+                self.expect_token(TokenKind::ReservedId(ReservedId::Of))?;
+                self.expect_token(TokenKind::Special(Special::LBrace))?;
                 let alts = self.alts()?;
-                let (_, r) = self.expect_token(Token::Special(Special::RBrace))?;
+                let (_, r) = self.expect_token(TokenKind::Special(Special::RBrace))?;
                 Ok(self.spanned(l, r, Exp_::Case(Box::new(scrut), alts)))
             }
 
-            Token::ReservedId(ReservedId::Do) => {
+            TokenKind::ReservedId(ReservedId::Do) => {
                 self.skip(); // consume 'do'
-                self.expect_token(Token::Special(Special::LBrace))?;
+                self.expect_token(TokenKind::Special(Special::LBrace))?;
                 let stmts = self.stmts()?; // parses `}` as well
                 let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Exp_::Do(stmts)))
@@ -150,11 +150,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             self.peek(),
             Ok((
                 _,
-                Token::ReservedOp(ReservedOp::Backslash)
-                    | Token::ReservedId(ReservedId::Let)
-                    | Token::ReservedId(ReservedId::If)
-                    | Token::ReservedId(ReservedId::Case)
-                    | Token::ReservedId(ReservedId::Do),
+                TokenKind::ReservedOp(ReservedOp::Backslash)
+                    | TokenKind::ReservedId(ReservedId::Let)
+                    | TokenKind::ReservedId(ReservedId::If)
+                    | TokenKind::ReservedId(ReservedId::Case)
+                    | TokenKind::ReservedId(ReservedId::Do),
                 _
             ))
         ) || self.fexp_start()
@@ -212,7 +212,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let mut exp = self.aexp0()?;
         let l = exp.span.start;
 
-        while matches!(self.peek(), Ok((_, Token::Special(Special::LBrace), _))) {
+        while matches!(self.peek(), Ok((_, TokenKind::Special(Special::LBrace), _))) {
             let updates = self.parse_aexp_updates()?;
             let (_, r) = self.last_tok_span();
             exp = self.spanned(
@@ -234,33 +234,33 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     /// The part before `{ ... }` in an `aexp`.
     fn aexp0(&mut self) -> ParserResult<ParsedExp> {
-        if self.skip_token(Token::Special(Special::LParen)) {
+        if self.skip_token(TokenKind::Special(Special::LParen)) {
             let val = self.aexp0_parenthesized()?;
-            self.expect_token(Token::Special(Special::RParen))?;
+            self.expect_token(TokenKind::Special(Special::RParen))?;
             return Ok(val);
         }
 
-        if self.skip_token(Token::Special(Special::LBracket)) {
+        if self.skip_token(TokenKind::Special(Special::LBracket)) {
             let (l, _) = self.last_tok_span();
             // list, arithmetic sequence, or list comprehension
-            if self.skip_token(Token::Special(Special::RBracket)) {
+            if self.skip_token(TokenKind::Special(Special::RBracket)) {
                 let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(l, r, Exp_::List(vec![])));
             }
 
             let exp1 = self.exp()?;
 
-            if self.skip_token(Token::Special(Special::RBracket)) {
+            if self.skip_token(TokenKind::Special(Special::RBracket)) {
                 let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(l, r, Exp_::List(vec![exp1])));
             }
 
-            if self.skip_token(Token::Special(Special::Comma)) {
+            if self.skip_token(TokenKind::Special(Special::Comma)) {
                 // list or arithmetic sequence
                 let exp2 = self.exp()?;
-                return if self.skip_token(Token::ReservedOp(ReservedOp::DotDot)) {
+                return if self.skip_token(TokenKind::ReservedOp(ReservedOp::DotDot)) {
                     // arithmetic sequence
-                    if self.skip_token(Token::Special(Special::RBracket)) {
+                    if self.skip_token(TokenKind::Special(Special::RBracket)) {
                         let (_, r) = self.last_tok_span();
                         return Ok(self.spanned(
                             l,
@@ -273,7 +273,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                         ));
                     }
                     let exp3 = self.exp()?;
-                    let (_, r) = self.expect_token(Token::Special(Special::RBracket))?;
+                    let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
                     Ok(self.spanned(
                         l,
                         r,
@@ -286,8 +286,8 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 } else {
                     // list
                     let mut exps = vec![exp1, exp2];
-                    while !self.skip_token(Token::Special(Special::RBracket)) {
-                        self.expect_token(Token::Special(Special::Comma))?;
+                    while !self.skip_token(TokenKind::Special(Special::RBracket)) {
+                        self.expect_token(TokenKind::Special(Special::Comma))?;
                         exps.push(self.exp()?);
                     }
                     let (_, r) = self.last_tok_span();
@@ -295,9 +295,9 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 };
             }
 
-            if self.skip_token(Token::ReservedOp(ReservedOp::DotDot)) {
+            if self.skip_token(TokenKind::ReservedOp(ReservedOp::DotDot)) {
                 // arithmetic sequence
-                if self.skip_token(Token::Special(Special::RBracket)) {
+                if self.skip_token(TokenKind::Special(Special::RBracket)) {
                     let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(
                         l,
@@ -311,7 +311,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 }
 
                 let exp3 = self.exp()?;
-                let (_, r) = self.expect_token(Token::Special(Special::RBracket))?;
+                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
                 return Ok(self.spanned(
                     l,
                     r,
@@ -323,13 +323,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 ));
             }
 
-            if self.skip_token(Token::ReservedOp(ReservedOp::Pipe)) {
+            if self.skip_token(TokenKind::ReservedOp(ReservedOp::Pipe)) {
                 // list comprehension
                 let mut quals = vec![self.qual()?];
-                while self.skip_token(Token::Special(Special::Comma)) {
+                while self.skip_token(TokenKind::Special(Special::Comma)) {
                     quals.push(self.qual()?);
                 }
-                let (_, r) = self.expect_token(Token::Special(Special::RBracket))?;
+                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
                 return Ok(self.spanned(
                     l,
                     r,
@@ -343,19 +343,19 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             return self.fail_with_next(ErrorKind::UnexpectedToken);
         }
 
-        if let Ok((l, Token::QConId | Token::ConId, r)) = self.peek() {
+        if let Ok((l, TokenKind::QConId | TokenKind::ConId, r)) = self.peek() {
             self.skip(); // consume con
             let str = self.string(l, r);
             return Ok(self.spanned(l, r, Exp_::Con(str)));
         }
 
-        if let Ok((l, Token::QVarId | Token::VarId, r)) = self.peek() {
+        if let Ok((l, TokenKind::QVarId | TokenKind::VarId, r)) = self.peek() {
             self.skip(); // consume var
             let str = self.string(l, r);
             return Ok(self.spanned(l, r, Exp_::Var(str)));
         }
 
-        if let Ok((l, Token::Literal(lit), r)) = self.peek() {
+        if let Ok((l, TokenKind::Literal(lit), r)) = self.peek() {
             self.skip(); // consume literal
             return Ok(self.spanned(l, r, Exp_::Lit(lit)));
         }
@@ -371,9 +371,9 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 self.peek(),
                 Ok((
                     _,
-                    Token::VarId
-                        | Token::Literal(_)
-                        | Token::Special(Special::LParen | Special::LBracket),
+                    TokenKind::VarId
+                        | TokenKind::Literal(_)
+                        | TokenKind::Special(Special::LParen | Special::LBracket),
                     _
                 ))
             )
@@ -383,17 +383,17 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // operators, left/right sections (operator at the beginning or end of an expression, instead
     // of infix), and comma-separated expressions (tuples).
     fn aexp0_parenthesized(&mut self) -> ParserResult<ParsedExp> {
-        if let Ok((l, Token::Special(Special::RParen), r)) = self.peek() {
+        if let Ok((l, TokenKind::Special(Special::RParen), r)) = self.peek() {
             return Ok(self.spanned(l, r, Exp_::Tuple(vec![])));
         }
 
         if let Ok((
             l,
-            token @ (Token::QVarSym
-            | Token::VarSym
-            | Token::QConSym
-            | Token::ConSym
-            | Token::ReservedOp(ReservedOp::Colon)),
+            token @ (TokenKind::QVarSym
+            | TokenKind::VarSym
+            | TokenKind::QConSym
+            | TokenKind::ConSym
+            | TokenKind::ReservedOp(ReservedOp::Colon)),
             r,
         )) = self.peek()
         {
@@ -403,13 +403,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             let fun = self.spanned(
                 l,
                 r,
-                if matches!(token, Token::QVarSym | Token::VarSym) {
+                if matches!(token, TokenKind::QVarSym | TokenKind::VarSym) {
                     Exp_::Var(str)
                 } else {
                     Exp_::Con(str)
                 },
             );
-            if matches!(self.peek(), Ok((_, Token::Special(Special::RParen), _))) {
+            if matches!(self.peek(), Ok((_, TokenKind::Special(Special::RParen), _))) {
                 return Ok(fun);
             }
             let arg = self.infixexp()?;
@@ -417,26 +417,26 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if self.skip_token(Token::Special(Special::Backtick)) {
+        if self.skip_token(TokenKind::Special(Special::Backtick)) {
             // Right section, id operator
             let (l, t, r) = self.next()?;
             let str = self.string(l, r);
             let fun = match t {
-                Token::VarId | Token::QVarId => self.spanned(l, r, Exp_::Var(str)),
-                Token::ConId | Token::QConId => self.spanned(l, r, Exp_::Con(str)),
+                TokenKind::VarId | TokenKind::QVarId => self.spanned(l, r, Exp_::Var(str)),
+                TokenKind::ConId | TokenKind::QConId => self.spanned(l, r, Exp_::Con(str)),
                 _ => return self.fail(l, ErrorKind::UnexpectedToken),
             };
-            self.expect_token(Token::Special(Special::Backtick))?;
+            self.expect_token(TokenKind::Special(Special::Backtick))?;
             let arg = self.infixexp()?;
             let r = arg.span.end;
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if self.skip_token(Token::Special(Special::Comma)) {
+        if self.skip_token(TokenKind::Special(Special::Comma)) {
             let (l, _) = self.last_tok_span();
             // Tuple constructor
             let mut n_commas = 1;
-            while matches!(self.peek(), Ok((_, Token::Special(Special::Comma), _))) {
+            while matches!(self.peek(), Ok((_, TokenKind::Special(Special::Comma), _))) {
                 self.skip(); // skip ','
                 n_commas += 1;
             }
@@ -451,7 +451,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
         let mut e0 = self.lexp()?;
         let mut can_be_left_section = true;
-        if self.skip_token(Token::ReservedOp(ReservedOp::ColonColon)) {
+        if self.skip_token(TokenKind::ReservedOp(ReservedOp::ColonColon)) {
             // First expression between parenthesis has a type signature, this can't be left
             // section.
             let context = self.try_context_arrow().unwrap_or_default();
@@ -468,7 +468,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             can_be_left_section = false;
         }
 
-        if let Ok((_, Token::Special(Special::RParen), _)) = self.peek() {
+        if let Ok((_, TokenKind::Special(Special::RParen), _)) = self.peek() {
             return Ok(e0);
         }
 
@@ -505,15 +505,15 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             }
         }
 
-        if self.skip_token(Token::Special(Special::Comma)) {
+        if self.skip_token(TokenKind::Special(Special::Comma)) {
             let l = e0.span.start;
             let mut exps = vec![e0];
             loop {
                 exps.push(self.exp()?);
-                if let Ok((_, Token::Special(Special::RParen), r)) = self.peek() {
+                if let Ok((_, TokenKind::Special(Special::RParen), r)) = self.peek() {
                     return Ok(self.spanned(l, r, Exp_::Tuple(exps)));
                 }
-                self.expect_token(Token::Special(Special::Comma))?;
+                self.expect_token(TokenKind::Special(Special::Comma))?;
             }
         }
 
@@ -522,17 +522,17 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     /// `{ ... }` part in an `aexp`.
     fn parse_aexp_updates(&mut self) -> ParserResult<Vec<(String, ParsedExp)>> {
-        self.expect_token(Token::Special(Special::LBrace))?;
+        self.expect_token(TokenKind::Special(Special::LBrace))?;
 
-        if self.skip_token(Token::Special(Special::RBrace)) {
+        if self.skip_token(TokenKind::Special(Special::RBrace)) {
             return Ok(vec![]);
         }
 
         let mut updates = vec![self.fbind()?];
-        while self.skip_token(Token::Special(Special::Comma)) {
+        while self.skip_token(TokenKind::Special(Special::Comma)) {
             updates.push(self.fbind()?);
         }
-        self.expect_token(Token::Special(Special::RBrace))?;
+        self.expect_token(TokenKind::Special(Special::RBrace))?;
 
         Ok(updates)
     }
@@ -540,7 +540,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // fbind → qvar = exp
     fn fbind(&mut self) -> ParserResult<(String, ParsedExp)> {
         let var = self.qvar()?;
-        self.expect_token(Token::ReservedOp(ReservedOp::Equals))?;
+        self.expect_token(TokenKind::ReservedOp(ReservedOp::Equals))?;
         let exp = self.exp()?;
         Ok((var, exp))
     }
@@ -548,7 +548,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // alts → alt1 ; … ; altn               (n ≥ 1)
     fn alts(&mut self) -> ParserResult<Vec<ParsedAlt>> {
         let mut alts = vec![self.alt()?];
-        while self.skip_token(Token::Special(Special::Semi)) {
+        while self.skip_token(TokenKind::Special(Special::Semi)) {
             alts.push(self.alt()?);
         }
         Ok(alts)
@@ -563,9 +563,9 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn alt(&mut self) -> ParserResult<ParsedAlt> {
         let pat = self.pat()?;
-        if self.skip_token(Token::ReservedOp(ReservedOp::RightArrow)) {
+        if self.skip_token(TokenKind::ReservedOp(ReservedOp::RightArrow)) {
             let rhs = self.exp()?;
-            let where_decls = if self.skip_token(Token::ReservedId(ReservedId::Where)) {
+            let where_decls = if self.skip_token(TokenKind::ReservedId(ReservedId::Where)) {
                 self.value_decls()?
             } else {
                 vec![]
@@ -582,7 +582,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             ))
         } else if self.gdpat_start() {
             let guarded_rhss = self.gdpat()?;
-            let where_decls = if self.skip_token(Token::ReservedId(ReservedId::Where)) {
+            let where_decls = if self.skip_token(TokenKind::ReservedId(ReservedId::Where)) {
                 self.value_decls()?
             } else {
                 vec![]
@@ -606,12 +606,12 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // gdpat → guards -> exp [ gdpat ]
     fn gdpat(&mut self) -> ParserResult<Vec<(Vec<ParsedStmt>, ParsedExp)>> {
         let guards = self.guards()?;
-        self.expect_token(Token::ReservedOp(ReservedOp::RightArrow))?;
+        self.expect_token(TokenKind::ReservedOp(ReservedOp::RightArrow))?;
         let exp = self.exp()?;
         let mut pats = vec![(guards, exp)];
         while self.guards_start() {
             let guards = self.guards()?;
-            self.expect_token(Token::ReservedOp(ReservedOp::RightArrow))?;
+            self.expect_token(TokenKind::ReservedOp(ReservedOp::RightArrow))?;
             let exp = self.exp()?;
             pats.push((guards, exp));
         }
