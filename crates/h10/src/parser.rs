@@ -64,9 +64,6 @@ struct Parser<'input, L: LayoutLexer_> {
     /// This token has not been consumed yet and not linked to [`last_tok`].
     peeked: Option<Result<TokenRef, LexerError<LayoutError>>>,
 
-    /// Span of the last token returned by `next`.
-    last_tok_span: (Loc, Loc),
-
     /// The last consumed token from [`lexer`]. This is used to create the linked list of tokens as
     /// we consume tokens.
     last_tok: Option<TokenRef>,
@@ -82,7 +79,6 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             source,
             lexer,
             peeked: None,
-            last_tok_span: Default::default(),
             last_tok: None,
             input,
             context: List::new(),
@@ -284,18 +280,18 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn stmt(&mut self) -> ParserResult<ParsedStmt> {
         if self.skip_token(Token::ReservedId(ReservedId::Let)) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             let decls = self.value_decls()?;
             if self.skip_token(Token::ReservedId(ReservedId::In)) {
                 let exp = self.exp()?;
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(
                     l,
                     r,
                     Stmt_::Exp(self.spanned(l, r, Exp_::Let(decls, Box::new(exp)))),
                 ));
             } else {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(l, r, Stmt_::Let(decls)));
             }
         }
@@ -310,7 +306,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             Ok(pat) => {
                 // `pat <-` parse successful, parsing a binding.
                 let rhs = self.exp()?;
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 Ok(self.spanned(pat.span.start, r, Stmt_::Bind(pat, rhs)))
             }
             Err(_) => {

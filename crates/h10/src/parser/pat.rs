@@ -98,7 +98,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
                 // gcon → ()
                 if self.skip_token(Token::Special(Special::RParen)) {
-                    let (_, r) = self.last_tok_span;
+                    let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(
                         l,
                         r,
@@ -178,7 +178,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             (l, Token::Special(Special::LBracket), _) => {
                 self.skip(); // consume '['
                 if self.skip_token(Token::Special(Special::RBracket)) {
-                    let (_, r) = self.last_tok_span;
+                    let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(l, r, Pat_::List(vec![])));
                 }
                 let mut pats = vec![];
@@ -211,7 +211,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                         let r = pat.span.end;
                         Ok(self_.spanned(l, r, Pat_::As(var, Box::new(pat))))
                     } else {
-                        let (_, r) = self_.last_tok_span;
+                        let (_, r) = self_.last_tok_span();
                         Ok(self_.spanned(l, r, Pat_::Var(var)))
                     }
                 });

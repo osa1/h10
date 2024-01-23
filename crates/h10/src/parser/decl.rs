@@ -121,7 +121,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
             _ => self.value_decl().map(TopDeclKind::Value),
         }?;
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         let line_number = t.span().start.line;
         Ok(TopDecl {
             kind: top_decl_kind,
@@ -202,7 +202,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             while self.skip_token(Token::Special(Special::Comma)) {
                 ops.push(self.op()?);
             }
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             return Ok(self.spanned(l, r, ValueDecl_::Fixity { fixity, prec, ops }));
         }
 
@@ -233,11 +233,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let lhs: ParsedLhs = self
             .funlhs_try()
             .map(|(var, pats)| {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 self.spanned(l, r, Lhs_::Fun { var, pats })
             })
             .or_else(|_| {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 let pat = self.pat_try()?;
                 Ok(self.spanned(l, r, Lhs_::Pat(pat)))
             })
@@ -317,22 +317,22 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn rhs(&mut self) -> ParserResult<ParsedRhs> {
         if self.skip_token(Token::ReservedOp(ReservedOp::Equals)) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             let rhs = self.exp()?;
             let mut where_decls = vec![];
             if self.skip_token(Token::ReservedId(ReservedId::Where)) {
                 where_decls = self.value_decls()?;
             }
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             Ok(self.spanned(l, r, Rhs_::Rhs { rhs, where_decls }))
         } else if matches!(self.peek(), Ok((_, Token::ReservedOp(ReservedOp::Pipe), _))) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             let guarded_rhss = self.gdrhs()?;
             let mut where_decls = vec![];
             if self.skip_token(Token::ReservedId(ReservedId::Where)) {
                 where_decls = self.value_decls()?;
             }
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             Ok(self.spanned(
                 l,
                 r,
@@ -352,13 +352,13 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let guards = self.guards()?; // one or more
         self.expect_token(Token::ReservedOp(ReservedOp::Equals))?;
         let rhs = self.exp()?;
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         let mut rhss = vec![self.spanned(l, r, GuardedRhs_ { guards, rhs })];
         while let Ok((l_, Token::ReservedOp(ReservedOp::Pipe), _)) = self.peek() {
             let guards = self.guards()?;
             self.expect_token(Token::ReservedOp(ReservedOp::Equals))?;
             let rhs = self.exp()?;
-            let (_, r_) = self.last_tok_span;
+            let (_, r_) = self.last_tok_span();
             rhss.push(self.spanned(l_, r_, GuardedRhs_ { guards, rhs }));
         }
         Ok(rhss)
@@ -385,9 +385,9 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn guard(&mut self) -> ParserResult<ParsedStmt> {
         if self.skip_token(Token::ReservedId(ReservedId::Let)) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             return self.value_decls().map(|decls| {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 self.spanned(l, r, Stmt_::Let(decls))
             });
         }
@@ -404,14 +404,14 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             Ok(pat) => {
                 // `pat <-` parse successful, parsing a binding
                 let rhs = self.infixexp()?;
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Stmt_::Bind(pat, rhs)))
             }
             Err(_) => {
                 // Try `infixexp`
                 match self.try_(|self_| self_.exp()) {
                     Ok(exp) => {
-                        let (_, r) = self.last_tok_span;
+                        let (_, r) = self.last_tok_span();
                         Ok(self.spanned(l, r, Stmt_::Exp(exp)))
                     }
                     Err(_) => self.fail_with_next(ErrorKind::UnexpectedToken),
@@ -422,7 +422,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     fn kind_sig_decl(&mut self) -> ParserResult<ParsedKindSigDecl> {
         self.skip(); // skip 'kind'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
 
         let (_, ty, _) = self.expect_token_string(Token::ConId)?;
 
@@ -438,7 +438,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // type simpletype = type
     fn type_decl(&mut self) -> ParserResult<ParsedTypeDecl> {
         self.skip(); // skip 'type'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
 
         // `tycon` part of `simpletype`.
         let (_, ty, _) = self.expect_token_string(Token::ConId)?;
@@ -478,7 +478,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // data [context =>] simpletype [= constrs] [deriving]
     fn data_decl(&mut self) -> ParserResult<ParsedDataDecl> {
         self.skip(); // skip 'data'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
         let context = self.try_context_arrow().unwrap_or_default();
         let (ty_con, ty_args) = self.simpletype()?;
         let cons = if self.skip_token(Token::ReservedOp(ReservedOp::Equals)) {
@@ -491,7 +491,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         } else {
             vec![]
         };
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(
             l,
             r,
@@ -537,7 +537,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                         fields.push(self.con_field()?);
                     }
                 }
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Con_ { con, fields }))
             }
 
@@ -556,7 +556,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             }
         }
         let ty = self.atype()?;
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(l, r, FieldDecl_ { vars: vec![], ty }))
     }
 
@@ -580,7 +580,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             }
             _ => self.type_()?,
         };
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(l, r, FieldDecl_ { vars, ty }))
     }
 
@@ -640,7 +640,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn newtype_decl(&mut self) -> ParserResult<ParsedNewtypeDecl> {
         self.skip(); // skip 'newtype'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
         let context = self.try_context_arrow().unwrap_or_default();
         let (ty_con, ty_args) = self.simpletype()?;
         self.expect_token(Token::ReservedOp(ReservedOp::Equals))?;
@@ -648,7 +648,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         if self.skip_token(Token::ReservedId(ReservedId::Deriving)) {
             self.deriving()?;
         }
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(
             l,
             r,
@@ -670,10 +670,10 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         let con = self.con()?;
         let field: ParsedFieldDecl = if self.skip_token(Token::Special(Special::LBrace)) {
             let var = self.var()?;
-            let (l_, _) = self.last_tok_span;
+            let (l_, _) = self.last_tok_span();
             self.expect_token(Token::ReservedOp(ReservedOp::ColonColon))?;
             let ty = self.type_()?;
-            let (_, r_) = self.last_tok_span;
+            let (_, r_) = self.last_tok_span();
             self.expect_token(Token::Special(Special::RBrace))?;
             self.spanned(
                 l_,
@@ -687,7 +687,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             let ty = self.atype()?;
             self.spanned(ty.span.start, ty.span.end, FieldDecl_ { vars: vec![], ty })
         };
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(
             l,
             r,
@@ -701,7 +701,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // class [scontext =>] tycls tyvar [where cdecls]
     fn class_decl(&mut self) -> ParserResult<ParsedClassDecl> {
         self.skip(); // skip 'class'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
         let context = self.try_scontext_arrow().unwrap_or_default();
         let (_, ty_con, _) = self.expect_token_string(Token::ConId)?;
         let (_, ty_arg, _) = self.expect_token_string(Token::VarId)?;
@@ -712,7 +712,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         } else {
             vec![]
         };
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(
             l,
             r,
@@ -764,7 +764,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     */
     fn instance_decl(&mut self) -> ParserResult<ParsedInstanceDecl> {
         self.skip(); // skip 'instance'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
         let context = self.try_scontext_arrow().unwrap_or_default();
         let ty_con = self
             .expect_token_pred_string(|token| matches!(token, Token::ConId | Token::QConId))?
@@ -776,7 +776,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         } else {
             vec![]
         };
-        let (_, r) = self.last_tok_span;
+        let (_, r) = self.last_tok_span();
         Ok(self.spanned(
             l,
             r,
@@ -816,7 +816,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
     // default (type1 , … , typen)              (n ≥ 0)
     fn default_decl(&mut self) -> ParserResult<ParsedDefaultDecl> {
         self.skip(); // skip 'default'
-        let (l, _) = self.last_tok_span;
+        let (l, _) = self.last_tok_span();
         self.expect_token(Token::Special(Special::LParen))?;
         let mut tys = vec![self.type_()?];
         while self.skip_token(Token::Special(Special::Comma)) {

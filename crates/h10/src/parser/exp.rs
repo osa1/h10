@@ -131,7 +131,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 self.skip(); // consume 'do'
                 self.expect_token(Token::Special(Special::LBrace))?;
                 let stmts = self.stmts()?; // parses `}` as well
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 Ok(self.spanned(l, r, Exp_::Do(stmts)))
             }
 
@@ -214,7 +214,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
         while matches!(self.peek(), Ok((_, Token::Special(Special::LBrace), _))) {
             let updates = self.parse_aexp_updates()?;
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             exp = self.spanned(
                 l,
                 r,
@@ -241,17 +241,17 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
 
         if self.skip_token(Token::Special(Special::LBracket)) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             // list, arithmetic sequence, or list comprehension
             if self.skip_token(Token::Special(Special::RBracket)) {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(l, r, Exp_::List(vec![])));
             }
 
             let exp1 = self.exp()?;
 
             if self.skip_token(Token::Special(Special::RBracket)) {
-                let (_, r) = self.last_tok_span;
+                let (_, r) = self.last_tok_span();
                 return Ok(self.spanned(l, r, Exp_::List(vec![exp1])));
             }
 
@@ -261,7 +261,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 return if self.skip_token(Token::ReservedOp(ReservedOp::DotDot)) {
                     // arithmetic sequence
                     if self.skip_token(Token::Special(Special::RBracket)) {
-                        let (_, r) = self.last_tok_span;
+                        let (_, r) = self.last_tok_span();
                         return Ok(self.spanned(
                             l,
                             r,
@@ -290,7 +290,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                         self.expect_token(Token::Special(Special::Comma))?;
                         exps.push(self.exp()?);
                     }
-                    let (_, r) = self.last_tok_span;
+                    let (_, r) = self.last_tok_span();
                     Ok(self.spanned(l, r, Exp_::List(exps)))
                 };
             }
@@ -298,7 +298,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             if self.skip_token(Token::ReservedOp(ReservedOp::DotDot)) {
                 // arithmetic sequence
                 if self.skip_token(Token::Special(Special::RBracket)) {
-                    let (_, r) = self.last_tok_span;
+                    let (_, r) = self.last_tok_span();
                     return Ok(self.spanned(
                         l,
                         r,
@@ -433,7 +433,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         }
 
         if self.skip_token(Token::Special(Special::Comma)) {
-            let (l, _) = self.last_tok_span;
+            let (l, _) = self.last_tok_span();
             // Tuple constructor
             let mut n_commas = 1;
             while matches!(self.peek(), Ok((_, Token::Special(Special::Comma), _))) {
@@ -570,7 +570,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             } else {
                 vec![]
             };
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             Ok(self.spanned(
                 pat.span.start,
                 r,
@@ -588,7 +588,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
                 vec![]
             };
             let l = pat.span.start;
-            let (_, r) = self.last_tok_span;
+            let (_, r) = self.last_tok_span();
             Ok(self.spanned(
                 l,
                 r,

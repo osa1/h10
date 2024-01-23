@@ -58,8 +58,6 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
         };
         match v {
             Ok(token) => {
-                self.last_tok_span = (token.span().start, token.span().end);
-
                 if let Some(last_tok) = self.last_tok.take() {
                     last_tok.set_next(Some(token.clone()));
                 }
@@ -204,6 +202,11 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 
     pub(super) fn string(&mut self, l: Loc, r: Loc) -> String {
         self.str(l, r).to_owned()
+    }
+
+    pub(super) fn last_tok_span(&self) -> (Loc, Loc) {
+        let span = self.last_tok.as_ref().unwrap().span.borrow();
+        (span.start, span.end)
     }
 }
 
