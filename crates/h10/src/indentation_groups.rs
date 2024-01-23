@@ -188,11 +188,33 @@ fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
 
 /// Starting with `start_token` lex until re-lexing `relex_token`, then continue re-lexing until
 /// finding an identical token.
-//
-// Token equality is based on: token kind, token text, token absolute position. I think technically
-// it can be more relaxed then this to avoid redundant work when e.g. a string literal or a space
-// (in a non-indentation position) is changed, but for now this will do.
+///
+/// `DeclArena` argument is needed to be able to get absolute spans of tokens, to be able to check
+/// if we've generated an identical token and stop.
+///
+/// Token equality is based on: token kind, token text, token absolute position. I think
+/// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
+/// or a space (in a non-indentation position) is changed, but for now this will do.
 #[allow(unused)]
-fn relex(_start_token: TokenRef, _relex_token: TokenRef) {
+fn relex(start_token: TokenRef, relex_token: TokenRef, arena: &DeclArena) -> TokenRef {
+    let mut chars = start_token.iter_chars();
+    let lexer = Lexer::new_from_iter(chars);
     todo!()
+}
+
+/// Given the start position of lexing and a position yielded by the lexer, get the absolute
+/// position of the lexer position.
+#[allow(unused)]
+fn lexer_token_absolute_pos(lex_start: Pos, lexer_loc: Pos) -> Pos {
+    if lexer_loc.line == 0 {
+        Pos {
+            line: lex_start.line,
+            char: lex_start.char + lexer_loc.char,
+        }
+    } else {
+        Pos {
+            line: lex_start.line + lexer_loc.line,
+            char: lexer_loc.char,
+        }
+    }
 }
