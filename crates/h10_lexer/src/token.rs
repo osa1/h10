@@ -14,29 +14,29 @@ pub enum TokenKind {
         documentation: bool,
     },
 
-    /// Variable identifier, type (`tyvar`) or term (`varid`).
+    /// A variable identifier, type (`tyvar`) or term (`varid`).
     VarId,
 
-    /// Constructor identifier
+    /// A constructor identifier.
     ConId,
 
-    /// Variable symbol
+    /// A variable symbol.
     VarSym,
 
-    /// Constructor symbol
+    /// A constructor symbol.
     ConSym,
 
-    /// Qualified variable
+    /// A qualified variable.
     QVarId,
 
-    /// Qualified constructor. Also used as qualified type constructor `qtycon` and type class
+    /// A qualified constructor. Also used as qualified type constructor `qtycon` and type class
     /// `qtycls`.
     QConId,
 
-    /// Qualified variable symbol
+    /// A qualified variable symbol.
     QVarSym,
 
-    /// Qualifieid constructor symbol
+    /// A qualifieid constructor symbol.
     QConSym,
 
     Literal(Literal),
