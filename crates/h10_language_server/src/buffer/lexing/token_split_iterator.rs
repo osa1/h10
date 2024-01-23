@@ -32,6 +32,18 @@ struct MultiLineToken {
     col_end: u32,
 }
 
+impl MultiLineToken {
+    fn from_lexer_token((token_start, token, token_end): (Loc, H10Token, Loc)) -> Self {
+        MultiLineToken {
+            kind: h10_token_kind(&token),
+            line_start: token_start.line,
+            col_start: token_start.col,
+            line_end: token_end.line,
+            col_end: token_end.col,
+        }
+    }
+}
+
 impl<'buffer> TokenSplitIterator<'buffer> {
     pub fn new(buffer: &'buffer Buffer, start_line: u32, start_col: u32) -> Self {
         Self {
@@ -39,18 +51,6 @@ impl<'buffer> TokenSplitIterator<'buffer> {
             lexer: H10Lexer::new_from_iter(buffer.iter_from(start_line, start_col)),
             start_line,
             last_token: None,
-        }
-    }
-}
-
-impl From<(Loc, H10Token, Loc)> for MultiLineToken {
-    fn from((token_start, token, token_end): (Loc, H10Token, Loc)) -> Self {
-        MultiLineToken {
-            kind: h10_token_kind(&token),
-            line_start: token_start.line,
-            col_start: token_start.col,
-            line_end: token_end.line,
-            col_end: token_end.col,
         }
     }
 }
@@ -142,7 +142,7 @@ fn simplify_item(
     item: Option<Result<(Loc, H10Token, Loc), LexerError<std::convert::Infallible>>>,
 ) -> Option<Result<MultiLineToken, ()>> {
     item.map(|res| match res {
-        Ok(token) => Ok(token.into()),
+        Ok(token) => Ok(MultiLineToken::from_lexer_token(token)),
         Err(_) => Err(()),
     })
 }
