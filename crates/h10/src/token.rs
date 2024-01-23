@@ -144,7 +144,7 @@ impl TokenRef {
 
     /// Returns an iterator that starting from the current token yields characters in the texts of
     /// tokens in the list.
-    pub fn iter_chars(&self) -> impl Iterator<Item = char> {
+    pub fn iter_chars(&self) -> impl Iterator<Item = char> + Clone {
         TokenCharIterator {
             token: Some(self.clone()),
             byte_idx: 0,
@@ -306,6 +306,7 @@ impl Iterator for TokenUntilIterator {
 //
 // TODO: This could be made faster if we could store `Chars` of the `text`, but it's currently
 // behind a `RefCell`.
+#[derive(Clone)]
 struct TokenCharIterator {
     /// The current token.
     token: Option<TokenRef>,
@@ -336,6 +337,6 @@ impl Iterator for TokenCharIterator {
 
         self.byte_idx += char.len_utf8();
 
-        Some(dbg!(char))
+        Some(char)
     }
 }
