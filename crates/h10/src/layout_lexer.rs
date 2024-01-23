@@ -19,7 +19,7 @@ pub struct LayoutLexer<'input, I: Clone + Iterator<Item = char>> {
 
     last_token_line: Option<u32>,
 
-    context: Vec<i32>,
+    context: Vec<Context>,
 
     /// In `do_layout` mode we're expecting to see a `{` next. If we see anything else, depending
     /// on the context and the indentation of the next token we insert `{`, or `{` and a `}`.
@@ -28,6 +28,12 @@ pub struct LayoutLexer<'input, I: Clone + Iterator<Item = char>> {
     /// If we're inserting a `{}` in `do_layout` and returned the `{` part, this will be true and
     /// we'll return `}` in the next interation.
     override_next: Option<(Loc, Token, Loc)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+enum Context {
+    Explicit,
+    Implicit(u32),
 }
 
 const LBRACE: Token = Token {
@@ -76,13 +82,13 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
         // TODO: Do we want to generate a `}` here? Currently the parser needs to skip the `}` when
         // it pops the context.
         match self.context.pop() {
-            Some(-1) | None => false,
-            Some(_) => true,
+            Some(Context::Explicit) | None => false,
+            Some(Context::Implicit(_)) => true,
         }
     }
 
     pub fn in_explicit_layout(&self) -> bool {
-        self.context.last().copied() == Some(-1)
+        matches!(self.context.last(), Some(Context::Explicit))
     }
 
     /// Initialize the context if the first token is not `module` or `{`.
@@ -116,7 +122,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
             ))) => {}
 
             Some(Ok((start, _, _))) => {
-                self.context.push(start.col as i32);
+                self.context.push(Context::Implicit(start.col));
                 self.override_next = Some((*start, LBRACE, virtual_token_end(start)));
             }
 
@@ -162,7 +168,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
                         col: 0,
                         byte_idx: 0,
                     };
-                    self.context.push(-1);
+                    self.context.push(Context::Explicit);
                     Some(Ok((loc, LBRACE, virtual_token_end(&loc))))
                 } else {
                     // TODO: This should only terminate implicit layouts?
@@ -191,7 +197,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
         ) {
             // Explicit layout.
             self.do_layout = false;
-            self.context.push(-1);
+            self.context.push(Context::Explicit);
             return adjust_infallible(self.lexer.next()); // consume '{'
         }
 
@@ -213,10 +219,10 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             //    Otherwise create an empty context.
 
             // (1)
-            let next_token_indent = start.col as i32;
+            let next_token_indent = start.col;
             if let Some(current_context) = self.context.last() {
-                if next_token_indent > *current_context {
-                    self.context.push(next_token_indent);
+                if Context::Implicit(next_token_indent) > *current_context {
+                    self.context.push(Context::Implicit(next_token_indent));
                     self.last_token_line = None; // don't generate ';' immediately after
                     return Some(Ok((*start, LBRACE, virtual_token_end(start))));
                 }
@@ -224,7 +230,7 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
 
             // (2)
             if self.context.is_empty() {
-                self.context.push(next_token_indent);
+                self.context.push(Context::Implicit(next_token_indent));
                 self.last_token_line = None; // don't generate ';' immediately after
                 return Some(Ok((*start, LBRACE, virtual_token_end(start))));
             }
@@ -243,8 +249,8 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
         ) {
             // Pop explicit layout.
             match self.context.pop() {
-                Some(-1) => {}
-                Some(_) => {
+                Some(Context::Explicit) => {}
+                Some(Context::Implicit(_)) => {
                     return Some(Err(LexerError {
                         location: *start,
                         kind: LexerErrorKind::Custom("Right brace in implicit layout".to_owned()),
@@ -267,12 +273,12 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
         if beginning_of_line {
             // Moved to a new line.
             match self.context.last() {
-                Some(-1) => {
+                Some(Context::Explicit) => {
                     // No layout, don't generate layout tokens.
                     self.last_token_line = None;
                 }
-                Some(n) => {
-                    match (start.col as i32).cmp(n) {
+                Some(Context::Implicit(n)) => {
+                    match start.col.cmp(n) {
                         Ordering::Less => {
                             // Next token indented less, insert `}`, close layout.
                             self.context.pop();
