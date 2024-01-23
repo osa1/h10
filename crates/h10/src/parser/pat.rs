@@ -31,8 +31,9 @@ impl<'input> Parser<'input> {
          | gcon apat1 … apatk               (arity gcon  =  k, k ≥ 1)
     */
     fn lpat(&mut self) -> ParserResult<ParsedPat> {
-        if let Ok((l, TokenKind::VarSym, r)) = self.peek() {
-            if self.str(l, r) == "-" {
+        if let Ok(t) = self.peek_() {
+            if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
+                let l = t.span().start;
                 self.skip(); // skip '-'
                 match self.next()? {
                     (_, TokenKind::Literal(lit @ (Literal::Int | Literal::Float)), r_) => {
@@ -111,26 +112,33 @@ impl<'input> Parser<'input> {
                     while self.skip_token(TokenKind::Special(Special::Comma)) {
                         arity += 1;
                     }
-                    let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
+                    let rparen = self.expect_token(TokenKind::Special(Special::RParen))?;
                     return Ok(self.spanned(
                         l,
-                        r,
-                        Pat_::Con(self.spanned(l, r, GCon_::Tuple(arity)), vec![]),
+                        rparen.span().end,
+                        Pat_::Con(
+                            self.spanned(l, rparen.span().end, GCon_::Tuple(arity)),
+                            vec![],
+                        ),
                     ));
                 }
 
                 // var → ( varsym )
                 let varsym = self.try_opt(|self_| {
-                    if let Ok((l_, TokenKind::VarSym | TokenKind::QVarSym, r_)) = self_.peek() {
-                        self_.skip();
-                        let (_, r) = self_
-                            .expect_token(TokenKind::Special(Special::RParen))
-                            .ok()?;
-                        let str = self_.string(l_, r_);
-                        Some(self_.spanned(l, r, Pat_::Var(str)))
-                    } else {
-                        None
+                    if let Ok(t) = self_.peek_() {
+                        if matches!(t.token(), TokenKind::VarSym | TokenKind::QVarSym) {
+                            self_.skip();
+                            let rparen = self_
+                                .expect_token(TokenKind::Special(Special::RParen))
+                                .ok()?;
+                            return Some(self_.spanned(
+                                l,
+                                rparen.span().end,
+                                Pat_::Var(t.text.borrow().to_owned()),
+                            ));
+                        }
                     }
+                    None
                 });
 
                 if let Some(pat) = varsym {
@@ -139,27 +147,29 @@ impl<'input> Parser<'input> {
 
                 // qcon → ( gconsym )
                 let gconsym = self.try_opt(|self_| {
-                    if let Ok((
-                        l_,
-                        TokenKind::ReservedOp(ReservedOp::Colon)
-                        | TokenKind::QConSym
-                        | TokenKind::ConSym,
-                        r_,
-                    )) = self_.peek()
-                    {
-                        self_.skip();
-                        let (_, r) = self_
-                            .expect_token(TokenKind::Special(Special::RParen))
-                            .ok()?;
-                        let str = self_.string(l_, r_);
-                        Some(self_.spanned(
-                            l,
-                            r,
-                            Pat_::Con(self_.spanned(l, r, GCon_::QCon(str)), vec![]),
-                        ))
-                    } else {
-                        None
+                    if let Ok(t) = self_.peek_() {
+                        if matches!(
+                            t.token(),
+                            TokenKind::ReservedOp(ReservedOp::Colon)
+                                | TokenKind::QConSym
+                                | TokenKind::ConSym,
+                        ) {
+                            self_.skip();
+                            let rparen = self_
+                                .expect_token(TokenKind::Special(Special::RParen))
+                                .ok()?;
+                            let str = t.text.borrow().to_owned();
+                            return Some(self_.spanned(
+                                l,
+                                rparen.span().end,
+                                Pat_::Con(
+                                    self_.spanned(l, rparen.span().end, GCon_::QCon(str)),
+                                    vec![],
+                                ),
+                            ));
+                        }
                     }
+                    None
                 });
 
                 if let Some(pat) = gconsym {
@@ -171,11 +181,11 @@ impl<'input> Parser<'input> {
                 while self.skip_token(TokenKind::Special(Special::Comma)) {
                     pats.push(self.pat()?);
                 }
-                let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
+                let rparen = self.expect_token(TokenKind::Special(Special::RParen))?;
                 if pats.len() == 1 {
                     Ok(pats.pop().unwrap())
                 } else {
-                    Ok(self.spanned(l, r, Pat_::Tuple(pats)))
+                    Ok(self.spanned(l, rparen.span().end, Pat_::Tuple(pats)))
                 }
             }
 
@@ -193,8 +203,8 @@ impl<'input> Parser<'input> {
                         break;
                     }
                 }
-                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
-                Ok(self.spanned(l, r, Pat_::List(pats)))
+                let rbracket = self.expect_token(TokenKind::Special(Special::RBracket))?;
+                Ok(self.spanned(l, rbracket.span().end, Pat_::List(pats)))
             }
 
             // Irrefutable pattern
@@ -240,10 +250,10 @@ impl<'input> Parser<'input> {
                                     break;
                                 }
                             }
-                            let (_, r) = self_.expect_token(TokenKind::Special(Special::RBrace))?;
+                            let rbrace = self_.expect_token(TokenKind::Special(Special::RBrace))?;
                             return Ok(self_.spanned(
                                 l,
-                                r,
+                                rbrace.span().end,
                                 Pat_::Con(
                                     gcon,
                                     pats.into_iter().map(|(_, p)| p).collect(), // TODO: names

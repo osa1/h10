@@ -26,10 +26,12 @@ impl<'input> Parser<'input> {
     tyvar = varid
     */
     pub(super) fn class(&mut self) -> ParserResult<ParsedType> {
-        let (l, t, r) = self.next()?;
-        match t {
+        let t = self.next_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+        match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
-                let con_str = self.string(l, r);
+                let con_str = t.text.borrow().to_owned();
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
                 let arg = if self.skip_token(TokenKind::Special(Special::LParen)) {
                     // qtycls ( tyvar atype1 ... atypen )
@@ -106,12 +108,14 @@ impl<'input> Parser<'input> {
             return Ok(self.spanned(ty.span.start, ty.span.end, Type_::Con(ty)));
         }
 
-        let (l, t, r) = self.peek()?;
+        let t = self.peek_()?;
+        let l = t.span().start;
+        let r = t.span().end;
 
-        match t {
+        match t.token() {
             TokenKind::VarId => {
                 self.skip(); // consume type id
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, Type_::Var(str)))
             }
 
@@ -167,19 +171,22 @@ impl<'input> Parser<'input> {
     qtycon = qconid
     */
     fn gtycon(&mut self) -> ParserResult<ParsedTyCon> {
-        let (l, t, r) = self.peek()?;
-        match t {
+        let t = self.peek_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+        match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume qualified type constructor
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, TyCon_::Id(str)))
             }
             TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
-                let (_, t_, r_) = self.peek()?;
-                match t_ {
+                let t_ = self.peek_()?;
+                match t_.token() {
                     TokenKind::Special(Special::RParen) => {
                         self.skip(); // consume ')'
+                        let (_, r_) = self.last_tok_span();
                         Ok(self.spanned(l, r_, TyCon_::Tuple(0)))
                     }
                     TokenKind::ReservedOp(ReservedOp::RightArrow) => {

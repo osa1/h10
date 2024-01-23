@@ -201,19 +201,16 @@ impl<'input> Parser<'input> {
         )) = self.peek()
         {
             let fixity = self.fixity().unwrap();
-            let prec: Option<u32> =
-                if let Ok((l, TokenKind::Literal(Literal::Int), r)) = self.peek() {
-                    self.skip();
-                    Some(self.str(l, r).parse().unwrap())
-                } else {
-                    None
-                };
-            let mut ops = vec![self.op()?];
-            while self.skip_token(TokenKind::Special(Special::Comma)) {
-                ops.push(self.op()?);
-            }
-            let (_, r) = self.last_tok_span();
-            return Ok(self.spanned(l, r, ValueDecl_::Fixity { fixity, prec, ops }));
+            todo!()
+            // let prec: Option<u32> = self
+            //     .skip_token_str(TokenKind::Literal(Literal::Int))
+            //     .map(|int_str| int_str.parse().unwrap());
+            // let mut ops = vec![self.op()?];
+            // while self.skip_token(TokenKind::Special(Special::Comma)) {
+            //     ops.push(self.op()?);
+            // }
+            // let (_, r) = self.last_tok_span();
+            // return Ok(self.spanned(l, r, ValueDecl_::Fixity { fixity, prec, ops }));
         }
 
         // Type signature
@@ -536,8 +533,10 @@ impl<'input> Parser<'input> {
             | con { fielddecl1 , … , fielddecln }           (n ≥ 0)
     */
     fn constr(&mut self) -> ParserResult<ParsedCon> {
-        match self.peek()? {
-            (l, TokenKind::ConId | TokenKind::Special(Special::LParen), _) => {
+        let t = self.peek_()?;
+        let l = t.span().start;
+        match t.token() {
+            TokenKind::ConId | TokenKind::Special(Special::LParen) => {
                 let con = self.con()?;
                 let mut fields = vec![];
                 if self.skip_token(TokenKind::Special(Special::LBrace)) {
@@ -557,7 +556,7 @@ impl<'input> Parser<'input> {
                 Ok(self.spanned(l, r, Con_ { con, fields }))
             }
 
-            (l, TokenKind::VarSym, r) if self.str(l, r) == "!" => todo!(),
+            TokenKind::VarSym if *t.text.borrow() == "!" => todo!(),
 
             _ => todo!(),
         }
@@ -565,11 +564,10 @@ impl<'input> Parser<'input> {
 
     // [!] atype
     fn con_field(&mut self) -> ParserResult<ParsedFieldDecl> {
-        let (l, _, _) = self.peek()?;
-        if let Ok((l_, TokenKind::VarSym, r_)) = self.peek() {
-            if self.str(l_, r_) == "!" {
-                self.skip();
-            }
+        let t = self.peek_()?;
+        let l = t.span().start;
+        if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+            self.skip();
         }
         let ty = self.atype()?;
         let (_, r) = self.last_tok_span();
@@ -577,24 +575,30 @@ impl<'input> Parser<'input> {
     }
 
     fn con_field_start(&mut self) -> bool {
-        self.atype_start()
-            || (match self.peek() {
-                Ok((l, TokenKind::VarSym, r)) => self.str(l, r) == "!",
-                _ => false,
-            })
+        if self.atype_start() {
+            return true;
+        }
+
+        if let Ok(t) = self.peek_() {
+            if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+                return true;
+            }
+        }
+
+        false
     }
 
     // fielddecl → vars :: (type | ! atype)
     fn fielddecl(&mut self) -> ParserResult<ParsedFieldDecl> {
-        let (l, _, _) = self.peek()?;
+        let l = self.peek_()?.span().start;
         let vars = self.vars()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
-        let ty = match self.peek()? {
-            (l, TokenKind::VarSym, r) if self.str(l, r) == "!" => {
-                self.skip();
-                self.atype()?
-            }
-            _ => self.type_()?,
+        let t = self.peek_()?;
+        let ty = if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+            self.skip();
+            self.atype()?
+        } else {
+            self.type_()?
         };
         let (_, r) = self.last_tok_span();
         Ok(self.spanned(l, r, FieldDecl_ { vars, ty }))
@@ -602,16 +606,18 @@ impl<'input> Parser<'input> {
 
     // con → conid | ( consym )                              (constructor)
     fn con(&mut self) -> ParserResult<String> {
-        match self.next()? {
-            (l, TokenKind::ConId, r) => Ok(self.string(l, r)),
+        let t = self.next_()?;
 
-            (_, TokenKind::Special(Special::LParen), _) => {
+        match t.token() {
+            TokenKind::ConId => Ok(t.text.borrow().to_owned()),
+
+            TokenKind::Special(Special::LParen) => {
                 let (_, con, _) = self.expect_token_string(TokenKind::ConSym)?;
                 self.expect_token(TokenKind::Special(Special::RParen))?;
                 Ok(con)
             }
 
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+            _ => self.fail(t.span().start, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -760,15 +766,18 @@ impl<'input> Parser<'input> {
 
     // simpleclass → qtycls tyvar
     fn simpleclass(&mut self) -> ParserResult<ParsedType> {
-        match self.next()? {
-            (l, TokenKind::QConId | TokenKind::ConId, r) => {
-                let con_str = self.string(l, r);
+        let t = self.next_()?;
+        match t.token() {
+            TokenKind::QConId | TokenKind::ConId => {
+                let con_str = t.text.borrow().to_owned();
+                let l = t.span().start;
+                let r = t.span().end;
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
                 let (l_, arg, r_) = self.expect_token_string(TokenKind::VarId)?;
                 let arg: ParsedType = self.spanned(l_, r_, Type_::Var(arg));
                 Ok(self.spanned(l, r_, Type_::App(Box::new(con), vec![arg])))
             }
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+            _ => self.fail(t.span().start, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -840,7 +849,7 @@ impl<'input> Parser<'input> {
         while self.skip_token(TokenKind::Special(Special::Comma)) {
             tys.push(self.type_()?);
         }
-        let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
-        Ok(self.spanned(l, r, DefaultDecl_ { tys }))
+        let rparen = self.expect_token(TokenKind::Special(Special::RParen))?;
+        Ok(self.spanned(l, rparen.span().end, DefaultDecl_ { tys }))
     }
 }

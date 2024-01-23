@@ -24,7 +24,7 @@ pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module. Handles layout.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
-    Parser::new(module_str, "<input>".into(), LayoutLexer::new(module_str)).module()
+    Parser::new("<input>".into(), LayoutLexer::new(module_str)).module()
 }
 
 /// Parse a type with predicates. Does not handle layout.
@@ -32,34 +32,19 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
 pub fn parse_type(
     type_str: &str,
 ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
-    Parser::new(
-        type_str,
-        "<input>".into(),
-        LayoutLexer::new_non_module(type_str),
-    )
-    .type_with_context()
+    Parser::new("<input>".into(), LayoutLexer::new_non_module(type_str)).type_with_context()
 }
 
 /// Parse an expression. Does not handle layout.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(
-        exp_str,
-        "<input>".into(),
-        LayoutLexer::new_non_module(exp_str),
-    )
-    .exp()
+    Parser::new("<input>".into(), LayoutLexer::new_non_module(exp_str)).exp()
 }
 
 /// Parse an expression. Handles layout.
 #[cfg(test)]
 pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(
-        exp_str,
-        "<input>".into(),
-        LayoutLexer::new_non_module(exp_str),
-    )
-    .exp()
+    Parser::new("<input>".into(), LayoutLexer::new_non_module(exp_str)).exp()
 }
 
 #[derive(Clone)]
@@ -79,19 +64,16 @@ struct Parser<'input> {
     /// we consume tokens.
     last_tok: Option<TokenRef>,
 
-    input: &'input str,
-
     context: List<Context>,
 }
 
 impl<'input> Parser<'input> {
-    fn new(input: &'input str, source: Rc<str>, lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
+    fn new(source: Rc<str>, lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
         Parser {
             source,
             lexer,
             peeked: None,
             last_tok: None,
-            input,
             context: List::new(),
         }
     }
@@ -160,15 +142,17 @@ impl<'input> Parser<'input> {
     // qop    → qvarop | qconop             (qualified operator)
     // qvarop → qvarsym | ` qvarid `        (qualified variable operator)
     fn qop(&mut self) -> ParserResult<ParsedExp> {
-        let (l, t, r) = self.next()?;
-        match t {
+        let t = self.next_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+        match t.token() {
             TokenKind::QVarSym | TokenKind::VarSym => {
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, Exp_::Var(str)))
             }
 
             TokenKind::QConSym | TokenKind::ConSym => {
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, Exp_::Con(str)))
             }
 
@@ -177,10 +161,10 @@ impl<'input> Parser<'input> {
             }
 
             TokenKind::Special(Special::Backtick) => {
-                let (l_, t_, r_) = self.next()?;
-                let exp = match t_ {
-                    TokenKind::QVarId | TokenKind::VarId => Exp_::Var(self.string(l_, r_)),
-                    TokenKind::QConId | TokenKind::ConId => Exp_::Con(self.string(l_, r_)),
+                let t_ = self.next_()?;
+                let exp = match t_.token() {
+                    TokenKind::QVarId | TokenKind::VarId => Exp_::Var(t_.text.borrow().to_owned()),
+                    TokenKind::QConId | TokenKind::ConId => Exp_::Con(t_.text.borrow().to_owned()),
                     _ => return self.fail(l, ErrorKind::UnexpectedToken),
                 };
                 self.expect_token(TokenKind::Special(Special::Backtick))?;
@@ -219,22 +203,29 @@ impl<'input> Parser<'input> {
 
     // qvar → qvarid | ( qvarsym )          (qualified variable)
     fn qvar(&mut self) -> ParserResult<String> {
-        match self.peek()? {
-            (l, TokenKind::VarId | TokenKind::QVarId, r) => {
+        let t = self.peek_()?;
+        let l = t.span().start;
+
+        match t.token() {
+            TokenKind::VarId | TokenKind::QVarId => {
                 self.skip(); // consume var
-                Ok(self.string(l, r))
+                Ok(t.text.borrow().to_owned())
             }
-            (_, TokenKind::Special(Special::LParen), _) => {
+
+            TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
-                match self.next()? {
-                    (l, TokenKind::VarSym | TokenKind::QVarSym, r) => {
+                let t = self.next_()?;
+                match t.token() {
+                    TokenKind::VarSym | TokenKind::QVarSym => {
                         self.expect_token(TokenKind::Special(Special::RParen))?;
-                        Ok(self.string(l, r))
+                        Ok(t.text.borrow().to_owned())
                     }
-                    (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+
+                    _ => self.fail(l, ErrorKind::UnexpectedToken),
                 }
             }
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+
+            _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -365,23 +356,28 @@ impl<'input> Parser<'input> {
         }
 
         loop {
-            let (l, t, r) = self.next()?;
-            match t {
+            let t = self.next_()?;
+            let l = t.span().start;
+            let r = t.span().end;
+            match t.token() {
                 TokenKind::VarId => {
-                    let id = self.string(l, r);
+                    let id = t.text.borrow().to_owned();
                     binders.push(self.spanned(l, r, TypeBinder_ { id, ty: None }));
                 }
 
                 TokenKind::Special(Special::LParen) => {
-                    let (id_l, id_r) = self.expect_token(TokenKind::VarId)?;
-                    let id = self.string(id_l, id_r);
+                    let (_, id, _) = self.expect_token_string(TokenKind::VarId)?;
                     self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
                     let ty = self.type_()?;
-                    let (_, r) = self.expect_token(TokenKind::Special(Special::RParen))?;
-                    binders.push(self.spanned(l, r, TypeBinder_ { id, ty: Some(ty) }));
+                    let rparen = self.expect_token(TokenKind::Special(Special::RParen))?;
+                    binders.push(self.spanned(
+                        l,
+                        rparen.span().end,
+                        TypeBinder_ { id, ty: Some(ty) },
+                    ));
                 }
 
-                TokenKind::VarSym if self.str(l, r) == "." => {
+                TokenKind::VarSym if *t.text.borrow() == "." => {
                     break;
                 }
 
@@ -422,18 +418,23 @@ impl<'input> Parser<'input> {
 
     // varop → varsym | ` varid `           (variable operator)
     fn varop(&mut self) -> ParserResult<String> {
-        match self.peek()? {
-            (l, TokenKind::VarSym, r) => {
+        let t = self.peek_()?;
+        let l = t.span().start;
+
+        match t.token() {
+            TokenKind::VarSym => {
                 self.skip(); // consume varsym
-                Ok(self.str(l, r).to_owned())
+                Ok(t.text.borrow().to_owned())
             }
-            (_, TokenKind::Special(Special::Backtick), _) => {
+
+            TokenKind::Special(Special::Backtick) => {
                 self.skip(); // consume '`'
-                let (l, r) = self.expect_token(TokenKind::VarId)?;
+                let (_, s, _) = self.expect_token_string(TokenKind::VarId)?;
                 self.expect_token(TokenKind::Special(Special::Backtick))?;
-                Ok(self.str(l, r).to_owned())
+                Ok(s)
             }
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+
+            _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -443,25 +444,33 @@ impl<'input> Parser<'input> {
         if self.gconsym_start() {
             self.gconsym()
         } else {
-            let (l, _) = self.expect_token(TokenKind::Special(Special::Backtick))?;
-            let (l_, r_) = self.expect_token(TokenKind::QConId)?;
-            let (_, r) = self.expect_token(TokenKind::Special(Special::Backtick))?;
-            Ok((l, self.string(l_, r_), r))
+            let backtick_left = self.expect_token(TokenKind::Special(Special::Backtick))?;
+            let (_, s, _) = self.expect_token_string(TokenKind::QConId)?;
+            let backtick_right = self.expect_token(TokenKind::Special(Special::Backtick))?;
+            Ok((backtick_left.span().start, s, backtick_right.span().end))
         }
     }
 
     // var → varid | ( varsym )             (variable)
     fn var(&mut self) -> ParserResult<String> {
-        match self.next()? {
-            (l, TokenKind::VarId, r) => Ok(self.string(l, r)),
-            (_, TokenKind::Special(Special::LParen), _) => match self.next()? {
-                (l, TokenKind::VarSym, r) => {
-                    self.expect_token(TokenKind::Special(Special::RParen))?;
-                    Ok(self.string(l, r))
+        let t = self.next_()?;
+        let l = t.span().start;
+        match t.token() {
+            TokenKind::VarId => Ok(t.text.borrow().to_owned()),
+
+            TokenKind::Special(Special::LParen) => {
+                let t = self.next_()?;
+                let l = t.span().start;
+                match t.token() {
+                    TokenKind::VarSym => {
+                        self.expect_token(TokenKind::Special(Special::RParen))?;
+                        Ok(t.text.borrow().to_owned())
+                    }
+                    _ => self.fail(l, ErrorKind::UnexpectedToken),
                 }
-                (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
-            },
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+            }
+
+            _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -515,14 +524,19 @@ impl<'input> Parser<'input> {
 
     // qcon → qconid | ( gconsym )          (qualified constructor)
     fn qcon(&mut self) -> ParserResult<String> {
-        match self.next()? {
-            (l, TokenKind::QConId | TokenKind::ConId, r) => Ok(self.string(l, r)),
-            (_, TokenKind::Special(Special::LParen), _) => {
+        let t = self.next_()?;
+        let l = t.span().start;
+
+        match t.token() {
+            TokenKind::QConId | TokenKind::ConId => Ok(t.text.borrow().to_owned()),
+
+            TokenKind::Special(Special::LParen) => {
                 let (_, sym, _) = self.gconsym()?;
                 self.expect_token(TokenKind::Special(Special::RParen))?;
                 Ok(sym)
             }
-            (l, _, _) => self.fail(l, ErrorKind::UnexpectedToken),
+
+            _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
 
@@ -539,10 +553,12 @@ impl<'input> Parser<'input> {
 
     // gconsym → : | qconsym
     fn gconsym(&mut self) -> ParserResult<(Loc, String, Loc)> {
-        let (l, t, r) = self.next()?;
-        match t {
+        let t = self.next_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+        match t.token() {
             TokenKind::ReservedOp(ReservedOp::Colon) => Ok((l, ":".to_owned(), r)),
-            TokenKind::QConSym | TokenKind::ConSym => Ok((l, self.string(l, r), r)),
+            TokenKind::QConSym | TokenKind::ConSym => Ok((l, t.text.borrow().to_owned(), r)),
             _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
@@ -560,23 +576,26 @@ impl<'input> Parser<'input> {
 
     // op → varop | conop                     (operator)
     // conop → consym | ` conid `             (constructor operator)
+    #[allow(unused)]
     fn op(&mut self) -> ParserResult<ParsedOp> {
-        let (l, t, r) = self.next()?;
-        match t {
+        let t = self.next_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+        match t.token() {
             TokenKind::ConSym => {
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, Op_::Con(str)))
             }
 
             TokenKind::VarSym => {
-                let str = self.string(l, r);
+                let str = t.text.borrow().to_owned();
                 Ok(self.spanned(l, r, Op_::Var(str)))
             }
 
             TokenKind::Special(Special::Backtick) => {
-                let (l_, t_, r_) = self.next()?;
-                let str = self.string(l_, r_);
-                let ret = match t_ {
+                let t_ = self.next_()?;
+                let str = t_.text.borrow().to_owned();
+                let ret = match t_.token() {
                     TokenKind::ConId => self.spanned(l, r, Op_::Con(str)),
                     TokenKind::VarId => self.spanned(l, r, Op_::Var(str)),
                     _ => return self.fail(l, ErrorKind::UnexpectedToken),

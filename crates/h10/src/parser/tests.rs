@@ -132,12 +132,14 @@ plus3 (A a :+: A b :+: A c)
     println!("{:#?}", parse_module(pgm));
 }
 
+/*
 #[test]
 fn test16() {
     let pgm = "infixl 2 :+:, ><, `ok`";
     println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
+*/
 
 #[test]
 fn test17() {

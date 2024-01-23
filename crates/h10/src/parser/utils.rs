@@ -107,66 +107,55 @@ impl<'input> Parser<'input> {
     }
 
     pub(super) fn skip_token(&mut self, token: TokenKind) -> bool {
-        match self.peek() {
-            Ok((_l, token_, _r)) if token_ == token => {
+        if let Ok(t) = self.peek_() {
+            if t.token() == token {
                 self.skip();
-                true
+                return true;
             }
-            _ => false,
         }
-    }
-
-    #[allow(unused)]
-    pub(super) fn skip_token_loc(&mut self, token: TokenKind) -> Option<(Loc, Loc)> {
-        match self.peek() {
-            Ok((l, token_, r)) if token_ == token => {
-                self.skip();
-                Some((l, r))
-            }
-            _ => None,
-        }
+        false
     }
 
     pub(super) fn skip_token_string(&mut self, token: TokenKind) -> Option<String> {
-        match self.peek() {
-            Ok((l, token_, r)) if token_ == token => {
+        if let Ok(t) = self.peek_() {
+            if t.token() == token {
                 self.skip();
-                Some(self.string(l, r))
+                return Some(t.text.borrow().to_owned());
             }
-            _ => None,
         }
+        None
     }
 
     pub(super) fn skip_token_pred<F>(&mut self, token: TokenKind, pred: F) -> bool
     where
         F: Fn(&str) -> bool,
     {
-        match self.peek() {
-            Ok((l, token_, r)) if token_ == token && pred(self.str(l, r)) => {
+        if let Ok(t) = self.peek_() {
+            if t.token() == token && pred(&t.text.borrow()) {
                 self.skip();
-                true
+                return true;
             }
-            _ => false,
         }
+        false
     }
 
     pub(super) fn skip_all(&mut self, token: TokenKind) {
         while self.skip_token(token) {}
     }
 
-    pub(super) fn expect_token(&mut self, token: TokenKind) -> ParserResult<(Loc, Loc)> {
+    pub(super) fn expect_token(&mut self, token: TokenKind) -> ParserResult<TokenRef> {
         self.expect_token_pred(|token_| token_ == token)
     }
 
-    pub(super) fn expect_token_pred<F>(&mut self, pred: F) -> ParserResult<(Loc, Loc)>
+    pub(super) fn expect_token_pred<F>(&mut self, pred: F) -> ParserResult<TokenRef>
     where
         F: Fn(TokenKind) -> bool,
     {
-        let (l, next_token, r) = self.next()?;
-        if pred(next_token) {
-            Ok((l, r))
+        let t = self.next_()?;
+        if pred(t.token()) {
+            Ok(t)
         } else {
-            self.fail(l, ErrorKind::UnexpectedToken)
+            self.fail(t.span().start, ErrorKind::UnexpectedToken)
         }
     }
 
@@ -175,7 +164,7 @@ impl<'input> Parser<'input> {
         token: TokenKind,
     ) -> ParserResult<(Loc, String, Loc)> {
         self.expect_token(token)
-            .map(|(l, r)| (l, self.string(l, r), r))
+            .map(|t| (t.span().start, t.text.borrow().to_owned(), t.span().end))
     }
 
     pub(super) fn expect_token_pred_string<F>(
@@ -186,20 +175,12 @@ impl<'input> Parser<'input> {
         F: Fn(TokenKind) -> bool,
     {
         self.expect_token_pred(pred)
-            .map(|(l, r)| (l, self.string(l, r), r))
+            .map(|t| (t.span().start, t.text.borrow().to_owned(), t.span().end))
     }
 
     pub(super) fn skip(&mut self) {
         let ret = self.next();
         debug_assert!(ret.is_ok());
-    }
-
-    pub(super) fn str(&mut self, l: Loc, r: Loc) -> &'input str {
-        &self.input[l.byte_idx..r.byte_idx]
-    }
-
-    pub(super) fn string(&mut self, l: Loc, r: Loc) -> String {
-        self.str(l, r).to_owned()
     }
 
     pub(super) fn last_tok_span(&self) -> (Loc, Loc) {

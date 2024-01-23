@@ -36,8 +36,10 @@ impl<'input> Parser<'input> {
              | lexp
     */
     pub(super) fn infixexp(&mut self) -> ParserResult<ParsedExp> {
-        if let Ok((l, TokenKind::VarSym, r)) = self.peek() {
-            if self.str(l, r) == "-" {
+        if let Ok(t) = self.peek_() {
+            if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
+                let l = t.span().start;
+                let r = t.span().end;
                 self.skip();
                 let exp = self.infixexp()?;
                 let r_ = exp.span.end;
@@ -122,8 +124,8 @@ impl<'input> Parser<'input> {
                 self.expect_token(TokenKind::ReservedId(ReservedId::Of))?;
                 self.expect_token(TokenKind::Special(Special::LBrace))?;
                 let alts = self.alts()?;
-                let (_, r) = self.expect_token(TokenKind::Special(Special::RBrace))?;
-                Ok(self.spanned(l, r, Exp_::Case(Box::new(scrut), alts)))
+                let rbrace = self.expect_token(TokenKind::Special(Special::RBrace))?;
+                Ok(self.spanned(l, rbrace.span().end, Exp_::Case(Box::new(scrut), alts)))
             }
 
             TokenKind::ReservedId(ReservedId::Do) => {
@@ -272,10 +274,10 @@ impl<'input> Parser<'input> {
                         ));
                     }
                     let exp3 = self.exp()?;
-                    let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
+                    let rbracket = self.expect_token(TokenKind::Special(Special::RBracket))?;
                     Ok(self.spanned(
                         l,
-                        r,
+                        rbracket.span().end,
                         Exp_::ArithmeticSeq {
                             exp1: Box::new(exp1),
                             exp2: Some(Box::new(exp2)),
@@ -310,10 +312,10 @@ impl<'input> Parser<'input> {
                 }
 
                 let exp3 = self.exp()?;
-                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
+                let rbracket = self.expect_token(TokenKind::Special(Special::RBracket))?;
                 return Ok(self.spanned(
                     l,
-                    r,
+                    rbracket.span().end,
                     Exp_::ArithmeticSeq {
                         exp1: Box::new(exp1),
                         exp2: None,
@@ -328,10 +330,10 @@ impl<'input> Parser<'input> {
                 while self.skip_token(TokenKind::Special(Special::Comma)) {
                     quals.push(self.qual()?);
                 }
-                let (_, r) = self.expect_token(TokenKind::Special(Special::RBracket))?;
+                let rbracket = self.expect_token(TokenKind::Special(Special::RBracket))?;
                 return Ok(self.spanned(
                     l,
-                    r,
+                    rbracket.span().end,
                     Exp_::ListComp {
                         exp: Box::new(exp1),
                         quals,
@@ -342,24 +344,34 @@ impl<'input> Parser<'input> {
             return self.fail_with_next(ErrorKind::UnexpectedToken);
         }
 
-        if let Ok((l, TokenKind::QConId | TokenKind::ConId, r)) = self.peek() {
-            self.skip(); // consume con
-            let str = self.string(l, r);
-            return Ok(self.spanned(l, r, Exp_::Con(str)));
-        }
+        let t = match self.peek_() {
+            Ok(t) => t,
+            Err(_) => return self.fail_with_next(ErrorKind::UnexpectedToken),
+        };
 
-        if let Ok((l, TokenKind::QVarId | TokenKind::VarId, r)) = self.peek() {
-            self.skip(); // consume var
-            let str = self.string(l, r);
-            return Ok(self.spanned(l, r, Exp_::Var(str)));
-        }
+        let l = t.span().start;
+        let r = t.span().end;
 
-        if let Ok((l, TokenKind::Literal(lit), r)) = self.peek() {
-            self.skip(); // consume literal
-            return Ok(self.spanned(l, r, Exp_::Lit(lit)));
-        }
+        match t.token() {
+            TokenKind::QConId | TokenKind::ConId => {
+                self.skip(); // consume con
+                let str = t.text.borrow().to_owned();
+                Ok(self.spanned(l, r, Exp_::Con(str)))
+            }
 
-        self.fail_with_next(ErrorKind::UnexpectedToken)
+            TokenKind::QVarId | TokenKind::VarId => {
+                self.skip(); // consume var
+                let str = t.text.borrow().to_owned();
+                Ok(self.spanned(l, r, Exp_::Var(str)))
+            }
+
+            TokenKind::Literal(lit) => {
+                self.skip(); // consume literal
+                Ok(self.spanned(l, r, Exp_::Lit(lit)))
+            }
+
+            _ => self.fail_with_next(ErrorKind::UnexpectedToken),
+        }
     }
 
     fn aexp0_start(&mut self) -> bool {
@@ -382,27 +394,29 @@ impl<'input> Parser<'input> {
     // operators, left/right sections (operator at the beginning or end of an expression, instead
     // of infix), and comma-separated expressions (tuples).
     fn aexp0_parenthesized(&mut self) -> ParserResult<ParsedExp> {
-        if let Ok((l, TokenKind::Special(Special::RParen), r)) = self.peek() {
+        let t = self.peek_()?;
+        let l = t.span().start;
+        let r = t.span().end;
+
+        if t.token() == TokenKind::Special(Special::RParen) {
             return Ok(self.spanned(l, r, Exp_::Tuple(vec![])));
         }
 
-        if let Ok((
-            l,
-            token @ (TokenKind::QVarSym
-            | TokenKind::VarSym
-            | TokenKind::QConSym
-            | TokenKind::ConSym
-            | TokenKind::ReservedOp(ReservedOp::Colon)),
-            r,
-        )) = self.peek()
-        {
+        if matches!(
+            t.token(),
+            TokenKind::QVarSym
+                | TokenKind::VarSym
+                | TokenKind::QConSym
+                | TokenKind::ConSym
+                | TokenKind::ReservedOp(ReservedOp::Colon)
+        ) {
             // Right section
             self.skip(); // skip symbol
-            let str = self.string(l, r);
+            let str = t.text.borrow().to_owned();
             let fun = self.spanned(
                 l,
                 r,
-                if matches!(token, TokenKind::QVarSym | TokenKind::VarSym) {
+                if matches!(t.token(), TokenKind::QVarSym | TokenKind::VarSym) {
                     Exp_::Var(str)
                 } else {
                     Exp_::Con(str)
@@ -416,11 +430,14 @@ impl<'input> Parser<'input> {
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if self.skip_token(TokenKind::Special(Special::Backtick)) {
+        if t.token() == TokenKind::Special(Special::Backtick) {
             // Right section, id operator
-            let (l, t, r) = self.next()?;
-            let str = self.string(l, r);
-            let fun = match t {
+            self.skip();
+            let t = self.next_()?;
+            let l = t.span().start;
+            let r = t.span().end;
+            let str = t.text.borrow().to_owned();
+            let fun = match t.token() {
                 TokenKind::VarId | TokenKind::QVarId => self.spanned(l, r, Exp_::Var(str)),
                 TokenKind::ConId | TokenKind::QConId => self.spanned(l, r, Exp_::Con(str)),
                 _ => return self.fail(l, ErrorKind::UnexpectedToken),
@@ -431,8 +448,8 @@ impl<'input> Parser<'input> {
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if self.skip_token(TokenKind::Special(Special::Comma)) {
-            let (l, _) = self.last_tok_span();
+        if t.token() == TokenKind::Special(Special::Comma) {
+            self.skip();
             // Tuple constructor
             let mut n_commas = 1;
             while matches!(self.peek(), Ok((_, TokenKind::Special(Special::Comma), _))) {
