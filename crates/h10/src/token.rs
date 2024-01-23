@@ -19,7 +19,7 @@ use std::ops::Deref;
 /// tokens.
 ///
 /// Equality and hash are implemented based on reference equality.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TokenRef {
     node: RcId<Token>,
 }
@@ -33,7 +33,6 @@ impl Deref for TokenRef {
     }
 }
 
-#[derive(Debug)]
 pub struct Token {
     /// The token kind.
     token: LexerTokenKind,
