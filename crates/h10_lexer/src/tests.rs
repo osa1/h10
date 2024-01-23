@@ -3,7 +3,7 @@ use crate::Lexer;
 
 fn lex(s: &str) -> Vec<TokenKind> {
     Lexer::new(s)
-        .map(|t| t.unwrap().1)
+        .map(|t| t.unwrap().1.kind)
         .filter(|t| !matches!(t, TokenKind::Whitespace))
         .collect()
 }

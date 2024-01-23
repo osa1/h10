@@ -6,7 +6,8 @@ use crate::collections::Set;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 
-use h10_lexer::TokenKind as LexerToken;
+use h10_lexer::Token as LexerToken;
+use h10_lexer::TokenKind as LexerTokenKind;
 use rc_id::RcId;
 
 use lexgen_util::Loc;
@@ -35,7 +36,7 @@ impl Deref for TokenRef {
 #[derive(Debug)]
 pub struct Token {
     /// The token kind.
-    token: LexerToken,
+    token: LexerTokenKind,
 
     /// Span of the token.
     ///
@@ -64,17 +65,13 @@ pub struct Token {
 }
 
 impl TokenRef {
-    pub fn new(token: LexerToken, span: Span, text: String) -> Self {
+    pub fn new(token: LexerToken, span: Span) -> Self {
         Self {
-            node: RcId::new(Token::new(token, span, text)),
+            node: RcId::new(Token::new(token, span)),
         }
     }
 
-    pub fn from_lexer_token(
-        source: &str,
-        (start, t, end): (Loc, LexerToken, Loc),
-        lexer_input: &str,
-    ) -> Self {
+    pub fn from_lexer_token(source: &str, (start, t, end): (Loc, LexerToken, Loc)) -> Self {
         Self::new(
             t,
             Span {
@@ -82,11 +79,10 @@ impl TokenRef {
                 start,
                 end,
             },
-            lexer_input[start.byte_idx..end.byte_idx].to_owned(),
         )
     }
 
-    pub fn token(&self) -> LexerToken {
+    pub fn token(&self) -> LexerTokenKind {
         self.node.token
     }
 
@@ -188,7 +184,7 @@ impl TokenRef {
 
                 // We've seen `token` twice, add tokens from `self` to the first occurrence of
                 // `token`.
-                let mut token_list: Vec<LexerToken> = Vec::with_capacity(tokens.len());
+                let mut token_list: Vec<LexerTokenKind> = Vec::with_capacity(tokens.len());
                 let mut debug_list_token = self.clone();
                 while debug_list_token != token {
                     token_list.push(debug_list_token.token());
@@ -237,7 +233,7 @@ impl TokenRef {
 }
 
 impl Token {
-    fn new(token: LexerToken, span: Span, text: String) -> Self {
+    fn new(token: LexerToken, span: Span) -> Self {
         /*
         TODO: Figure out why this is failing.
         if cfg!(debug_assertions) {
@@ -255,12 +251,12 @@ impl Token {
         */
 
         Self {
-            token,
+            token: token.kind,
             span: RefCell::new(span),
             prev: RefCell::new(None),
             next: RefCell::new(None),
             ast_node: RefCell::new(None),
-            text: RefCell::new(text),
+            text: RefCell::new(token.text.to_string()),
         }
     }
 }

@@ -2,12 +2,13 @@
 mod tests;
 
 use h10_lexer::Lexer;
-use h10_lexer::{ReservedId, Special, TokenKind};
+use h10_lexer::{ReservedId, Special, Token, TokenKind};
 
 use std::cmp::Ordering;
 use std::iter::Peekable;
 
 use lexgen_util::{LexerError, LexerErrorKind, Loc};
+use smol_str::SmolStr;
 
 pub type LayoutError = String;
 
@@ -19,7 +20,7 @@ pub type LayoutError = String;
 pub trait LayoutLexer_: Clone {
     fn pop_layout(&mut self) -> bool;
     fn in_explicit_layout(&self) -> bool;
-    fn next(&mut self) -> Option<Result<(Loc, TokenKind, Loc), LexerError<LayoutError>>>;
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>>;
 }
 
 impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I> {
@@ -31,11 +32,16 @@ impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I>
         true
     }
 
-    fn next(&mut self) -> Option<Result<(Loc, TokenKind, Loc), LexerError<LayoutError>>> {
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
         match <Self as Iterator>::next(self) {
-            Some(Ok((_, TokenKind::Whitespace | TokenKind::Comment { .. }, _))) => {
-                <Self as LayoutLexer_>::next(self)
-            }
+            Some(Ok((
+                _,
+                Token {
+                    kind: TokenKind::Whitespace | TokenKind::Comment { .. },
+                    ..
+                },
+                _,
+            ))) => <Self as LayoutLexer_>::next(self),
             other => adjust_infallible(other),
         }
     }
@@ -50,7 +56,7 @@ impl<'input> LayoutLexer_ for LayoutLexer<'input, std::str::Chars<'input>> {
         self.in_explicit_layout_()
     }
 
-    fn next(&mut self) -> Option<Result<(Loc, TokenKind, Loc), LexerError<LayoutError>>> {
+    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
         <Self as Iterator>::next(self)
     }
 }
@@ -88,12 +94,23 @@ pub struct LayoutLexer<'input, I: Clone + Iterator<Item = char>> {
 
     /// If we're inserting a `{}` in `do_layout` and returned the `{` part, this will be true and
     /// we'll return `}` in the next interation.
-    override_next: Option<(Loc, TokenKind, Loc)>,
+    override_next: Option<(Loc, Token, Loc)>,
 }
 
-const LBRACE: TokenKind = TokenKind::Special(Special::LBrace);
-const RBRACE: TokenKind = TokenKind::Special(Special::RBrace);
-const SEMIC: TokenKind = TokenKind::Special(Special::Semi);
+const LBRACE: Token = Token {
+    kind: TokenKind::Special(Special::LBrace),
+    text: SmolStr::new_inline("{"),
+};
+
+const RBRACE: Token = Token {
+    kind: TokenKind::Special(Special::RBrace),
+    text: SmolStr::new_inline("}"),
+};
+
+const SEMIC: Token = Token {
+    kind: TokenKind::Special(Special::Semi),
+    text: SmolStr::new_inline(";"),
+};
 
 impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
     /// Create a new layout lexer for parsing a full module.
@@ -143,14 +160,25 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
     /// > where n is the indentation of the lexeme.
     fn initialize(&mut self) {
         match self.lexer.peek() {
-            Some(Ok((_, TokenKind::Whitespace | TokenKind::Comment { .. }, _))) => {
+            Some(Ok((
+                _,
+                Token {
+                    kind: TokenKind::Whitespace | TokenKind::Comment { .. },
+                    ..
+                },
+                _,
+            ))) => {
                 self.lexer.next(); // skip whitepace
                 self.initialize();
             }
 
             Some(Ok((
                 _,
-                TokenKind::Special(Special::LBrace) | TokenKind::ReservedId(ReservedId::Module),
+                Token {
+                    kind:
+                        TokenKind::Special(Special::LBrace) | TokenKind::ReservedId(ReservedId::Module),
+                    ..
+                },
                 _,
             ))) => {}
 
@@ -165,7 +193,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
 }
 
 impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, I> {
-    type Item = Result<(Loc, TokenKind, Loc), LexerError<LayoutError>>;
+    type Item = Result<(Loc, Token, Loc), LexerError<LayoutError>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(next) = self.override_next.take() {
@@ -173,9 +201,15 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             return Some(Ok(next));
         }
 
-        let (start, token, end) = match self.lexer.peek() {
+        let (start, token, _) = match self.lexer.peek() {
             Some(Ok(tok)) => {
-                if matches!(tok.1, TokenKind::Whitespace | TokenKind::Comment { .. }) {
+                if matches!(
+                    tok.1,
+                    Token {
+                        kind: TokenKind::Whitespace | TokenKind::Comment { .. },
+                        ..
+                    }
+                ) {
                     self.lexer.next(); // skip whitespace
                     return self.next();
                 }
@@ -215,7 +249,13 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             }
         };
 
-        if matches!(token, TokenKind::Special(Special::LBrace)) {
+        if matches!(
+            token,
+            Token {
+                kind: TokenKind::Special(Special::LBrace),
+                ..
+            }
+        ) {
             // Explicit layout.
             self.do_layout = false;
             self.context.push(-1);
@@ -261,7 +301,13 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
             return Some(Ok((*start, LBRACE, virtual_token_end(start))));
         }
 
-        if matches!(token, TokenKind::Special(Special::RBrace)) {
+        if matches!(
+            token,
+            Token {
+                kind: TokenKind::Special(Special::RBrace),
+                ..
+            }
+        ) {
             // Pop explicit layout.
             match self.context.pop() {
                 Some(-1) => {}
@@ -318,14 +364,16 @@ impl<'input, I: Clone + Iterator<Item = char>> Iterator for LayoutLexer<'input, 
         }
 
         self.last_token_line = Some(start.line);
-        let ret = (*start, *token, *end);
-        self.lexer.next(); // consume token
+        let ret = self.lexer.next().unwrap().unwrap();
 
         self.do_layout = matches!(
             ret.1,
-            TokenKind::ReservedId(
-                ReservedId::Do | ReservedId::Of | ReservedId::Where | ReservedId::Let
-            ),
+            Token {
+                kind: TokenKind::ReservedId(
+                    ReservedId::Do | ReservedId::Of | ReservedId::Where | ReservedId::Let
+                ),
+                ..
+            },
         );
 
         Some(Ok(ret))

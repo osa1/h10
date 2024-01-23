@@ -24,7 +24,7 @@ fn module_where_no_indent() {
 module X where
 a = 1"#;
     let lexer = LayoutLexer::new(input);
-    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1.kind).collect();
     assert_eq!(
         tokens,
         vec![
@@ -72,7 +72,7 @@ fn class_where_no_indent() {
 class X where
 a = 1"#;
     let lexer = LayoutLexer::new(input);
-    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1.kind).collect();
     assert_eq!(
         tokens,
         vec![
@@ -97,7 +97,7 @@ fn record_literal() {
     // expected (i.e. after a `let`, `where`, `of`, `do`).
     let input = "data A = A { x :: Int }";
     let lexer = LayoutLexer::new_non_module(input);
-    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1).collect();
+    let tokens: Vec<TokenKind> = lexer.map(|t| t.unwrap().1.kind).collect();
     assert_eq!(
         tokens,
         vec![

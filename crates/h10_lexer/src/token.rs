@@ -1,3 +1,11 @@
+use smol_str::SmolStr;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub text: SmolStr,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
     Whitespace,

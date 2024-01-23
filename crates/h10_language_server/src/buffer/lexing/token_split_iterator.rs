@@ -4,7 +4,8 @@ use crate::token::TokenKind;
 
 use h10_lexer::Lexer as H10Lexer;
 use h10_lexer::Literal as H10Literal;
-use h10_lexer::TokenKind as H10Token;
+use h10_lexer::Token as H10Token;
+use h10_lexer::TokenKind as H10TokenKind;
 
 use lexgen_util::{LexerError, Loc};
 
@@ -35,7 +36,7 @@ struct MultiLineToken {
 impl MultiLineToken {
     fn from_lexer_token((token_start, token, token_end): (Loc, H10Token, Loc)) -> Self {
         MultiLineToken {
-            kind: h10_token_kind(&token),
+            kind: h10_token_kind(&token.kind),
             line_start: token_start.line,
             col_start: token_start.col,
             line_end: token_end.line,
@@ -147,26 +148,26 @@ fn simplify_item(
     })
 }
 
-fn h10_token_kind(token: &H10Token) -> TokenKind {
+fn h10_token_kind(token: &H10TokenKind) -> TokenKind {
     // TODO: Generate comments
     match token {
-        H10Token::Whitespace => TokenKind::Whitespace,
+        H10TokenKind::Whitespace => TokenKind::Whitespace,
 
-        H10Token::Comment { documentation: _ } => TokenKind::Comment,
+        H10TokenKind::Comment { documentation: _ } => TokenKind::Comment,
 
-        H10Token::QVarId | H10Token::VarId | H10Token::VarSym => TokenKind::Variable,
+        H10TokenKind::QVarId | H10TokenKind::VarId | H10TokenKind::VarSym => TokenKind::Variable,
 
-        H10Token::QConId | H10Token::ConSym | H10Token::ConId => TokenKind::Type,
+        H10TokenKind::QConId | H10TokenKind::ConSym | H10TokenKind::ConId => TokenKind::Type,
 
-        H10Token::QVarSym | H10Token::QConSym => TokenKind::Operator,
+        H10TokenKind::QVarSym | H10TokenKind::QConSym => TokenKind::Operator,
 
-        H10Token::Literal(lit) => match lit {
+        H10TokenKind::Literal(lit) => match lit {
             H10Literal::Int | H10Literal::Float => TokenKind::Number,
             H10Literal::Char | H10Literal::String => TokenKind::String,
         },
 
-        H10Token::Special(_) => TokenKind::Delimiter,
+        H10TokenKind::Special(_) => TokenKind::Delimiter,
 
-        H10Token::ReservedOp(_) | H10Token::ReservedId(_) => TokenKind::Keyword,
+        H10TokenKind::ReservedOp(_) | H10TokenKind::ReservedId(_) => TokenKind::Keyword,
     }
 }

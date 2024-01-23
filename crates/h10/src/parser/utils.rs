@@ -24,8 +24,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             None => match self.lexer.next() {
                 Some(Ok((l, v, r))) => {
                     let span = self.span(l, r);
-                    let node =
-                        TokenRef::new(v, span, self.input[l.byte_idx..r.byte_idx].to_owned());
+                    let node = TokenRef::new(v, span);
                     self.peeked = Some(Ok(node.clone()));
                     Ok(node)
                 }
@@ -46,11 +45,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
             None => match self.lexer.next() {
                 Some(Ok((l, v, r))) => {
                     let span = self.span(l, r);
-                    Ok(TokenRef::new(
-                        v,
-                        span,
-                        self.input[l.byte_idx..r.byte_idx].to_owned(),
-                    ))
+                    Ok(TokenRef::new(v, span))
                 }
                 Some(Err(err)) => Err(err),
                 None => return self.fail(Loc::default(), ErrorKind::UnexpectedEndOfInput),

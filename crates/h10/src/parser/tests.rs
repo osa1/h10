@@ -4,7 +4,7 @@ use crate::parser::{parse_exp, parse_exp_with_layout, parse_module};
 use h10_lexer::TokenKind;
 
 fn tokens(input: &str) -> Vec<TokenKind> {
-    LayoutLexer::new(input).map(|t| t.unwrap().1).collect()
+    LayoutLexer::new(input).map(|t| t.unwrap().1.kind).collect()
 }
 
 #[test]
