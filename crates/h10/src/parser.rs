@@ -12,7 +12,7 @@ use crate::ast::*;
 use crate::layout_lexer::{LayoutError, LayoutLexer, LayoutLexer_};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
 use crate::token::TokenRef;
-use h10_lexer::token::{ReservedId, ReservedOp, Special, Token};
+use h10_lexer::{ReservedId, ReservedOp, Special, Token};
 
 use std::rc::Rc;
 

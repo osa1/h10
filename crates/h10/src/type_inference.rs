@@ -17,7 +17,7 @@ use crate::kind_inference::{infer_fv_kinds, infer_type_kinds};
 use crate::type_scheme::Scheme;
 use crate::typing::{Ty, TyRef, TyVarRef};
 use crate::unification::{unify, unify_left};
-use h10_lexer::token::Literal;
+use h10_lexer::Literal;
 
 use std::collections::hash_map::Entry;
 use std::ops::Deref;

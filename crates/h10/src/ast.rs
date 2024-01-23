@@ -2,7 +2,7 @@ use crate::collections::Set;
 use crate::id::Id;
 use crate::pos::Pos;
 use crate::token::TokenRef;
-use h10_lexer::token::Literal;
+use h10_lexer::Literal;
 
 use std::fmt;
 use std::hash::Hash;

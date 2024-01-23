@@ -3,7 +3,7 @@ use crate::layout_lexer::{LayoutError, LayoutLexer_};
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
-use h10_lexer::token::Token;
+use h10_lexer::Token;
 
 use lexgen_util::{LexerError, Loc};
 

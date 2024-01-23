@@ -2,9 +2,9 @@ use crate::buffer::line::Token;
 use crate::buffer::{Buffer, CharIter};
 use crate::token::TokenKind;
 
-use h10_lexer::token::Literal as H10Literal;
-use h10_lexer::token::Token as H10Token;
 use h10_lexer::Lexer as H10Lexer;
+use h10_lexer::Literal as H10Literal;
+use h10_lexer::Token as H10Token;
 
 use lexgen_util::{LexerError, Loc};
 

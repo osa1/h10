@@ -1,7 +1,7 @@
 use crate::ast;
 use crate::layout_lexer::LayoutLexer;
 use crate::parser::{parse_exp, parse_exp_with_layout, parse_module};
-use h10_lexer::token::Token;
+use h10_lexer::Token;
 
 fn tokens(input: &str) -> Vec<Token> {
     LayoutLexer::new(input).map(|t| t.unwrap().1).collect()

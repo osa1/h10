@@ -1,9 +1,9 @@
-pub mod token;
+mod token;
 
 #[cfg(test)]
 mod tests;
 
-use token::{Literal, ReservedId, ReservedOp, Special, Token};
+pub use token::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct LexerState {

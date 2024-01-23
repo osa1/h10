@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-use h10_lexer::token::{ReservedId, Special, Token};
 use h10_lexer::Lexer;
+use h10_lexer::{ReservedId, Special, Token};
 
 use std::cmp::Ordering;
 use std::iter::Peekable;

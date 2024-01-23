@@ -5,8 +5,8 @@ use crate::ast;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 use crate::token::TokenRef;
-use h10_lexer::token::Token;
 use h10_lexer::Lexer;
+use h10_lexer::Token;
 
 /// Parse indentation groups as [`ast::TopDeclKind::Unparsed`] declarations.
 fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
