@@ -142,6 +142,15 @@ impl TokenRef {
         }
     }
 
+    /// Returns an iterator that starting from the current token yields characters in the texts of
+    /// tokens in the list.
+    pub fn iter_chars(&self) -> impl Iterator<Item = char> {
+        TokenCharIterator {
+            token: Some(self.clone()),
+            byte_idx: 0,
+        }
+    }
+
     pub fn clear_links(&self) {
         *self.node.next.borrow_mut() = None;
         *self.node.prev.borrow_mut() = None;
@@ -215,11 +224,14 @@ impl TokenRef {
     pub fn check_token_str(&self, expected: &str) {
         // Check that the token texts make the original program.
         let mut token_text = String::with_capacity(expected.len());
-        let mut token: Option<TokenRef> = Some(self.clone());
-        while let Some(token_) = token {
-            token_text.extend(token_.deref().text.borrow().chars());
-            token = token_.next();
+        for token in self.iter() {
+            token_text.extend(token.deref().text.borrow().chars());
         }
+        assert_eq!(token_text, expected);
+
+        // Also check the char iterator.
+        token_text.clear();
+        token_text.extend(self.iter_chars());
         assert_eq!(token_text, expected);
     }
 }
@@ -253,6 +265,7 @@ impl Token {
     }
 }
 
+/// An iterator that yields tokens until the end of a list.
 struct TokenIterator {
     current: Option<TokenRef>,
 }
@@ -269,6 +282,7 @@ impl Iterator for TokenIterator {
     }
 }
 
+/// An iterator that yields tokens until a given token (including the given token).
 struct TokenUntilIterator {
     current: Option<TokenRef>,
     last: TokenRef,
@@ -285,5 +299,43 @@ impl Iterator for TokenUntilIterator {
             }
         }
         item
+    }
+}
+
+/// Yields characters in a list of tokens.
+//
+// TODO: This could be made faster if we could store `Chars` of the `text`, but it's currently
+// behind a `RefCell`.
+struct TokenCharIterator {
+    /// The current token.
+    token: Option<TokenRef>,
+
+    /// The byte index in the current token's `text`.
+    byte_idx: usize,
+}
+
+impl Iterator for TokenCharIterator {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let token = match &self.token {
+            Some(token) => token,
+            None => return None,
+        };
+
+        let text = token.text.borrow();
+
+        if text.len() == self.byte_idx {
+            drop(text);
+            self.token = token.next();
+            self.byte_idx = 0;
+            return self.next();
+        }
+
+        let char = text.get(self.byte_idx..).unwrap().chars().next().unwrap();
+
+        self.byte_idx += char.len_utf8();
+
+        Some(dbg!(char))
     }
 }
