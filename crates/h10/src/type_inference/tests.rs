@@ -309,7 +309,6 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
 
     let expected_ty_scheme = Scheme::from_type_sig(
         ast::Span {
-            source: "<test input>".into(),
             start: Default::default(),
             end: Default::default(),
         },

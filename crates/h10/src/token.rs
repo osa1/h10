@@ -70,15 +70,8 @@ impl TokenRef {
         }
     }
 
-    pub fn from_lexer_token(source: &str, (start, t, end): (Loc, LexerToken, Loc)) -> Self {
-        Self::new(
-            t,
-            Span {
-                source: source.into(),
-                start,
-                end,
-            },
-        )
+    pub fn from_lexer_token((start, t, end): (Loc, LexerToken, Loc)) -> Self {
+        Self::new(t, Span { start, end })
     }
 
     pub fn token(&self) -> LexerTokenKind {

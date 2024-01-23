@@ -195,11 +195,7 @@ impl<'input> Parser<'input> {
 
 impl<'input> Parser<'input> {
     pub(super) fn span(&self, l: Loc, r: Loc) -> Span {
-        Span {
-            source: self.source.clone(),
-            start: l,
-            end: r,
-        }
+        Span { start: l, end: r }
     }
 
     pub(super) fn spanned<T>(&self, l: Loc, r: Loc, node: T) -> AstNode<T> {

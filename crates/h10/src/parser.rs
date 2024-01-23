@@ -14,7 +14,6 @@ use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
-use std::rc::Rc;
 use std::str::Chars;
 
 use lexgen_util::{LexerError, Loc};
@@ -24,7 +23,7 @@ pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module. Handles layout.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
-    Parser::new("<input>".into(), LayoutLexer::new(module_str)).module()
+    Parser::new(LayoutLexer::new(module_str)).module()
 }
 
 /// Parse a type with predicates. Does not handle layout.
@@ -32,25 +31,23 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
 pub fn parse_type(
     type_str: &str,
 ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
-    Parser::new("<input>".into(), LayoutLexer::new_non_module(type_str)).type_with_context()
+    Parser::new(LayoutLexer::new_non_module(type_str)).type_with_context()
 }
 
 /// Parse an expression. Does not handle layout.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new("<input>".into(), LayoutLexer::new_non_module(exp_str)).exp()
+    Parser::new(LayoutLexer::new_non_module(exp_str)).exp()
 }
 
 /// Parse an expression. Handles layout.
 #[cfg(test)]
 pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new("<input>".into(), LayoutLexer::new_non_module(exp_str)).exp()
+    Parser::new(LayoutLexer::new_non_module(exp_str)).exp()
 }
 
 #[derive(Clone)]
 struct Parser<'input> {
-    source: Rc<str>,
-
     /// The lexer. Do not use this directly, use the `Self` `next`, `peek` etc. methods instead.
     lexer: LayoutLexer<'input, Chars<'input>>,
 
@@ -68,9 +65,8 @@ struct Parser<'input> {
 }
 
 impl<'input> Parser<'input> {
-    fn new(source: Rc<str>, lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
+    fn new(lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
         Parser {
-            source,
             lexer,
             peeked: None,
             last_tok: None,

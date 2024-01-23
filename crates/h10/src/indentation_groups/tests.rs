@@ -8,7 +8,7 @@ fn lex(s: &str) -> TokenRef {
     let mut first_token: Option<TokenRef> = None;
     let mut last_token: Option<TokenRef> = None;
     for t in lexer {
-        let t: TokenRef = TokenRef::from_lexer_token("test", t.unwrap());
+        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
         if first_token.is_none() {
             first_token = Some(t.clone());
         } else if let Some(last_token_) = last_token {

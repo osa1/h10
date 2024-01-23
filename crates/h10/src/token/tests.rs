@@ -8,7 +8,6 @@ use lexgen_util::Loc;
 
 fn span(line_start: u32, char_start: u32, line_end: u32, char_end: u32) -> Span {
     Span {
-        source: "<test>".into(),
         start: loc(line_start, char_start),
         end: loc(line_end, char_end),
     }

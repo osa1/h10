@@ -6,7 +6,6 @@ use h10_lexer::Literal;
 
 use std::fmt;
 use std::hash::Hash;
-use std::rc::Rc;
 
 use lexgen_util::Loc;
 
@@ -102,10 +101,6 @@ impl<T> AstNode<T> {
 /// A span in a file.
 #[derive(Debug, Clone)]
 pub struct Span {
-    /// An identifier for the source. This can be a URI, relative file path, a placeholder like
-    /// "REPL" etc.
-    pub source: Rc<str>,
-
     // TODO: We should use a line and column type, without the byte index. Byte index is not useful
     // when we store all text in AST.
     pub start: Loc,

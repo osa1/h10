@@ -280,7 +280,6 @@ fn lbrace(loc: Loc) -> TokenRef {
     TokenRef::new(
         LBRACE,
         Span {
-            source: "".into(),
             start: loc,
             end: virtual_token_end(&loc),
         },
@@ -291,7 +290,6 @@ fn rbrace(loc: Loc) -> TokenRef {
     TokenRef::new(
         RBRACE,
         Span {
-            source: "".into(),
             start: loc,
             end: virtual_token_end(&loc),
         },
@@ -302,7 +300,6 @@ fn semic(loc: Loc) -> TokenRef {
     TokenRef::new(
         SEMIC,
         Span {
-            source: "".into(),
             start: loc,
             end: virtual_token_end(&loc),
         },
