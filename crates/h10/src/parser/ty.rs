@@ -1,10 +1,9 @@
 use crate::ast::*;
-use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use h10_lexer::{ReservedOp, Special, TokenKind};
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     /// Parses the part after `::` in a type signature. E.g. `x :: Show a => a -> String` the part
     /// `Show a => a -> String`.
     pub(crate) fn type_with_context(

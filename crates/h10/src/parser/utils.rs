@@ -1,5 +1,5 @@
 use crate::ast::{AstNode, Span};
-use crate::layout_lexer::{LayoutError, LayoutLexer_};
+use crate::layout_lexer::LayoutError;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
@@ -7,7 +7,7 @@ use h10_lexer::TokenKind;
 
 use lexgen_util::{LexerError, Loc};
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     pub(super) fn in_explicit_layout(&self) -> bool {
         self.lexer.in_explicit_layout()
     }
@@ -212,7 +212,7 @@ impl<'input, L: LayoutLexer_> Parser<'input, L> {
 // Utilities to generate AST nodes.
 //
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     pub(super) fn span(&self, l: Loc, r: Loc) -> Span {
         Span {
             source: self.source.clone(),

@@ -12,73 +12,6 @@ use smol_str::SmolStr;
 
 pub type LayoutError = String;
 
-/// A layout lexer is a lexer with two extra methods to allow handling implicit layouts when
-/// parsing.
-///
-/// When parsing expression and types in tests (instead of whole modules), use `Lexer`, which
-/// implements `LayoutLexer_` without actually handling implicit layouts.
-pub trait LayoutLexer_: Clone {
-    fn pop_layout(&mut self) -> bool;
-    fn in_explicit_layout(&self) -> bool;
-    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>>;
-}
-
-impl<'input, I: Clone + Iterator<Item = char>> LayoutLexer_ for Lexer<'input, I> {
-    fn pop_layout(&mut self) -> bool {
-        false
-    }
-
-    fn in_explicit_layout(&self) -> bool {
-        true
-    }
-
-    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
-        match <Self as Iterator>::next(self) {
-            Some(Ok((
-                _,
-                Token {
-                    kind: TokenKind::Whitespace | TokenKind::Comment { .. },
-                    ..
-                },
-                _,
-            ))) => <Self as LayoutLexer_>::next(self),
-            other => adjust_infallible(other),
-        }
-    }
-}
-
-impl<'input> LayoutLexer_ for LayoutLexer<'input, std::str::Chars<'input>> {
-    fn pop_layout(&mut self) -> bool {
-        self.pop_layout_()
-    }
-
-    fn in_explicit_layout(&self) -> bool {
-        self.in_explicit_layout_()
-    }
-
-    fn next(&mut self) -> Option<Result<(Loc, Token, Loc), LexerError<LayoutError>>> {
-        <Self as Iterator>::next(self)
-    }
-}
-
-fn adjust_infallible<A>(
-    item: Option<Result<A, LexerError<std::convert::Infallible>>>,
-) -> Option<Result<A, LexerError<LayoutError>>> {
-    match item {
-        Some(result) => match result {
-            Ok(item) => Some(Ok(item)),
-            Err(LexerError { location, kind }) => match kind {
-                LexerErrorKind::InvalidToken => Some(Err(LexerError {
-                    location,
-                    kind: LexerErrorKind::InvalidToken,
-                })),
-                LexerErrorKind::Custom(infallible) => match infallible {},
-            },
-        },
-        None => None,
-    }
-}
-
 /// A wrapper on `Lexer` for handling layout.
 #[derive(Clone)]
 pub struct LayoutLexer<'input, I: Clone + Iterator<Item = char>> {
@@ -139,7 +72,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
         }
     }
 
-    fn pop_layout_(&mut self) -> bool {
+    pub fn pop_layout(&mut self) -> bool {
         // TODO: Do we want to generate a `}` here? Currently the parser needs to skip the `}` when
         // it pops the context.
         match self.context.pop() {
@@ -148,7 +81,7 @@ impl<'input> LayoutLexer<'input, std::str::Chars<'input>> {
         }
     }
 
-    fn in_explicit_layout_(&self) -> bool {
+    pub fn in_explicit_layout(&self) -> bool {
         self.context.last().copied() == Some(-1)
     }
 
@@ -385,5 +318,23 @@ fn virtual_token_end(start: &Loc) -> Loc {
         line: start.line,
         col: start.col + 1,
         byte_idx: start.byte_idx, // not in input
+    }
+}
+
+fn adjust_infallible<A>(
+    item: Option<Result<A, LexerError<std::convert::Infallible>>>,
+) -> Option<Result<A, LexerError<LayoutError>>> {
+    match item {
+        Some(result) => match result {
+            Ok(item) => Some(Ok(item)),
+            Err(LexerError { location, kind }) => match kind {
+                LexerErrorKind::InvalidToken => Some(Err(LexerError {
+                    location,
+                    kind: LexerErrorKind::InvalidToken,
+                })),
+                LexerErrorKind::Custom(infallible) => match infallible {},
+            },
+        },
+        None => None,
     }
 }

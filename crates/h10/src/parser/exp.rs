@@ -1,10 +1,9 @@
 use crate::ast::*;
-use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     /*
     exp → infixexp :: [context =>] type    (expression type signature)
         | infixexp

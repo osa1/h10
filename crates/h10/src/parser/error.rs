@@ -1,4 +1,3 @@
-use crate::layout_lexer::LayoutLexer_;
 use crate::parser::{Parser, ParserResult};
 
 use lexgen_util::Loc;
@@ -38,7 +37,7 @@ pub enum GrammarItem {
     TopDecls,
 }
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     pub fn in_context<R, F>(&mut self, item: GrammarItem, mut f: F) -> ParserResult<R>
     where
         F: FnMut(&mut Self) -> ParserResult<R>,

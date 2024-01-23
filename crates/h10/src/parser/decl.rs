@@ -1,13 +1,12 @@
 #![allow(unused)]
 
 use crate::ast::*;
-use crate::layout_lexer::LayoutLexer_;
 use crate::parser::error::{Error, ErrorKind, GrammarItem};
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
 use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
+impl<'input> Parser<'input> {
     /*
     impdecls → impdecl1 ; … ; impdecln                      (n ≥ 1)
 

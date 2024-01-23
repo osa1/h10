@@ -9,12 +9,13 @@ mod utils;
 mod tests;
 
 use crate::ast::*;
-use crate::layout_lexer::{LayoutError, LayoutLexer, LayoutLexer_};
+use crate::layout_lexer::{LayoutError, LayoutLexer};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
 use std::rc::Rc;
+use std::str::Chars;
 
 use lexgen_util::{LexerError, Loc};
 use rpds::List;
@@ -31,13 +32,23 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
 pub fn parse_type(
     type_str: &str,
 ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
-    Parser::new(type_str, "<input>".into(), h10_lexer::Lexer::new(type_str)).type_with_context()
+    Parser::new(
+        type_str,
+        "<input>".into(),
+        LayoutLexer::new_non_module(type_str),
+    )
+    .type_with_context()
 }
 
 /// Parse an expression. Does not handle layout.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(exp_str, "<input>".into(), h10_lexer::Lexer::new(exp_str)).exp()
+    Parser::new(
+        exp_str,
+        "<input>".into(),
+        LayoutLexer::new_non_module(exp_str),
+    )
+    .exp()
 }
 
 /// Parse an expression. Handles layout.
@@ -52,11 +63,11 @@ pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
 }
 
 #[derive(Clone)]
-struct Parser<'input, L: LayoutLexer_> {
+struct Parser<'input> {
     source: Rc<str>,
 
     /// The lexer. Do not use this directly, use the `Self` `next`, `peek` etc. methods instead.
-    lexer: L,
+    lexer: LayoutLexer<'input, Chars<'input>>,
 
     /// Next peeked token. We can't use std `Peekable` as we need to be able to pop current layout
     /// on parse error and `Peekable` doesn't give access to the inner iterator.
@@ -73,8 +84,8 @@ struct Parser<'input, L: LayoutLexer_> {
     context: List<Context>,
 }
 
-impl<'input, L: LayoutLexer_> Parser<'input, L> {
-    fn new(input: &'input str, source: Rc<str>, lexer: L) -> Self {
+impl<'input> Parser<'input> {
+    fn new(input: &'input str, source: Rc<str>, lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
         Parser {
             source,
             lexer,
