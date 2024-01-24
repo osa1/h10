@@ -21,12 +21,12 @@ use rpds::List;
 
 pub type ParserResult<A> = Result<A, Error>;
 
-/// Parse a module. Handles layout.
+/// Parse a module.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
     Parser::new(LayoutLexer::new(module_str)).module()
 }
 
-/// Parse a type with predicates. Does not handle layout.
+/// Parse a type with predicates.
 #[cfg(test)]
 pub fn parse_type(
     type_str: &str,
@@ -34,15 +34,9 @@ pub fn parse_type(
     Parser::new(LayoutLexer::new_non_module(type_str)).type_with_context()
 }
 
-/// Parse an expression. Does not handle layout.
+/// Parse an expression.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(LayoutLexer::new_non_module(exp_str)).exp()
-}
-
-/// Parse an expression. Handles layout.
-#[cfg(test)]
-pub fn parse_exp_with_layout(exp_str: &str) -> ParserResult<ParsedExp> {
     Parser::new(LayoutLexer::new_non_module(exp_str)).exp()
 }
 
