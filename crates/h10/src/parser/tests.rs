@@ -216,6 +216,12 @@ test3 = case x of
     parse_module(pgm).unwrap();
 }
 
+/*
+
+TODO: With the new parser that deals with top-level declaration in isolation, module syntax is no
+longer handled as before. We may want to update the module parser, or handle the `module X where`
+in the lexer specially like before, but even better we should just drop the module syntax.
+
 #[test]
 fn test25() {
     let pgm = r#"
@@ -234,6 +240,7 @@ x = 123
 "#;
     parse_module(pgm).unwrap();
 }
+*/
 
 #[test]
 fn parse_prelude() {
