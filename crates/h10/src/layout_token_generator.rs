@@ -118,7 +118,6 @@ impl Iterator for LayoutTokenGenerator {
                         byte_idx: 0,
                     };
                     self.context.push(Context::Explicit);
-                    println!("lbrace 1");
                     Some(Ok(lbrace(loc)))
                 } else {
                     // TODO: This should only terminate implicit layouts?
@@ -169,10 +168,9 @@ impl Iterator for LayoutTokenGenerator {
             // (1)
             let next_token_indent = start.col;
             if let Some(current_context) = self.context.last() {
-                if Context::Implicit(dbg!(next_token_indent)) > dbg!(*current_context) {
+                if Context::Implicit(next_token_indent) > *current_context {
                     self.context.push(Context::Implicit(next_token_indent));
                     self.last_token_line = None; // don't generate ';' immediately after
-                    println!("lbrace 2");
                     return Some(Ok(lbrace(start)));
                 }
             }
@@ -181,13 +179,11 @@ impl Iterator for LayoutTokenGenerator {
             if self.context.is_empty() {
                 self.context.push(Context::Implicit(next_token_indent));
                 self.last_token_line = None; // don't generate ';' immediately after
-                println!("lbrace 3");
                 return Some(Ok(lbrace(start)));
             }
 
             // (3)
             self.override_next = Some(rbrace(start));
-            println!("lbrace 4");
             return Some(Ok(lbrace(start)));
         }
 
