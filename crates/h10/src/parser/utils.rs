@@ -48,12 +48,7 @@ impl Parser {
         };
         match v {
             Ok(token) => {
-                if let Some(last_tok) = self.last_tok.take() {
-                    last_tok.set_next(Some(token.clone()));
-                }
-
                 self.last_tok = Some(token.clone());
-
                 Ok(token)
             }
             Err(layout_error) => self.fail(layout_error.loc, ErrorKind::LexerError),
