@@ -17,6 +17,7 @@ mod parser;
 mod pos;
 mod renaming;
 mod scc;
+mod scope_map;
 mod token;
 mod type_inference;
 mod type_scheme;

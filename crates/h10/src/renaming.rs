@@ -1,9 +1,6 @@
 use crate::ast;
-use crate::collections::Map;
 use crate::id::{self, Id, IdKind};
-
-use std::borrow::Borrow;
-use std::hash::Hash;
+use crate::scope_map::ScopeMap;
 
 /// Rename a single module.
 ///
@@ -17,8 +14,8 @@ pub fn rename_module(module: &[ast::ParsedTopDecl]) -> Vec<ast::RenamedTopDecl> 
 
 #[derive(Debug)]
 pub(crate) struct Renamer {
-    values: Scope<String, Id>,
-    tys: Scope<String, Id>,
+    values: ScopeMap<String, Id>,
+    tys: ScopeMap<String, Id>,
 
     /// Scopes with `Id`s defined in them, in the order of definition.
     ///
@@ -883,64 +880,6 @@ impl Renamer {
             .get(var)
             .unwrap_or_else(|| panic!("Unbound type variable: {}, env: {:?}", var, self.tys))
             .clone()
-    }
-}
-
-#[derive(Debug)]
-struct Scope<K, V>(Vec<Map<K, V>>);
-
-impl<K, V> Default for Scope<K, V> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<K, V> Scope<K, V> {
-    fn new() -> Self {
-        Scope(vec![Default::default()])
-    }
-
-    fn len_scopes(&self) -> usize {
-        self.0.len()
-    }
-
-    fn exit(&mut self) {
-        debug_assert!(!self.0.is_empty());
-        self.0.pop();
-    }
-
-    fn enter(&mut self) {
-        self.0.push(Default::default());
-    }
-}
-
-impl<K: Hash + Eq, V> Scope<K, V> {
-    /// Bind at the current scope. If the mapped thing is already mapped in the *current scope*
-    /// (not in a parent scope!), returns the old value for the thing. The return value can be used
-    /// to check duplicate definitions.
-    fn bind(&mut self, k: K, v: V) -> Option<V> {
-        self.0.last_mut().unwrap().insert(k, v)
-    }
-
-    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        for map in self.0.iter().rev() {
-            if let Some(val) = map.get(k) {
-                return Some(val);
-            }
-        }
-        None
-    }
-
-    fn get_current_scope<Q: ?Sized>(&self, k: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        self.0.last().unwrap().get(k)
     }
 }
 
