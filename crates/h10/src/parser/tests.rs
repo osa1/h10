@@ -4,13 +4,13 @@ use crate::parser::{parse_exp, parse_module};
 #[test]
 fn test1() {
     let pgm = "f = 1";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test2() {
     let pgm = "f = 1 + 2";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -20,7 +20,7 @@ f =
   1
   +
   2";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn test4() {
     let pgm = "\
 f = 1
 g = 2";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -39,43 +39,43 @@ f = x
   x = 1
 
 g = 2";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test6() {
     let pgm = "x = (hi `x`)";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test7() {
     let pgm = "x = (`x` hi)";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test8() {
     let pgm = "x = ((0, let a = 1 in f a, 1, (++), (:+:)) `g`) \"hi\"";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test9() {
     let pgm = "x = ((a `b`), (`b` a), (+ 1), (1 +))";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test10() {
     let pgm = "x = (,,,) 1 2 3 4";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test11() {
     let pgm = "x = y :: Int";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -83,22 +83,22 @@ fn test12() {
     let pgm = "\
 id :: a -> a
 id a = a";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test13() {
     let pgm = "getA (X a) = a";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
 fn test14() {
     let pgm = "plus2 (A a :+: A b) = a + b";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 
     let pgm = "plus3 (A a :+: A b :+: A c) = a + b + c";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -107,14 +107,14 @@ fn test15() {
 plus3 (A a :+: A b :+: A c)
   | a == 0 = b + c
   | otherwise = a + b + c";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 /*
 #[test]
 fn test16() {
     let pgm = "infixl 2 :+:, ><, `ok`";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 */
 
@@ -123,7 +123,7 @@ fn test17() {
     let pgm = "\
 a, b, (><) :: Int -> Int
 ";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn test18() {
     let pgm = "\
 type String = [Char]
 ";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -141,7 +141,7 @@ data AB = A | B
 data Option a = Some a | None
 data Coord = Coord { x :: Int, y :: Int }
 ";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn test20() {
 newtype List1 a = List [a]
 newtype List2 a b = List2 { list2ToList :: [a] }
 ";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -162,7 +162,7 @@ class Read a where
   readPrec :: ReadPrec a
   readListPrec :: ReadPrec [a]
 ";
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -185,7 +185,7 @@ instance Read Char where
 
   readList = readListDefault
 "#;
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -200,7 +200,7 @@ list5 = [1, 2 .. 10]
 update1 x = x { a = 1 }
 update2 x = x { a = 1, b = 2 }
 "#;
-    println!("{:#?}", parse_module(pgm));
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -213,8 +213,7 @@ test3 = case x of
   -2 -> 1
   _ -> 2
 "#;
-    let ast = parse_module(pgm);
-    println!("{:#?}", ast);
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -222,8 +221,7 @@ fn test25() {
     let pgm = r#"
 module Test where
 "#;
-    let ast = parse_module(pgm);
-    println!("{:#?}", ast);
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -234,8 +232,7 @@ module Test where
 
 x = 123
 "#;
-    let ast = parse_module(pgm);
-    println!("{:#?}", ast);
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -250,8 +247,7 @@ fn parse_prelude() {
 #[test]
 fn empty_class() {
     let pgm = "class X a where";
-    let ast = parse_module(pgm);
-    println!("{:#?}", ast);
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -261,15 +257,13 @@ class X a where
 x = 1
 "#;
     let ast = parse_module(pgm).unwrap();
-    println!("{:#?}", ast);
     assert_eq!(ast.len(), 2);
 }
 
 #[test]
 fn empty_inst() {
     let pgm = "instance Num Int where";
-    let ast = parse_module(pgm);
-    println!("{:#?}", ast);
+    parse_module(pgm).unwrap();
 }
 
 #[test]
@@ -279,7 +273,6 @@ instance Num Int where
 x = 1
 "#;
     let ast = parse_module(pgm).unwrap();
-    println!("{:#?}", ast);
     assert_eq!(ast.len(), 2);
 }
 
