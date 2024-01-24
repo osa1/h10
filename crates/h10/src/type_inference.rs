@@ -266,7 +266,7 @@ impl TI {
             .class_env
             .classes
             .values()
-            .find(|cls| cls.class.name() == Some("Num"))
+            .find(|cls| cls.class.name() == "Num")
             .unwrap_or_else(|| panic!("Num is not in class environment"))
             .class
             .clone();
@@ -285,7 +285,7 @@ impl TI {
             .class_env
             .classes
             .values()
-            .find(|cls| cls.class.name() == Some("Fractional"))
+            .find(|cls| cls.class.name() == "Fractional")
             .unwrap_or_else(|| panic!("Fractional is not in class environment"))
             .class
             .clone();
@@ -303,7 +303,7 @@ impl TI {
         let string_ty_id = self
             .ty_syns
             .keys()
-            .find(|syn_id| syn_id.name() == Some("String"))
+            .find(|syn_id| syn_id.name() == "String")
             .unwrap_or_else(|| panic!("String is not in type synonyms"))
             .clone();
 
@@ -467,7 +467,7 @@ impl TI {
                 BindingGroup::Fun(fun_binding) => fun_binding.id.clone(),
             };
 
-            let instance_method_str: &str = instance_method_id.name().unwrap();
+            let instance_method_str: &str = instance_method_id.name();
 
             // TODO: Kind check class type arg vs. instance type arg.
             let class_method_scheme: &Scheme = self

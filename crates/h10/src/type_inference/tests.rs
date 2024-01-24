@@ -388,7 +388,7 @@ fn collect_pat_ids(pat: &ast::Pat_<Id>, ids: &mut Set<Id>) {
 
 fn find_id(ids: &Set<Id>, id: &str) -> Id {
     for id_ in ids {
-        if id_.name() == Some(id) {
+        if id_.name() == id {
             return id_.clone();
         }
     }

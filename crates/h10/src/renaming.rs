@@ -1,5 +1,5 @@
 use crate::ast;
-use crate::id::{self, Id, IdKind};
+use crate::id::{self, Id};
 use crate::scope_map::ScopeMap;
 
 /// Rename a single module.
@@ -82,7 +82,7 @@ impl Renamer {
     }
 
     fn bind_fresh_type_var(&mut self, var: &str) -> Id {
-        let id = self.fresh_id(var, IdKind::TyVar);
+        let id = self.fresh_id(var);
         self.tys.bind(var.to_owned(), id.clone());
         id
     }
@@ -105,14 +105,14 @@ impl Renamer {
             return id.clone();
         }
 
-        let id = self.fresh_id(var, IdKind::Term);
+        let id = self.fresh_id(var);
         self.values.bind(var.to_owned(), id.clone());
         self.defined_values.last_mut().unwrap().push(id.clone());
         id
     }
 
-    fn fresh_id(&mut self, name: &str, kind: IdKind) -> Id {
-        Id::new(Some(name.to_owned()), kind)
+    fn fresh_id(&mut self, name: &str) -> Id {
+        Id::new(name.to_owned())
     }
 
     /// Bind names defined in top-level declarations.
@@ -139,7 +139,7 @@ impl Renamer {
                 // TODO: Check that we haven't seen signature for the same var in the same scope.
                 for var in vars {
                     if self.values.get_current_scope(var).is_none() {
-                        let id = self.fresh_id(var, IdKind::Term);
+                        let id = self.fresh_id(var);
                         self.values.bind(var.to_owned(), id.clone());
                     }
                 }
@@ -195,7 +195,7 @@ impl Renamer {
 
     fn bind_type(&mut self, ty: &str) {
         if self.tys.get(ty).is_none() {
-            let id = self.fresh_id(ty, IdKind::TyVar);
+            let id = self.fresh_id(ty);
             self.tys.bind(ty.to_owned(), id);
         }
     }
@@ -330,7 +330,7 @@ impl Renamer {
     fn rename_type_binder(&mut self, ty_binder: &ast::ParsedTypeBinder) -> ast::RenamedTypeBinder {
         let ast::TypeBinder_ { id, ty } = &ty_binder.node;
         let ty = ty.as_ref().map(|ty| self.rename_type(ty, false));
-        let id_renamed = self.fresh_id(id, IdKind::TyVar);
+        let id_renamed = self.fresh_id(id);
         self.tys.bind(id.to_owned(), id_renamed.clone());
         ty_binder.with_node(ast::TypeBinder_ { id: id_renamed, ty })
     }
@@ -870,7 +870,7 @@ impl Renamer {
     }
 
     fn bind_type_var(&mut self, var: &str) -> Id {
-        let id = self.fresh_id(var, IdKind::TyVar);
+        let id = self.fresh_id(var);
         self.tys.bind(var.to_owned(), id.clone());
         id
     }

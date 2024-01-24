@@ -1,5 +1,6 @@
 use crate::collections::Set;
-use crate::id::{self, Id, IdKind};
+use crate::id::{self, Id};
+use rc_id::RcId;
 
 use std::cell::{Cell, RefCell};
 use std::fmt;
@@ -42,9 +43,8 @@ pub enum Ty {
 /// A unification variable.
 #[derive(Clone, PartialOrd, Ord)]
 struct TyVar {
-    /// The identity of the variable. Unification variables currently don't have names, this is
-    /// only used to compare variables.
-    id: Id,
+    /// The identity of the variable.
+    id: RcId<()>,
 
     /// Kind of the variable.
     kind: TyRef,
@@ -238,14 +238,14 @@ impl TyRef {
 impl TyVar {
     fn new(kind: TyRef, level: u32) -> TyVar {
         TyVar {
-            id: Id::new(None, IdKind::TyVar),
+            id: RcId::new(()),
             kind,
             level: Cell::new(level),
             link: RefCell::new(None),
         }
     }
 
-    fn id(&self) -> Id {
+    fn id(&self) -> RcId<()> {
         self.id.clone()
     }
 
@@ -279,7 +279,7 @@ impl TyVarRef {
         TyVarRef(Rc::new(TyVar::new(kind, level)))
     }
 
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> RcId<()> {
         self.0.id()
     }
 
@@ -417,7 +417,7 @@ impl fmt::Display for TyVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.link() {
             Some(link) => fmt::Display::fmt(&link, f),
-            None => fmt::Display::fmt(&self.id, f),
+            None => fmt::Display::fmt(&self.id.id_base64(), f),
         }
     }
 }

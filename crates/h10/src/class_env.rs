@@ -276,7 +276,7 @@ impl ClassEnv {
     pub fn get_method_sig(&self, class: &Id, method: &str) -> Option<&Scheme> {
         let class: &Class = self.classes.get(class)?;
         for (method_id, method_scheme) in &class.methods {
-            if method_id.name().unwrap() == method {
+            if method_id.name() == method {
                 return Some(method_scheme);
             }
         }
