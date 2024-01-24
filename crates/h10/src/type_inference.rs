@@ -344,7 +344,7 @@ impl TI {
         let sigs: Map<Id, Scheme> = collect_top_sigs(module, &self.ty_kinds);
         self.ti_top_level_binds(module, &mut module_assumps, &sigs)?;
         self.ti_classes(module, &mut module_assumps, &sigs)?;
-        self.ti_instances(module, &mut module_assumps, sigs)?;
+        self.ti_instances(module, &module_assumps, sigs)?;
 
         Ok(module_assumps)
     }
@@ -395,7 +395,7 @@ impl TI {
     fn ti_instances(
         &mut self,
         module: &[ast::RenamedTopDecl],
-        assumps: &mut TrieMap<Id, Scheme>,
+        assumps: &TrieMap<Id, Scheme>,
         mut sigs: Map<Id, Scheme>,
     ) -> Result<(), String> {
         for decl in module {
@@ -409,7 +409,7 @@ impl TI {
     fn ti_instance(
         &mut self,
         instance: &ast::RenamedInstanceDecl,
-        assumps: &mut TrieMap<Id, Scheme>,
+        assumps: &TrieMap<Id, Scheme>,
         sigs: &mut Map<Id, Scheme>,
     ) -> Result<(), String> {
         let ast::InstanceDecl_ {
@@ -489,7 +489,7 @@ impl TI {
             self.ti_groups(
                 0,                   // level
                 &Default::default(), // type variables
-                assumps,
+                &mut assumps.clone(),
                 sigs,
                 &binds,
             )?;
