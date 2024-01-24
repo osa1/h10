@@ -6,7 +6,7 @@ use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
 use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
-impl<'input> Parser<'input> {
+impl Parser {
     /*
     impdecls → impdecl1 ; … ; impdecln                      (n ≥ 1)
 

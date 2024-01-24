@@ -12,7 +12,6 @@ mod dependency_analysis;
 mod id;
 mod indentation_groups;
 mod kind_inference;
-mod layout_lexer;
 mod layout_token_generator;
 mod parser;
 mod pos;

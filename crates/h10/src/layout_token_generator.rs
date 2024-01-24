@@ -15,6 +15,7 @@ use smol_str::SmolStr;
 /// A [`TokenRef`] iterator that yields tokens in the argument, with extra layout tokens.
 ///
 /// The arugment [`TokenRef`] list is not modified; layout tokens are not added to the list.
+#[derive(Clone)]
 pub struct LayoutTokenGenerator {
     /// The next token in the token list.
     token: Option<TokenRef>,
@@ -34,7 +35,7 @@ pub struct LayoutTokenGenerator {
     override_next: Option<TokenRef>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayoutError {
     pub loc: Loc,
     pub error: &'static str,

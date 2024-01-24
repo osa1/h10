@@ -1,23 +1,15 @@
 use crate::ast;
-use crate::layout_lexer::LayoutLexer;
 use crate::parser::{parse_exp, parse_module};
-use h10_lexer::TokenKind;
-
-fn tokens(input: &str) -> Vec<TokenKind> {
-    LayoutLexer::new(input).map(|t| t.unwrap().1.kind).collect()
-}
 
 #[test]
 fn test1() {
     let pgm = "f = 1";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test2() {
     let pgm = "f = 1 + 2";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -28,7 +20,6 @@ f =
   1
   +
   2";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -37,7 +28,6 @@ fn test4() {
     let pgm = "\
 f = 1
 g = 2";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -49,49 +39,42 @@ f = x
   x = 1
 
 g = 2";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test6() {
     let pgm = "x = (hi `x`)";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test7() {
     let pgm = "x = (`x` hi)";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test8() {
     let pgm = "x = ((0, let a = 1 in f a, 1, (++), (:+:)) `g`) \"hi\"";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test9() {
     let pgm = "x = ((a `b`), (`b` a), (+ 1), (1 +))";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test10() {
     let pgm = "x = (,,,) 1 2 3 4";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test11() {
     let pgm = "x = y :: Int";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -100,25 +83,21 @@ fn test12() {
     let pgm = "\
 id :: a -> a
 id a = a";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test13() {
     let pgm = "getA (X a) = a";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
 #[test]
 fn test14() {
     let pgm = "plus2 (A a :+: A b) = a + b";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 
     let pgm = "plus3 (A a :+: A b :+: A c) = a + b + c";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -128,7 +107,6 @@ fn test15() {
 plus3 (A a :+: A b :+: A c)
   | a == 0 = b + c
   | otherwise = a + b + c";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -136,7 +114,6 @@ plus3 (A a :+: A b :+: A c)
 #[test]
 fn test16() {
     let pgm = "infixl 2 :+:, ><, `ok`";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 */
@@ -146,7 +123,6 @@ fn test17() {
     let pgm = "\
 a, b, (><) :: Int -> Int
 ";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -155,7 +131,6 @@ fn test18() {
     let pgm = "\
 type String = [Char]
 ";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -166,7 +141,6 @@ data AB = A | B
 data Option a = Some a | None
 data Coord = Coord { x :: Int, y :: Int }
 ";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -176,7 +150,6 @@ fn test20() {
 newtype List1 a = List [a]
 newtype List2 a b = List2 { list2ToList :: [a] }
 ";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -189,7 +162,6 @@ class Read a where
   readPrec :: ReadPrec a
   readListPrec :: ReadPrec [a]
 ";
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -213,7 +185,6 @@ instance Read Char where
 
   readList = readListDefault
 "#;
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -229,7 +200,6 @@ list5 = [1, 2 .. 10]
 update1 x = x { a = 1 }
 update2 x = x { a = 1, b = 2 }
 "#;
-    println!("{:?}", tokens(pgm));
     println!("{:#?}", parse_module(pgm));
 }
 
@@ -243,7 +213,6 @@ test3 = case x of
   -2 -> 1
   _ -> 2
 "#;
-    println!("{:?}", tokens(pgm));
     let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
@@ -253,7 +222,6 @@ fn test25() {
     let pgm = r#"
 module Test where
 "#;
-    println!("{:?}", tokens(pgm));
     let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }
@@ -266,7 +234,6 @@ module Test where
 
 x = 123
 "#;
-    println!("{:?}", tokens(pgm));
     let ast = parse_module(pgm);
     println!("{:#?}", ast);
 }

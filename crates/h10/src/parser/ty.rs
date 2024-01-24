@@ -3,7 +3,7 @@ use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use h10_lexer::{ReservedOp, Special, TokenKind};
 
-impl<'input> Parser<'input> {
+impl Parser {
     /// Parses the part after `::` in a type signature. E.g. `x :: Show a => a -> String` the part
     /// `Show a => a -> String`.
     pub(crate) fn type_with_context(

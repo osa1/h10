@@ -3,7 +3,7 @@ use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
-impl<'input> Parser<'input> {
+impl Parser {
     /*
     pat → lpat qconop pat                   (infix constructor)
         | lpat

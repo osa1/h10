@@ -9,21 +9,19 @@ mod utils;
 mod tests;
 
 use crate::ast::*;
-use crate::layout_lexer::{LayoutError, LayoutLexer};
+use crate::layout_token_generator::{LayoutError, LayoutTokenGenerator};
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
 use crate::token::TokenRef;
-use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
+use h10_lexer::{Lexer, ReservedId, ReservedOp, Special, TokenKind};
 
-use std::str::Chars;
-
-use lexgen_util::{LexerError, Loc};
+use lexgen_util::Loc;
 use rpds::List;
 
 pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
-    Parser::new(LayoutLexer::new(module_str)).module()
+    Parser::new(LayoutTokenGenerator::new_top_level(tokenize(module_str))).module()
 }
 
 /// Parse a type with predicates.
@@ -31,25 +29,40 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
 pub fn parse_type(
     type_str: &str,
 ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
-    Parser::new(LayoutLexer::new_non_module(type_str)).type_with_context()
+    Parser::new(LayoutTokenGenerator::new(tokenize(type_str))).type_with_context()
 }
 
 /// Parse an expression.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
-    Parser::new(LayoutLexer::new_non_module(exp_str)).exp()
+    Parser::new(LayoutTokenGenerator::new(tokenize(exp_str))).exp()
+}
+
+fn tokenize(input: &str) -> TokenRef {
+    let lexer = Lexer::new(input);
+    let mut first_token: Option<TokenRef> = None;
+    let mut last_token: Option<TokenRef> = None;
+    for t in lexer {
+        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
+        if first_token.is_none() {
+            first_token = Some(t.clone());
+        } else if let Some(last_token_) = last_token {
+            last_token_.set_next(Some(t.clone()));
+        }
+        last_token = Some(t.clone());
+    }
+    first_token.unwrap()
 }
 
 #[derive(Clone)]
-struct Parser<'input> {
-    /// The lexer. Do not use this directly, use the `Self` `next`, `peek` etc. methods instead.
-    lexer: LayoutLexer<'input, Chars<'input>>,
+struct Parser {
+    token_gen: LayoutTokenGenerator,
 
     /// Next peeked token. We can't use std `Peekable` as we need to be able to pop current layout
     /// on parse error and `Peekable` doesn't give access to the inner iterator.
     ///
     /// This token has not been consumed yet and not linked to [`last_tok`].
-    peeked: Option<Result<TokenRef, LexerError<LayoutError>>>,
+    peeked: Option<Result<TokenRef, LayoutError>>,
 
     /// The last consumed token from [`lexer`]. This is used to create the linked list of tokens as
     /// we consume tokens.
@@ -58,10 +71,10 @@ struct Parser<'input> {
     context: List<Context>,
 }
 
-impl<'input> Parser<'input> {
-    fn new(lexer: LayoutLexer<'input, Chars<'input>>) -> Self {
+impl Parser {
+    fn new(token_gen: LayoutTokenGenerator) -> Self {
         Parser {
-            lexer,
+            token_gen,
             peeked: None,
             last_tok: None,
             context: List::new(),
@@ -84,8 +97,15 @@ impl<'input> Parser<'input> {
                 self_.expect_token(TokenKind::ReservedId(ReservedId::Where))?;
             }
             let decls = self_.body()?;
-            if let Some(token) = self_.lexer.next() {
-                panic!("TokenKind after module: {:?}", token);
+            if let Some(token_or_error) = self_.token_gen.next() {
+                match token_or_error {
+                    Ok(token) => {
+                        panic!("Token after module: {:?} ({})", token.token(), token.span());
+                    }
+                    Err(error) => {
+                        panic!("Error after module: {:?}", error);
+                    }
+                }
             }
             Ok(decls)
         })

@@ -1,32 +1,30 @@
 use crate::ast::{AstNode, Span};
-use crate::layout_lexer::LayoutError;
+use crate::layout_token_generator::LayoutError;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
 use h10_lexer::TokenKind;
 
-use lexgen_util::{LexerError, Loc};
+use lexgen_util::Loc;
 
-impl<'input> Parser<'input> {
+impl Parser {
     pub(super) fn in_explicit_layout(&self) -> bool {
-        self.lexer.in_explicit_layout()
+        self.token_gen.in_explicit_layout()
     }
 
     pub(super) fn pop_layout(&mut self) -> bool {
-        self.lexer.pop_layout()
+        self.token_gen.pop_layout()
     }
 
     /// Get the next token without incrementing the lexer. This handles indentation/layout and
     /// returns virtual semicolons and braces when necessary.
     pub(super) fn peek_(&mut self) -> ParserResult<TokenRef> {
-        let v: Result<TokenRef, LexerError<LayoutError>> = match &self.peeked {
+        let v: Result<TokenRef, LayoutError> = match &self.peeked {
             Some(v) => v.clone(),
-            None => match self.lexer.next() {
-                Some(Ok((l, v, r))) => {
-                    let span = self.span(l, r);
-                    let node = TokenRef::new(v, span);
-                    self.peeked = Some(Ok(node.clone()));
-                    Ok(node)
+            None => match self.token_gen.next() {
+                Some(Ok(token)) => {
+                    self.peeked = Some(Ok(token.clone()));
+                    Ok(token)
                 }
                 Some(Err(err)) => Err(err),
                 None => return self.fail(Loc::default(), ErrorKind::UnexpectedEndOfInput),
@@ -34,19 +32,16 @@ impl<'input> Parser<'input> {
         };
         match v {
             Ok(token) => Ok(token),
-            Err(lexer_error) => self.fail(lexer_error.location, ErrorKind::LexerError),
+            Err(layout_error) => self.fail(layout_error.loc, ErrorKind::LexerError),
         }
     }
 
     /// Get the next token. This is the same as `peek`, but it increments the lexer.
     pub(super) fn next_(&mut self) -> ParserResult<TokenRef> {
-        let v: Result<TokenRef, LexerError<LayoutError>> = match self.peeked.take() {
+        let v: Result<TokenRef, LayoutError> = match self.peeked.take() {
             Some(v) => v,
-            None => match self.lexer.next() {
-                Some(Ok((l, v, r))) => {
-                    let span = self.span(l, r);
-                    Ok(TokenRef::new(v, span))
-                }
+            None => match self.token_gen.next() {
+                Some(Ok(token)) => Ok(token),
                 Some(Err(err)) => Err(err),
                 None => return self.fail(Loc::default(), ErrorKind::UnexpectedEndOfInput),
             },
@@ -61,7 +56,7 @@ impl<'input> Parser<'input> {
 
                 Ok(token)
             }
-            Err(lexer_error) => self.fail(lexer_error.location, ErrorKind::LexerError),
+            Err(layout_error) => self.fail(layout_error.loc, ErrorKind::LexerError),
         }
     }
 
@@ -193,7 +188,7 @@ impl<'input> Parser<'input> {
 // Utilities to generate AST nodes.
 //
 
-impl<'input> Parser<'input> {
+impl Parser {
     pub(super) fn span(&self, l: Loc, r: Loc) -> Span {
         Span { start: l, end: r }
     }

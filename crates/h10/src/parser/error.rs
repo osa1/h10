@@ -37,7 +37,7 @@ pub enum GrammarItem {
     TopDecls,
 }
 
-impl<'input> Parser<'input> {
+impl Parser {
     pub fn in_context<R, F>(&mut self, item: GrammarItem, mut f: F) -> ParserResult<R>
     where
         F: FnMut(&mut Self) -> ParserResult<R>,
