@@ -126,7 +126,8 @@ impl Pred {
     }
 
     pub fn hnf_ty_var(&self) -> TyVarRef {
-        hnf_ty_var(&self.ty).unwrap_or_else(|| panic!("Predicate is not in HNF: {:?}", self))
+        hnf_ty_var(&self.ty)
+            .unwrap_or_else(|| panic!("Predicate is not in HNF: {} ({})", self.class, self.ty))
     }
 }
 
