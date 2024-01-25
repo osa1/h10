@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::collections::Map;
 
 use std::borrow::Borrow;

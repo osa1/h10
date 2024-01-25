@@ -9,7 +9,7 @@ use crate::typing::TyRef;
 
 /// Creates the class environment for a module. The returned environment is not type checked, use
 /// `TI::ti_module` to type check it.
-pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, TyRef>) -> ClassEnv {
+pub(crate) fn module_class_env(module: &[ast::ParsedTopDecl], kinds: &Map<Id, TyRef>) -> ClassEnv {
     let mut class_env: Map<Id, Class> = Default::default();
 
     // Collect classes.
@@ -43,7 +43,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, T
                     ty,
                 } = &decl.node
                 {
-                    let mut method_context: Vec<ast::RenamedType> =
+                    let mut method_context: Vec<ast::ParsedType> =
                         Vec::with_capacity(context.len() + 1);
 
                     // Add `C t` as the first predicate to the context.
@@ -197,7 +197,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, T
     }
 }
 
-fn split_pred(pred: &ast::RenamedType) -> Option<(Id, &ast::RenamedType)> {
+fn split_pred(pred: &ast::ParsedType) -> Option<(Id, &ast::ParsedType)> {
     match &pred.node {
         ast::Type_::App(con, args) => match &con.node {
             ast::Type_::Con(ast::AstNode {

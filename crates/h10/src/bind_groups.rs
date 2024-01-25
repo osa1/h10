@@ -34,8 +34,8 @@ impl<'a> BindingGroup<'a> {
 /// pat = `[x, y, z]`, rhs = `map f list`.
 #[derive(Debug)]
 pub(crate) struct PatBinding<'a> {
-    pub(crate) pat: &'a ast::RenamedPat,
-    pub(crate) rhs: &'a ast::RenamedRhs,
+    pub(crate) pat: &'a ast::ParsedPat,
+    pub(crate) rhs: &'a ast::ParsedRhs,
 }
 
 /// A function definition, split into multiple definitions. For example:
@@ -61,23 +61,23 @@ pub(crate) struct FunBindingGroup<'a> {
 #[derive(Debug)]
 pub(crate) struct FunDef<'a> {
     /// Arguments of the function.
-    pub(crate) args: &'a [ast::RenamedPat],
+    pub(crate) args: &'a [ast::ParsedPat],
 
     /// Body of the function.
-    pub(crate) rhs: &'a ast::RenamedRhs,
+    pub(crate) rhs: &'a ast::ParsedRhs,
 }
 
-pub(crate) fn group_top_binds(decls: &[ast::RenamedTopDecl]) -> Vec<BindingGroup> {
+pub(crate) fn group_top_binds(decls: &[ast::ParsedTopDecl]) -> Vec<BindingGroup> {
     group_binds_(decls, extract_top_bind_lhs_rhs)
 }
 
-pub(crate) fn group_binds(decls: &[ast::RenamedValueDecl]) -> Vec<BindingGroup> {
+pub(crate) fn group_binds(decls: &[ast::ParsedValueDecl]) -> Vec<BindingGroup> {
     group_binds_(decls, extract_bind_lhs_rhs)
 }
 
 fn group_binds_<'a, Decl, F>(decls: &'a [Decl], extract_lhs_rhs: F) -> Vec<BindingGroup>
 where
-    F: Fn(&'a Decl) -> Option<(&'a ast::RenamedLhs, &'a ast::RenamedRhs)>,
+    F: Fn(&'a Decl) -> Option<(&'a ast::ParsedLhs, &'a ast::ParsedRhs)>,
 {
     let mut groups: Vec<BindingGroup> = Vec::with_capacity(decls.len());
 
@@ -141,8 +141,8 @@ where
 }
 
 fn extract_top_bind_lhs_rhs(
-    decl: &ast::RenamedTopDecl,
-) -> Option<(&ast::RenamedLhs, &ast::RenamedRhs)> {
+    decl: &ast::ParsedTopDecl,
+) -> Option<(&ast::ParsedLhs, &ast::ParsedRhs)> {
     if let ast::TopDeclKind::Value(value_decl) = &decl.kind {
         extract_bind_lhs_rhs(value_decl)
     } else {
@@ -150,9 +150,7 @@ fn extract_top_bind_lhs_rhs(
     }
 }
 
-fn extract_bind_lhs_rhs(
-    decl: &ast::RenamedValueDecl,
-) -> Option<(&ast::RenamedLhs, &ast::RenamedRhs)> {
+fn extract_bind_lhs_rhs(decl: &ast::ParsedValueDecl) -> Option<(&ast::ParsedLhs, &ast::ParsedRhs)> {
     if let ast::ValueDecl_::Value { lhs, rhs } = &decl.node {
         Some((lhs, rhs))
     } else {

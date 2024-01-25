@@ -27,7 +27,7 @@ use std::ops::Deref;
 /// Note: for now we don't allow imports and type check a whole program as just one module. The
 /// only built-ins the type checked module gets is the Haskell 2010 built-ins that can't be
 /// implemented in Haskell 2010, such as the list type, and `Int` and `Float` types.
-pub fn ti_module(module: &[ast::RenamedTopDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
+pub fn ti_module(module: &[ast::ParsedTopDecl]) -> (Map<Id, TyRef>, TrieMap<Id, Scheme>) {
     let ty_kinds: Map<Id, TyRef> = infer_type_kinds(module);
     let class_env: ClassEnv = module_class_env(module, &ty_kinds);
     let con_tys: Map<Id, Scheme> = collect_con_tys(module, &ty_kinds);
@@ -37,7 +37,7 @@ pub fn ti_module(module: &[ast::RenamedTopDecl]) -> (Map<Id, TyRef>, TrieMap<Id,
     (ti.ty_kinds, bind_tys)
 }
 
-fn collect_con_tys(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
+fn collect_con_tys(decls: &[ast::ParsedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     // Collect data con types, to be used in field types.
     let mut con_ty_refs: Map<Id, TyRef> = Default::default();
 
@@ -149,7 +149,7 @@ pub(crate) struct TypeSynonym {
 }
 
 fn collect_type_synonyms(
-    decls: &[ast::RenamedTopDecl],
+    decls: &[ast::ParsedTopDecl],
     ty_kinds: &Map<Id, TyRef>,
 ) -> Map<Id, TypeSynonym> {
     let mut type_synonyms: Map<Id, TypeSynonym> = Default::default();
@@ -266,7 +266,7 @@ impl TI {
             .class_env
             .classes
             .values()
-            .find(|cls| cls.class.name() == "Num")
+            .find(|cls| cls.class == "Num")
             .unwrap_or_else(|| panic!("Num is not in class environment"))
             .class
             .clone();
@@ -285,7 +285,7 @@ impl TI {
             .class_env
             .classes
             .values()
-            .find(|cls| cls.class.name() == "Fractional")
+            .find(|cls| cls.class == "Fractional")
             .unwrap_or_else(|| panic!("Fractional is not in class environment"))
             .class
             .clone();
@@ -303,7 +303,7 @@ impl TI {
         let string_ty_id = self
             .ty_syns
             .keys()
-            .find(|syn_id| syn_id.name() == "String")
+            .find(|syn_id| *syn_id == "String")
             .unwrap_or_else(|| panic!("String is not in type synonyms"))
             .clone();
 
@@ -313,7 +313,7 @@ impl TI {
     }
 
     /// Entry point for type checking a module: type checks a whole module.
-    fn ti_module(&mut self, module: &[ast::RenamedTopDecl]) -> Result<TrieMap<Id, Scheme>, String> {
+    fn ti_module(&mut self, module: &[ast::ParsedTopDecl]) -> Result<TrieMap<Id, Scheme>, String> {
         let mut module_assumps: TrieMap<Id, Scheme> = Default::default();
 
         // Add data constructors to assumptions.
@@ -352,7 +352,7 @@ impl TI {
     /// Type check everything except classes and instances.
     fn ti_top_level_binds(
         &mut self,
-        module: &[ast::RenamedTopDecl],
+        module: &[ast::ParsedTopDecl],
         assumps: &mut TrieMap<Id, Scheme>,
         sigs: &Map<Id, Scheme>,
     ) -> Result<(), String> {
@@ -369,7 +369,7 @@ impl TI {
     /// Type check class method implementations.
     fn ti_classes(
         &mut self,
-        module: &[ast::RenamedTopDecl],
+        module: &[ast::ParsedTopDecl],
         assumps: &mut TrieMap<Id, Scheme>,
         sigs: &Map<Id, Scheme>,
     ) -> Result<(), String> {
@@ -394,7 +394,7 @@ impl TI {
     /// Type check instances.
     fn ti_instances(
         &mut self,
-        module: &[ast::RenamedTopDecl],
+        module: &[ast::ParsedTopDecl],
         assumps: &TrieMap<Id, Scheme>,
         mut sigs: Map<Id, Scheme>,
     ) -> Result<(), String> {
@@ -408,7 +408,7 @@ impl TI {
 
     fn ti_instance(
         &mut self,
-        instance: &ast::RenamedInstanceDecl,
+        instance: &ast::ParsedInstanceDecl,
         assumps: &TrieMap<Id, Scheme>,
         sigs: &mut Map<Id, Scheme>,
     ) -> Result<(), String> {
@@ -466,7 +466,7 @@ impl TI {
                 BindingGroup::Fun(fun_binding) => fun_binding.id.clone(),
             };
 
-            let instance_method_str: &str = instance_method_id.name();
+            let instance_method_str: &str = &instance_method_id;
 
             // TODO: Kind check class type arg vs. instance type arg.
             let class_method_scheme: &Scheme = self
@@ -790,7 +790,7 @@ impl TI {
     fn ti_pat(
         &mut self,
         level: u32,
-        pat: &ast::RenamedPat,
+        pat: &ast::ParsedPat,
         assumps: &mut TrieMap<Id, Scheme>,
         fixed_vars: &Set<Id>,
         preds: &mut Vec<Pred>,
@@ -915,12 +915,12 @@ impl TI {
         level: u32,
         ty_vars: &TrieMap<Id, TyRef>,
         assumps: &TrieMap<Id, Scheme>,
-        rhs: &ast::RenamedRhs,
+        rhs: &ast::ParsedRhs,
         preds: &mut Vec<Pred>,
     ) -> Result<TyRef, String> {
         let mut assumps = assumps.clone();
 
-        let where_decls: &[ast::RenamedValueDecl] = rhs.node.where_decls();
+        let where_decls: &[ast::ParsedValueDecl] = rhs.node.where_decls();
         let groups: Vec<BindingGroup> = group_binds(where_decls);
         let sigs: Map<Id, Scheme> = collect_sigs(where_decls, &self.ty_kinds);
         self.ti_groups(level, ty_vars, &mut assumps, &sigs, &groups)?;
@@ -943,7 +943,7 @@ impl TI {
         level: u32,
         ty_vars: &TrieMap<Id, TyRef>,
         assumps: &TrieMap<Id, Scheme>,
-        exp: &ast::RenamedExp,
+        exp: &ast::ParsedExp,
         preds: &mut Vec<Pred>,
     ) -> Result<TyRef, String> {
         match &exp.node {
@@ -1122,7 +1122,7 @@ impl TI {
         level: u32,
         ty_vars: &TrieMap<Id, TyRef>,
         assumps: &TrieMap<Id, Scheme>,
-        rhss: &[ast::RenamedGuardedRhs],
+        rhss: &[ast::ParsedGuardedRhs],
         preds: &mut Vec<Pred>,
     ) -> Result<TyRef, String> {
         assert!(!rhss.is_empty());
@@ -1153,7 +1153,7 @@ impl TI {
         level: u32,
         ty_vars: &TrieMap<Id, TyRef>,
         assumps: &mut TrieMap<Id, Scheme>,
-        stmts: &[ast::RenamedStmt],
+        stmts: &[ast::ParsedStmt],
         preds: &mut Vec<Pred>,
     ) -> Result<(), String> {
         for stmt in stmts {
@@ -1257,7 +1257,7 @@ fn generalize(level: u32, preds: &[Pred], ty: &TyRef) -> Scheme {
     }
 }
 
-fn collect_top_sigs(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
+fn collect_top_sigs(decls: &[ast::ParsedTopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
         if let ast::TopDeclKind::Value(value_decl) = &decl.kind {
@@ -1267,7 +1267,7 @@ fn collect_top_sigs(decls: &[ast::RenamedTopDecl], ty_kinds: &Map<Id, TyRef>) ->
     sigs
 }
 
-fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
+fn collect_sigs(decls: &[ast::ParsedValueDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id, Scheme> {
     let mut sigs: Map<Id, Scheme> = Default::default();
     for decl in decls {
         collect_sig(decl, ty_kinds, &mut sigs);
@@ -1275,11 +1275,7 @@ fn collect_sigs(decls: &[ast::RenamedValueDecl], ty_kinds: &Map<Id, TyRef>) -> M
     sigs
 }
 
-fn collect_sig(
-    decl: &ast::RenamedValueDecl,
-    ty_kinds: &Map<Id, TyRef>,
-    sigs: &mut Map<Id, Scheme>,
-) {
+fn collect_sig(decl: &ast::ParsedValueDecl, ty_kinds: &Map<Id, TyRef>, sigs: &mut Map<Id, Scheme>) {
     match &decl.node {
         ast::ValueDecl_::TypeSig {
             vars,

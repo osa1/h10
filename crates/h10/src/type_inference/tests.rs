@@ -4,7 +4,6 @@ use crate::class_env::Pred;
 use crate::collections::Set;
 use crate::id::{type_ty_tyref, Id};
 use crate::parser::{parse_module, parse_type};
-use crate::renaming::Renamer;
 use crate::type_inference::{ti_module, unify};
 use crate::type_scheme::Scheme;
 use crate::typing::TyRef;
@@ -13,9 +12,7 @@ use crate::typing::TyRef;
 fn unify_two_way_left() {
     // An example test that checks unification result of a type variable. A bit too verbose, it
     // would be good to simplify this and add more unification tests.
-    let mut renamer = Renamer::new();
-
-    let ty1_ast: ast::RenamedType = renamer.rename_type(&parse_type("a -> a").unwrap().2, true);
+    let ty1_ast: ast::ParsedType = parse_type("a -> a").unwrap().2;
     let a_id: Id = ty1_ast.arrow().0.var().clone();
     let a_tyref = TyRef::new_var(type_ty_tyref(), 0);
     let ty1 = convert_ast_ty(
@@ -30,7 +27,7 @@ fn unify_two_way_left() {
         &ty1_ast,
     );
 
-    let ty2_ast: ast::RenamedType = renamer.rename_type(&parse_type("Int -> Int").unwrap().2, true);
+    let ty2_ast: ast::ParsedType = parse_type("Int -> Int").unwrap().2;
     let ty2 = convert_ast_ty(&|_id| None, &Default::default(), &ty2_ast);
     let int_tyref = &ty2.split_fun_ty().0[0];
 
@@ -281,14 +278,10 @@ f n = (n, n + 1)
 fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     let pgm = parse_module(pgm).unwrap();
 
-    // Use the same renamer in both codes to be able to map same names to same ids.
-    let mut renamer = Renamer::new();
-    let renamed_pgm = renamer.rename_module(&pgm);
-
-    let ids = top_binder_ids(&renamed_pgm);
+    let ids = top_binder_ids(&pgm);
     let id = find_id(&ids, id);
 
-    let (ty_kinds, val_tys) = ti_module(&renamed_pgm);
+    let (ty_kinds, val_tys) = ti_module(&pgm);
     let inferred_ty_scheme = val_tys.get(&id).unwrap_or_else(|| {
         panic!(
             "Id `{}` is not in type environment: {:?}",
@@ -301,11 +294,6 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     });
 
     let (_foralls, expected_ty_context, expected_ty) = parse_type(expected_ty).unwrap();
-    let renamed_expected_ty = renamer.rename_type(&expected_ty, true);
-    let renamed_expected_ty_context: Vec<ast::RenamedType> = expected_ty_context
-        .into_iter()
-        .map(|ty| renamer.rename_type(&ty, true))
-        .collect();
 
     let expected_ty_scheme = Scheme::from_type_sig(
         ast::Span {
@@ -314,8 +302,8 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
         },
         &ty_kinds,
         &Default::default(),
-        &renamed_expected_ty_context,
-        &renamed_expected_ty,
+        &expected_ty_context,
+        &expected_ty,
     );
 
     println!("expected: {}", expected_ty_scheme);
@@ -328,7 +316,7 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     }
 }
 
-fn top_binder_ids(module: &[ast::RenamedTopDecl]) -> Set<Id> {
+fn top_binder_ids(module: &[ast::ParsedTopDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in module {
         match &decl.kind {
@@ -388,7 +376,7 @@ fn collect_pat_ids(pat: &ast::Pat_<Id>, ids: &mut Set<Id>) {
 
 fn find_id(ids: &Set<Id>, id: &str) -> Id {
     for id_ in ids {
-        if id_.name() == id {
+        if id_ == id {
             return id_.clone();
         }
     }

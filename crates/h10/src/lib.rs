@@ -15,7 +15,6 @@ mod kind_inference;
 mod layout_token_generator;
 mod parser;
 mod pos;
-mod renaming;
 mod scc;
 mod scope_map;
 mod token;
@@ -29,7 +28,6 @@ use crate::type_scheme::Scheme;
 use collections::{Map, TrieMap};
 use id::Id;
 use parser::parse_module;
-use renaming::rename_module;
 use type_inference::ti_module;
 use typing::TyRef;
 
@@ -42,8 +40,7 @@ pub fn type_check_module(
     input: &str,
 ) -> (Vec<ast::ParsedTopDecl>, Map<Id, TyRef>, TrieMap<Id, Scheme>) {
     let ast: Vec<ast::ParsedTopDecl> = parse_module(input).unwrap();
-    let renamed: Vec<ast::RenamedTopDecl> = rename_module(&ast);
-    let (kinds, types) = ti_module(&renamed);
+    let (kinds, types) = ti_module(&ast);
     (ast, kinds, types)
 }
 

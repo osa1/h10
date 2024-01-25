@@ -1,5 +1,4 @@
 use crate::collections::Set;
-use crate::id::Id;
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Literal;
@@ -36,34 +35,6 @@ pub type ParsedKindSigDecl = KindSigDecl<String>;
 #[allow(unused)]
 pub type ParsedTypeImport = TypeImport<String>;
 pub type ParsedValueDecl = ValueDecl<String>;
-
-pub type RenamedAlt = Alt<Id>;
-pub type RenamedClassDecl = ClassDecl<Id>;
-pub type RenamedCon = Con<Id>;
-pub type RenamedDataDecl = DataDecl<Id>;
-pub type RenamedTopDecl = TopDecl<Id>;
-pub type RenamedDefaultDecl = DefaultDecl<Id>;
-pub type RenamedExp = Exp<Id>;
-pub type RenamedFieldDecl = FieldDecl<Id>;
-pub type RenamedGCon = GCon<Id>;
-pub type RenamedGuardedRhs = GuardedRhs<Id>;
-#[allow(unused)]
-pub type RenamedImportDecl = ImportDecl<Id>;
-pub type RenamedInstanceDecl = InstanceDecl<Id>;
-pub type RenamedLhs = Lhs<Id>;
-pub type RenamedNewtypeDecl = NewtypeDecl<Id>;
-pub type RenamedOp = Op<Id>;
-pub type RenamedPat = Pat<Id>;
-pub type RenamedRhs = Rhs<Id>;
-pub type RenamedStmt = Stmt<Id>;
-pub type RenamedTyCon = TyCon<Id>;
-pub type RenamedType = Type<Id>;
-pub type RenamedTypeDecl = TypeDecl<Id>;
-pub type RenamedTypeBinder = TypeBinder<Id>;
-pub type RenamedKindSigDecl = KindSigDecl<Id>;
-#[allow(unused)]
-pub type RenamedTypeImport = TypeImport<Id>;
-pub type RenamedValueDecl = ValueDecl<Id>;
 
 #[derive(Debug, Clone)]
 pub struct AstNode<T> {

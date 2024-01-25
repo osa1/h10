@@ -3,7 +3,6 @@ use crate::collections::Map;
 use crate::id::{type_ty_tyref, Id};
 use crate::kind_inference::infer_type_kinds;
 use crate::parser::parse_module;
-use crate::renaming::Renamer;
 use crate::type_inference::make_fun_ty;
 use crate::typing::TyRef;
 
@@ -78,8 +77,6 @@ data Q2   = MkQ2 (Q1 T)
     assert_eq!(kinds.get(&q2_id).unwrap(), &type_ty_tyref());
 }
 
-fn parse_and_rename(pgm: &str) -> Vec<ast::RenamedTopDecl> {
-    let parsed = parse_module(pgm).unwrap();
-    let mut renamer = Renamer::new();
-    renamer.rename_module(&parsed)
+fn parse_and_rename(pgm: &str) -> Vec<ast::ParsedTopDecl> {
+    parse_module(pgm).unwrap()
 }

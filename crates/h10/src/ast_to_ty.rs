@@ -5,14 +5,14 @@ use crate::collections::Map;
 use crate::id::{self, Id};
 use crate::typing::TyRef;
 
-/// Convert a renamed AST type (`ast::RenamedType`) to type checking type (`TyRef`).
+/// Convert a renamed AST type (`ast::ParsedType`) to type checking type (`TyRef`).
 ///
 /// - `bound_vars`: Maps bound type variables in scope to their `TyRef`s.
 /// - `free_vars`: Maps free variables in the type being converted to their `Gen` indices.
 pub fn convert_ast_ty<GetBoundVar>(
     get_bound_var: &GetBoundVar,
     free_vars: &Map<Id, u32>,
-    ty: &ast::RenamedType,
+    ty: &ast::ParsedType,
 ) -> TyRef
 where
     GetBoundVar: Fn(&Id) -> Option<TyRef>,
