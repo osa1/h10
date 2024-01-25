@@ -129,7 +129,10 @@ pub(crate) fn infer_type_kinds(decls: &[ast::RenamedTopDecl]) -> Map<Id, TyRef> 
         }
     }
 
-    normalize_kinds(&con_kinds)
+    con_kinds
+        .iter()
+        .map(|(id, kind)| (id.clone(), normalize_kind(kind)))
+        .collect()
 }
 
 /// Given a list of predicates and a type (e.g. to infer kinds of free variables in `preds => ty`)
@@ -142,26 +145,34 @@ pub(crate) fn infer_fv_kinds(
     preds: &[ast::RenamedType],
     ast_ty: &ast::RenamedType,
     expected_kind: &TyRef,
-) -> Map<Id, TyRef> {
+) -> Vec<(Id, TyRef)> {
     // The process is similar to kind inference for type constructors. Free variables are
     // initialized with unification variables. Types of terms have kind `Type`. Unification
     // constrains kinds of type variables. Unconstrained type variables are defaulted as `Type`.
 
-    let mut vars: Map<Id, TyRef> = Default::default();
+    // The type variables are generalized in the order they appear in the type.
+    let mut vars_ordered: Vec<(Id, TyRef)> = Vec::new();
+
     for pred in preds {
-        collect_vars(pred, &mut vars);
+        collect_vars(pred, &mut vars_ordered);
     }
-    collect_vars(ast_ty, &mut vars);
+    collect_vars(ast_ty, &mut vars_ordered);
+
+    let var_kinds: Map<Id, TyRef> = vars_ordered.iter().cloned().collect();
 
     for pred_ast_ty in preds {
-        let pred_kind = ty_kind(con_kinds, &vars, &Default::default(), pred_ast_ty);
+        let pred_kind = ty_kind(con_kinds, &var_kinds, &Default::default(), pred_ast_ty);
         unify(&Default::default(), &pred_kind, &type_type()).unwrap();
     }
 
-    let ty_kind = ty_kind(con_kinds, &vars, &Default::default(), ast_ty);
+    let ty_kind = ty_kind(con_kinds, &var_kinds, &Default::default(), ast_ty);
     unify(&Default::default(), &ty_kind, expected_kind).unwrap();
 
-    normalize_kinds(&vars)
+    for (_, ref mut ty) in &mut vars_ordered {
+        *ty = normalize_kind(ty);
+    }
+
+    vars_ordered
 }
 
 /// Create a new unification variable with kind `Type` and level 0.
@@ -255,29 +266,29 @@ fn ty_kind(
     }
 }
 
-/// Collect type variables in [`ty`] in [`fvs`], with a fresh unification variable for each
-/// variable.
-fn collect_vars(ty: &ast::RenamedType, fvs: &mut Map<Id, TyRef>) {
+/// Collect type variables in [`ty`] in [`vars_ordered`], with a fresh unification variable for
+/// each variable.
+fn collect_vars(ty: &ast::RenamedType, vars_ordered: &mut Vec<(Id, TyRef)>) {
     match &ty.node {
-        ast::Type_::Tuple(tys) => tys.iter().for_each(|ty| collect_vars(ty, fvs)),
+        ast::Type_::Tuple(tys) => tys.iter().for_each(|ty| collect_vars(ty, vars_ordered)),
 
-        ast::Type_::List(ty) => collect_vars(ty, fvs),
+        ast::Type_::List(ty) => collect_vars(ty, vars_ordered),
 
         ast::Type_::Arrow(ty1, ty2) => {
-            collect_vars(ty1, fvs);
-            collect_vars(ty2, fvs);
+            collect_vars(ty1, vars_ordered);
+            collect_vars(ty2, vars_ordered);
         }
 
         ast::Type_::App(ty, tys) => {
-            collect_vars(ty, fvs);
-            tys.iter().for_each(|ty| collect_vars(ty, fvs));
+            collect_vars(ty, vars_ordered);
+            tys.iter().for_each(|ty| collect_vars(ty, vars_ordered));
         }
 
         ast::Type_::Con(_) => {}
 
         ast::Type_::Var(id) => {
-            if !fvs.contains_key(id) {
-                fvs.insert(id.clone(), new_unification_var());
+            if !vars_ordered.iter().any(|(id_, _)| id_ == id) {
+                vars_ordered.push((id.clone(), new_unification_var()));
             }
         }
     }
@@ -421,14 +432,6 @@ fn collect_types(decls: &[ast::RenamedTopDecl]) -> Vec<TypeDecl> {
             ast::TopDeclKind::Type(d) => Some(type_to_type_decl(d)),
             _ => None,
         })
-        .collect()
-}
-
-/// Normalize all kinds in `kinds`.
-fn normalize_kinds(kinds: &Map<Id, TyRef>) -> Map<Id, TyRef> {
-    kinds
-        .iter()
-        .map(|(id, kind)| (id.clone(), normalize_kind(kind)))
         .collect()
 }
 

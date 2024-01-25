@@ -152,7 +152,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, T
             // Argument kiund of `ty_con`, expected kind of `ty`.
             let ty_con_arg_kind: TyRef = kinds.get(ty_con).unwrap().get_kind_arrow_star_kind();
 
-            let fv_kinds = infer_fv_kinds(kinds, context, ty, &ty_con_arg_kind);
+            let fv_kinds: Vec<(Id, TyRef)> = infer_fv_kinds(kinds, context, ty, &ty_con_arg_kind);
 
             let fv_gens: Map<Id, u32> = fv_kinds
                 .iter()
@@ -160,7 +160,7 @@ pub(crate) fn module_class_env(module: &[ast::RenamedTopDecl], kinds: &Map<Id, T
                 .map(|(id_idx, (id, _kind))| (id.clone(), id_idx as u32))
                 .collect();
 
-            let kinds: Vec<TyRef> = fv_kinds.into_values().collect();
+            let kinds: Vec<TyRef> = fv_kinds.into_iter().map(|(_, kind)| kind).collect();
 
             // TODO: Any restrictions on predicates here that we need to check?
             let mut preds: Vec<Pred> = Default::default();

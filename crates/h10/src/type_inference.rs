@@ -431,15 +431,14 @@ impl TI {
 
         // Kinds of free varibles in instance type argument.
         // E.g. in `Functor (Either a)`, `{a = *}`.
-        let fv_kinds: Map<Id, TyRef> = infer_fv_kinds(
+        let fv_kinds: Vec<(Id, TyRef)> = infer_fv_kinds(
             &self.ty_kinds,
             instance_context,
             instance_ty,
             &ty_con_arg_kind,
         );
 
-        // TODO: Shouldn't we sort the kinds based on fv id?
-        let fv_kinds_vec: Vec<TyRef> = fv_kinds.values().cloned().collect();
+        let fv_kinds_vec: Vec<TyRef> = fv_kinds.iter().map(|(_id, kind)| kind.clone()).collect();
 
         // Maps free variables in `fv_kinds` to `Gen` indices.
         let fv_gens: Map<Id, u32> = fv_kinds
@@ -621,8 +620,8 @@ impl TI {
                             if unify_left(&self.ty_syns, binding_inferred_ty, &explicit_ty).is_err()
                             {
                                 panic!(
-                                    "Type error: explicit type `{}` is more general than the inferred type `{}`",
-                                    explicit_ty.normalize(), binding_inferred_ty.normalize()
+                                    "Type error: explicit type `{} : {}` is more general than the inferred type `{}`",
+                                    id, explicit_ty.normalize(), binding_inferred_ty.normalize()
                                 );
                             }
 
