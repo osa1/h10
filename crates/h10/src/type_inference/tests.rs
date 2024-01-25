@@ -288,12 +288,12 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     let ids = top_binder_ids(&renamed_pgm);
     let id = find_id(&ids, id);
 
-    let (kinds, types) = ti_module(&renamed_pgm);
-    let inferred_ty_scheme = types.get(&id).unwrap_or_else(|| {
+    let (ty_kinds, val_tys) = ti_module(&renamed_pgm);
+    let inferred_ty_scheme = val_tys.get(&id).unwrap_or_else(|| {
         panic!(
             "Id `{}` is not in type environment: {:?}",
             id,
-            types
+            val_tys
                 .iter()
                 .map(|(key, value)| format!("{} : {}", key, value))
                 .collect::<Vec<_>>()
@@ -312,7 +312,7 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
             start: Default::default(),
             end: Default::default(),
         },
-        &kinds,
+        &ty_kinds,
         &Default::default(),
         &renamed_expected_ty_context,
         &renamed_expected_ty,
