@@ -276,7 +276,9 @@ fn collect_vars(ty: &ast::RenamedType, fvs: &mut Map<Id, TyRef>) {
         ast::Type_::Con(_) => {}
 
         ast::Type_::Var(id) => {
-            fvs.insert(id.clone(), new_unification_var());
+            if !fvs.contains_key(id) {
+                fvs.insert(id.clone(), new_unification_var());
+            }
         }
     }
 }
