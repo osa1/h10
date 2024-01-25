@@ -8,7 +8,7 @@ impl Parser {
     pat → lpat qconop pat                   (infix constructor)
         | lpat
     */
-    pub fn pat(&mut self) -> ParserResult<ParsedPat> {
+    pub fn pat(&mut self) -> ParserResult<Pat> {
         let pat1 = self.lpat()?;
         let l = pat1.span.start;
         match self.try_(Parser::qconop) {
@@ -30,7 +30,7 @@ impl Parser {
          | - (integer | float)              (negative literal)
          | gcon apat1 … apatk               (arity gcon  =  k, k ≥ 1)
     */
-    fn lpat(&mut self) -> ParserResult<ParsedPat> {
+    fn lpat(&mut self) -> ParserResult<Pat> {
         if let Ok(t) = self.peek_() {
             if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
                 let l = t.span().start;
@@ -76,7 +76,7 @@ impl Parser {
          | [ pat1 , … , patk ]              (list pattern, k ≥ 1)
          | ~ apat                           (irrefutable pattern)
     */
-    pub(super) fn apat(&mut self) -> ParserResult<ParsedPat> {
+    pub(super) fn apat(&mut self) -> ParserResult<Pat> {
         match self.peek()? {
             (l, TokenKind::Literal(lit), r) => {
                 self.skip(); // consume literal
@@ -291,7 +291,7 @@ impl Parser {
     }
 
     // fpat → qvar = pat
-    fn fpat(&mut self) -> ParserResult<(String, ParsedPat)> {
+    fn fpat(&mut self) -> ParserResult<(String, Pat)> {
         let qvar = self.qvar()?;
         let pat = self.pat()?;
         Ok((qvar, pat))

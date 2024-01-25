@@ -24,7 +24,7 @@ impl Parser {
 
     NB. We can't distinguish typeclass import from type import in parse time.
     */
-    pub(super) fn impdecls(&mut self) -> ParserResult<Vec<ParsedImportDecl>> {
+    pub(super) fn impdecls(&mut self) -> ParserResult<Vec<ImportDecl>> {
         let mut imps = vec![];
         while self.skip_token(TokenKind::ReservedId(ReservedId::Import)) {
             let qualified = self.skip_token_pred(TokenKind::VarId, |str| str == "qualified");
@@ -40,7 +40,7 @@ impl Parser {
             };
             let hiding = self.skip_token_pred(TokenKind::VarId, |str| str == "hiding");
             /*
-            let type_import: ParsedTypeImport = if self.skip_token(TokenKind::Special(Special::LParen))
+            let type_import: TypeImport = if self.skip_token(TokenKind::Special(Special::LParen))
             {
                 let ret = if self.skip_token(TokenKind::ReservedOp(ReservedOp::DotDot)) {
                     self.expect_token(TokenKind::Special(Special::RParen))?;
@@ -75,15 +75,15 @@ impl Parser {
 
     Note: Parses until a `}`.
     */
-    pub(super) fn topdecls(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
+    pub(super) fn topdecls(&mut self) -> ParserResult<Vec<TopDecl>> {
         self.in_context(GrammarItem::TopDecls, |self_| {
-            let mut decls: Vec<ParsedTopDecl> = vec![];
+            let mut decls: Vec<TopDecl> = vec![];
             while self_.skip_token(TokenKind::Special(Special::Semi)) {}
             while !matches!(
                 self_.peek(),
                 Ok((_, TokenKind::Special(Special::RBrace), _))
             ) {
-                let decl: ParsedTopDecl = self_.topdecl()?;
+                let decl: TopDecl = self_.topdecl()?;
                 decls.push(decl);
                 while self_.skip_token(TokenKind::Special(Special::Semi)) {}
             }
@@ -101,9 +101,9 @@ impl Parser {
             | foreign fdecl
             | decl
     */
-    fn topdecl(&mut self) -> ParserResult<ParsedTopDecl> {
+    fn topdecl(&mut self) -> ParserResult<TopDecl> {
         let t = self.peek_()?;
-        let top_decl_kind: ParsedTopDeclKind = match t.token() {
+        let top_decl_kind: TopDeclKind = match t.token() {
             TokenKind::ReservedId(ReservedId::Kind) => {
                 self.kind_sig_decl().map(TopDeclKind::KindSig)
             }
@@ -141,7 +141,7 @@ impl Parser {
     }
 
     // decls → { decl1 ; … ; decln }           (n ≥ 0)
-    pub(super) fn value_decls(&mut self) -> ParserResult<Vec<ParsedValueDecl>> {
+    pub(super) fn value_decls(&mut self) -> ParserResult<Vec<ValueDecl>> {
         self.expect_token(TokenKind::Special(Special::LBrace))?;
         let mut decls = vec![];
         loop {
@@ -192,7 +192,7 @@ impl Parser {
     TODO: `funlhs` is basically a pattern with variable as prefix or infix in one of the patterns.
     Can we simplify parsing using this?
     */
-    fn value_decl(&mut self) -> ParserResult<ParsedValueDecl> {
+    fn value_decl(&mut self) -> ParserResult<ValueDecl> {
         // Fixity declaration
         if let Ok((
             l,
@@ -237,7 +237,7 @@ impl Parser {
         }
 
         let (l, _, _) = self.peek()?;
-        let lhs: ParsedLhs = self
+        let lhs: Lhs = self
             .funlhs_try()
             .map(|(var, pats)| {
                 let (_, r) = self.last_tok_span();
@@ -257,13 +257,13 @@ impl Parser {
     }
 
     // Tries to parse `funlhs`. Backtracks on failure.
-    fn funlhs_try(&mut self) -> ParserResult<(String, Vec<ParsedPat>)> {
+    fn funlhs_try(&mut self) -> ParserResult<(String, Vec<Pat>)> {
         self.try_(Self::funlhs1)
             .or_else(|_| self.try_(Self::funlhs2))
             .or_else(|_| self.try_(Self::funlhs3))
     }
 
-    fn pat_try(&mut self) -> ParserResult<ParsedPat> {
+    fn pat_try(&mut self) -> ParserResult<Pat> {
         // TODO: Pat may not have a variable?
         self.try_(Self::pat)
     }
@@ -271,7 +271,7 @@ impl Parser {
     // funlhs → var apat+
     //
     // Parses patterns until `|` or '=' but does not consume those tokens.
-    fn funlhs1(&mut self) -> ParserResult<(String, Vec<ParsedPat>)> {
+    fn funlhs1(&mut self) -> ParserResult<(String, Vec<Pat>)> {
         let var = self.var()?;
         let mut pats = vec![self.apat()?];
         while !self.funlhs_end() {
@@ -283,7 +283,7 @@ impl Parser {
     // funlhs → pat varop pat
     //
     // Parses patterns until `|` or '=' but does not consume those tokens.
-    fn funlhs2(&mut self) -> ParserResult<(String, Vec<ParsedPat>)> {
+    fn funlhs2(&mut self) -> ParserResult<(String, Vec<Pat>)> {
         let pat1 = self.pat()?;
         let varop = self.varop()?;
         let pat2 = self.pat()?;
@@ -296,7 +296,7 @@ impl Parser {
     // funlhs → '(' funlhs ')' apat+
     //
     // Parses patterns until `|` or '=' but does not consume those tokens.
-    fn funlhs3(&mut self) -> ParserResult<(String, Vec<ParsedPat>)> {
+    fn funlhs3(&mut self) -> ParserResult<(String, Vec<Pat>)> {
         self.expect_token(TokenKind::Special(Special::LParen))?;
         let (var, mut pats) = self.funlhs_try()?;
         self.expect_token(TokenKind::Special(Special::RParen))?;
@@ -322,7 +322,7 @@ impl Parser {
     rhs → = exp [where decls]
         | gdrhs [where decls]
     */
-    fn rhs(&mut self) -> ParserResult<ParsedRhs> {
+    fn rhs(&mut self) -> ParserResult<Rhs> {
         if self.skip_token(TokenKind::ReservedOp(ReservedOp::Equals)) {
             let (l, _) = self.last_tok_span();
             let rhs = self.exp()?;
@@ -357,7 +357,7 @@ impl Parser {
     }
 
     // gdrhs → guards = exp [gdrhs]
-    fn gdrhs(&mut self) -> ParserResult<Vec<ParsedGuardedRhs>> {
+    fn gdrhs(&mut self) -> ParserResult<Vec<GuardedRhs>> {
         let (l, _, _) = self.peek()?; // location of '|'
         let guards = self.guards()?; // one or more
         self.expect_token(TokenKind::ReservedOp(ReservedOp::Equals))?;
@@ -375,7 +375,7 @@ impl Parser {
     }
 
     // guards → '|' guard1, …, guardn          (n ≥ 1)
-    pub(super) fn guards(&mut self) -> ParserResult<Vec<ParsedStmt>> {
+    pub(super) fn guards(&mut self) -> ParserResult<Vec<Stmt>> {
         self.expect_token(TokenKind::ReservedOp(ReservedOp::Pipe))?;
         let mut guards = vec![self.guard()?];
         if self.skip_token(TokenKind::Special(Special::Comma)) {
@@ -396,7 +396,7 @@ impl Parser {
           | let decls                          (local declaration)
           | infixexp                           (boolean guard)
     */
-    fn guard(&mut self) -> ParserResult<ParsedStmt> {
+    fn guard(&mut self) -> ParserResult<Stmt> {
         if self.skip_token(TokenKind::ReservedId(ReservedId::Let)) {
             let (l, _) = self.last_tok_span();
             return self.value_decls().map(|decls| {
@@ -433,7 +433,7 @@ impl Parser {
         }
     }
 
-    fn kind_sig_decl(&mut self) -> ParserResult<ParsedKindSigDecl> {
+    fn kind_sig_decl(&mut self) -> ParserResult<KindSigDecl> {
         self.skip(); // skip 'kind'
         let (l, _) = self.last_tok_span();
 
@@ -449,7 +449,7 @@ impl Parser {
     }
 
     // type simpletype = type
-    fn type_decl(&mut self) -> ParserResult<ParsedTypeDecl> {
+    fn type_decl(&mut self) -> ParserResult<TypeDecl> {
         self.skip(); // skip 'type'
         let (l, _) = self.last_tok_span();
 
@@ -489,7 +489,7 @@ impl Parser {
     }
 
     // data [context =>] simpletype [= constrs] [deriving]
-    fn data_decl(&mut self) -> ParserResult<ParsedDataDecl> {
+    fn data_decl(&mut self) -> ParserResult<DataDecl> {
         self.skip(); // skip 'data'
         let (l, _) = self.last_tok_span();
         let context = self.try_context_arrow().unwrap_or_default();
@@ -519,7 +519,7 @@ impl Parser {
     }
 
     // constrs → constr1 | … | constrn                      (n ≥ 1)
-    fn constrs(&mut self) -> ParserResult<Vec<ParsedCon>> {
+    fn constrs(&mut self) -> ParserResult<Vec<Con>> {
         let mut constrs = vec![self.constr()?];
         while self.skip_token(TokenKind::ReservedOp(ReservedOp::Pipe)) {
             constrs.push(self.constr()?);
@@ -532,7 +532,7 @@ impl Parser {
             | (btype | ! atype) conop (btype | ! atype)     (infix conop)
             | con { fielddecl1 , … , fielddecln }           (n ≥ 0)
     */
-    fn constr(&mut self) -> ParserResult<ParsedCon> {
+    fn constr(&mut self) -> ParserResult<Con> {
         let t = self.peek_()?;
         let l = t.span().start;
         match t.token() {
@@ -563,7 +563,7 @@ impl Parser {
     }
 
     // [!] atype
-    fn con_field(&mut self) -> ParserResult<ParsedFieldDecl> {
+    fn con_field(&mut self) -> ParserResult<FieldDecl> {
         let t = self.peek_()?;
         let l = t.span().start;
         if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
@@ -589,7 +589,7 @@ impl Parser {
     }
 
     // fielddecl → vars :: (type | ! atype)
-    fn fielddecl(&mut self) -> ParserResult<ParsedFieldDecl> {
+    fn fielddecl(&mut self) -> ParserResult<FieldDecl> {
         let l = self.peek_()?.span().start;
         let vars = self.vars()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
@@ -660,7 +660,7 @@ impl Parser {
     /*
     newtype [context =>] simpletype = newconstr [deriving]
     */
-    fn newtype_decl(&mut self) -> ParserResult<ParsedNewtypeDecl> {
+    fn newtype_decl(&mut self) -> ParserResult<NewtypeDecl> {
         self.skip(); // skip 'newtype'
         let (l, _) = self.last_tok_span();
         let context = self.try_context_arrow().unwrap_or_default();
@@ -687,10 +687,10 @@ impl Parser {
     newconstr → con atype
               | con { var :: type }
     */
-    fn newconstr(&mut self) -> ParserResult<ParsedCon> {
+    fn newconstr(&mut self) -> ParserResult<Con> {
         let (l, _, _) = self.peek()?;
         let con = self.con()?;
-        let field: ParsedFieldDecl = if self.skip_token(TokenKind::Special(Special::LBrace)) {
+        let field: FieldDecl = if self.skip_token(TokenKind::Special(Special::LBrace)) {
             let var = self.var()?;
             let (l_, _) = self.last_tok_span();
             self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
@@ -721,7 +721,7 @@ impl Parser {
     }
 
     // class [scontext =>] tycls tyvar [where cdecls]
-    fn class_decl(&mut self) -> ParserResult<ParsedClassDecl> {
+    fn class_decl(&mut self) -> ParserResult<ClassDecl> {
         self.skip(); // skip 'class'
         let (l, _) = self.last_tok_span();
         let context = self.try_scontext_arrow().unwrap_or_default();
@@ -747,7 +747,7 @@ impl Parser {
         ))
     }
 
-    fn try_scontext_arrow(&mut self) -> Option<Vec<ParsedType>> {
+    fn try_scontext_arrow(&mut self) -> Option<Vec<Type>> {
         self.try_(|self_| {
             let context = self_.scontext()?;
             self_.expect_token(TokenKind::ReservedOp(ReservedOp::FatArrow))?;
@@ -760,12 +760,12 @@ impl Parser {
     scontext → simpleclass
              | ( simpleclass1 , … , simpleclassn )         (n ≥ 0)
     */
-    fn scontext(&mut self) -> ParserResult<Vec<ParsedType>> {
+    fn scontext(&mut self) -> ParserResult<Vec<Type>> {
         self.context_parser(Self::simpleclass)
     }
 
     // simpleclass → qtycls tyvar
-    fn simpleclass(&mut self) -> ParserResult<ParsedType> {
+    fn simpleclass(&mut self) -> ParserResult<Type> {
         let t = self.next_()?;
         match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
@@ -774,7 +774,7 @@ impl Parser {
                 let r = t.span().end;
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
                 let (l_, arg, r_) = self.expect_token_string(TokenKind::VarId)?;
-                let arg: ParsedType = self.spanned(l_, r_, Type_::Var(arg));
+                let arg: Type = self.spanned(l_, r_, Type_::Var(arg));
                 Ok(self.spanned(l, r_, Type_::App(Box::new(con), vec![arg])))
             }
             _ => self.fail(t.span().start, ErrorKind::UnexpectedToken),
@@ -787,7 +787,7 @@ impl Parser {
     idecl → (funlhs | var) rhs
           |                                     (empty)
     */
-    fn instance_decl(&mut self) -> ParserResult<ParsedInstanceDecl> {
+    fn instance_decl(&mut self) -> ParserResult<InstanceDecl> {
         self.skip(); // skip 'instance'
         let (l, _) = self.last_tok_span();
         let context = self.try_scontext_arrow().unwrap_or_default();
@@ -835,13 +835,13 @@ impl Parser {
 
     This generates a subset of `atype`, so we use `atype` and check.
     */
-    fn inst(&mut self) -> ParserResult<ParsedType> {
+    fn inst(&mut self) -> ParserResult<Type> {
         // TODO: reject invalid patterns
         self.atype()
     }
 
     // default (type1 , … , typen)              (n ≥ 0)
-    fn default_decl(&mut self) -> ParserResult<ParsedDefaultDecl> {
+    fn default_decl(&mut self) -> ParserResult<DefaultDecl> {
         self.skip(); // skip 'default'
         let (l, _) = self.last_tok_span();
         self.expect_token(TokenKind::Special(Special::LParen))?;

@@ -85,7 +85,7 @@ fn analyze_rhs(
     group_idx: u32,
     bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
-    rhs: &ast::ParsedRhs,
+    rhs: &ast::Rhs,
 ) {
     match &rhs.node {
         ast::Rhs_::GuardedRhs { rhss, where_decls } => {
@@ -103,7 +103,7 @@ fn analyze_guarded_rhss(
     use_site: u32,
     bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
-    guarded_rhss: &[ast::ParsedGuardedRhs],
+    guarded_rhss: &[ast::GuardedRhs],
 ) {
     for ast::AstNode {
         node: ast::GuardedRhs_ { guards, rhs },
@@ -119,7 +119,7 @@ fn analyze_where_decls(
     use_site: u32,
     bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
-    where_decls: &[ast::ParsedValueDecl],
+    where_decls: &[ast::ValueDecl],
 ) {
     for decl in where_decls {
         match &decl.node {
@@ -138,12 +138,7 @@ fn analyze_where_decls(
     }
 }
 
-fn analyze_exp(
-    use_site: u32,
-    bound_vars: &Map<Id, u32>,
-    dep_graph: &mut DepGraph,
-    exp: &ast::ParsedExp,
-) {
+fn analyze_exp(use_site: u32, bound_vars: &Map<Id, u32>, dep_graph: &mut DepGraph, exp: &ast::Exp) {
     match &exp.node {
         ast::Exp_::Var(var) | ast::Exp_::Con(var) => {
             add_dep(use_site, var.clone(), bound_vars, dep_graph)
@@ -220,7 +215,7 @@ fn analyze_stmts(
     use_site: u32,
     bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
-    stmts: &[ast::ParsedStmt],
+    stmts: &[ast::Stmt],
 ) {
     for stmt in stmts {
         match &stmt.node {
@@ -238,7 +233,7 @@ fn analyze_alts(
     use_site: u32,
     bound_vars: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
-    alts: &[ast::ParsedAlt],
+    alts: &[ast::Alt],
 ) {
     for ast::AstNode {
         node:

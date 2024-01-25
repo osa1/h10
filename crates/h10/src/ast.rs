@@ -1,40 +1,12 @@
 use crate::collections::Set;
+use crate::id::Id;
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Literal;
 
 use std::fmt;
-use std::hash::Hash;
 
 use lexgen_util::Loc;
-
-pub type ParsedAlt = Alt<String>;
-pub type ParsedClassDecl = ClassDecl<String>;
-pub type ParsedCon = Con<String>;
-pub type ParsedDataDecl = DataDecl<String>;
-pub type ParsedTopDecl = TopDecl<String>;
-pub type ParsedTopDeclKind = TopDeclKind<String>;
-pub type ParsedDefaultDecl = DefaultDecl<String>;
-pub type ParsedExp = Exp<String>;
-pub type ParsedFieldDecl = FieldDecl<String>;
-pub type ParsedGCon = GCon<String>;
-pub type ParsedGuardedRhs = GuardedRhs<String>;
-pub type ParsedImportDecl = ImportDecl<String>;
-pub type ParsedInstanceDecl = InstanceDecl<String>;
-pub type ParsedLhs = Lhs<String>;
-pub type ParsedNewtypeDecl = NewtypeDecl<String>;
-pub type ParsedOp = Op<String>;
-pub type ParsedPat = Pat<String>;
-pub type ParsedRhs = Rhs<String>;
-pub type ParsedStmt = Stmt<String>;
-pub type ParsedTyCon = TyCon<String>;
-pub type ParsedType = Type<String>;
-pub type ParsedTypeDecl = TypeDecl<String>;
-pub type ParsedTypeBinder = TypeBinder<String>;
-pub type ParsedKindSigDecl = KindSigDecl<String>;
-#[allow(unused)]
-pub type ParsedTypeImport = TypeImport<String>;
-pub type ParsedValueDecl = ValueDecl<String>;
 
 #[derive(Debug, Clone)]
 pub struct AstNode<T> {
@@ -92,9 +64,9 @@ impl fmt::Display for Span {
     }
 }
 
-pub struct TopDecl<Id> {
+pub struct TopDecl {
     // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
-    pub kind: TopDeclKind<Id>,
+    pub kind: TopDeclKind,
 
     /// Line number of the `first_token` in the source file.
     ///
@@ -112,14 +84,14 @@ pub struct TopDecl<Id> {
     pub last_token: TokenRef,
 }
 
-impl<Id: fmt::Debug> fmt::Debug for TopDecl<Id> {
+impl fmt::Debug for TopDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Skip tokens as they form a double linked list.
-        <TopDeclKind<Id> as fmt::Debug>::fmt(&self.kind, f)
+        <TopDeclKind as fmt::Debug>::fmt(&self.kind, f)
     }
 }
 
-impl<Id> TopDecl<Id> {
+impl TopDecl {
     pub fn span_start(&self) -> Pos {
         Pos::from_loc(&self.first_token.span().start)
     }
@@ -135,7 +107,7 @@ impl<Id> TopDecl<Id> {
         pos >= start && pos < end
     }
 
-    pub fn map<Id2, F: FnOnce(&TopDeclKind<Id>) -> TopDeclKind<Id2>>(&self, f: F) -> TopDecl<Id2> {
+    pub fn map<F: FnOnce(&TopDeclKind) -> TopDeclKind>(&self, f: F) -> TopDecl {
         TopDecl {
             kind: f(&self.kind),
             line_number: self.line_number,
@@ -150,70 +122,70 @@ impl<Id> TopDecl<Id> {
 }
 
 #[cfg(test)]
-impl<Id: fmt::Debug> TopDecl<Id> {
-    pub fn class(&self) -> &ClassDecl<Id> {
+impl TopDecl {
+    pub fn class(&self) -> &ClassDecl {
         self.kind.class()
     }
 
-    pub fn instance(&self) -> &InstanceDecl<Id> {
+    pub fn instance(&self) -> &InstanceDecl {
         self.kind.instance()
     }
 
-    pub fn value(&self) -> &ValueDecl<Id> {
+    pub fn value(&self) -> &ValueDecl {
         self.kind.value()
     }
 
-    pub fn data(&self) -> &DataDecl<Id> {
+    pub fn data(&self) -> &DataDecl {
         self.kind.data()
     }
 
-    pub fn kind_sig(&self) -> &KindSigDecl<Id> {
+    pub fn kind_sig(&self) -> &KindSigDecl {
         self.kind.kind_sig()
     }
 
-    pub fn type_syn(&self) -> &TypeDecl<Id> {
+    pub fn type_syn(&self) -> &TypeDecl {
         self.kind.type_syn()
     }
 }
 
 #[cfg(test)]
-impl<Id: fmt::Debug> TopDeclKind<Id> {
-    pub fn class(&self) -> &ClassDecl<Id> {
+impl TopDeclKind {
+    pub fn class(&self) -> &ClassDecl {
         match self {
             TopDeclKind::Class(class_decl) => class_decl,
             other => panic!("Not class TopDecl: {:?}", other),
         }
     }
 
-    pub fn instance(&self) -> &InstanceDecl<Id> {
+    pub fn instance(&self) -> &InstanceDecl {
         match self {
             TopDeclKind::Instance(instance_decl) => instance_decl,
             other => panic!("Not instance TopDecl: {:?}", other),
         }
     }
 
-    pub fn value(&self) -> &ValueDecl<Id> {
+    pub fn value(&self) -> &ValueDecl {
         match self {
             TopDeclKind::Value(value_decl) => value_decl,
             other => panic!("Not value TopDecl: {:?}", other),
         }
     }
 
-    pub fn data(&self) -> &DataDecl<Id> {
+    pub fn data(&self) -> &DataDecl {
         match self {
             TopDeclKind::Data(data_decl) => data_decl,
             other => panic!("Not type TopDecl: {:?}", other),
         }
     }
 
-    pub fn kind_sig(&self) -> &KindSigDecl<Id> {
+    pub fn kind_sig(&self) -> &KindSigDecl {
         match self {
             TopDeclKind::KindSig(kind_sig) => kind_sig,
             other => panic!("Not kind signature: {:?}", other),
         }
     }
 
-    pub fn type_syn(&self) -> &TypeDecl<Id> {
+    pub fn type_syn(&self) -> &TypeDecl {
         match self {
             TopDeclKind::Type(type_syn) => type_syn,
             other => panic!("Not type synonym: {:?}", other),
@@ -222,28 +194,28 @@ impl<Id: fmt::Debug> TopDeclKind<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum TopDeclKind<Id> {
-    Value(ValueDecl<Id>),
-    Type(TypeDecl<Id>),
-    KindSig(KindSigDecl<Id>),
-    Data(DataDecl<Id>),
-    Newtype(NewtypeDecl<Id>),
-    Class(ClassDecl<Id>),
-    Instance(InstanceDecl<Id>),
-    Default(DefaultDecl<Id>),
+pub enum TopDeclKind {
+    Value(ValueDecl),
+    Type(TypeDecl),
+    KindSig(KindSigDecl),
+    Data(DataDecl),
+    Newtype(NewtypeDecl),
+    Class(ClassDecl),
+    Instance(InstanceDecl),
+    Default(DefaultDecl),
 
     /// A top-level declaration that's either not parsed yet, or was modified and needs re-parsing.
     #[allow(unused)]
     Unparsed,
 }
 
-pub type ValueDecl<Id> = AstNode<ValueDecl_<Id>>;
+pub type ValueDecl = AstNode<ValueDecl_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> ValueDecl<Id> {
+impl ValueDecl {
     // TODO: Add a type for type sig
     #[allow(clippy::type_complexity)]
-    pub fn type_sig(&self) -> (&[Id], &[TypeBinder<Id>], &[Type<Id>], &Type<Id>) {
+    pub fn type_sig(&self) -> (&[Id], &[TypeBinder], &[Type], &Type) {
         match &self.node {
             ValueDecl_::TypeSig {
                 vars,
@@ -256,7 +228,7 @@ impl<Id: fmt::Debug> ValueDecl<Id> {
     }
 
     // TODO: Add a type for value
-    pub fn value(&self) -> (&Lhs<Id>, &Rhs<Id>) {
+    pub fn value(&self) -> (&Lhs, &Rhs) {
         match &self.node {
             ValueDecl_::Value { lhs, rhs } => (lhs, rhs),
             other => panic!("Not value: {:?}", other),
@@ -265,7 +237,7 @@ impl<Id: fmt::Debug> ValueDecl<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum ValueDecl_<Id> {
+pub enum ValueDecl_ {
     /// In `x, y, z :: forall a . Show a => a -> String`:
     ///
     /// - vars    = `[x, y, z]`
@@ -274,27 +246,27 @@ pub enum ValueDecl_<Id> {
     /// - ty      = `a -> String`
     TypeSig {
         vars: Vec<Id>,
-        foralls: Vec<TypeBinder<Id>>,
-        context: Vec<Type<Id>>,
-        ty: Type<Id>,
+        foralls: Vec<TypeBinder>,
+        context: Vec<Type>,
+        ty: Type,
     },
 
     /// E.g. `infixr 3 &&`.
     Fixity {
         fixity: Fixity,
         prec: Option<u32>,
-        ops: Vec<Op<Id>>,
+        ops: Vec<Op>,
     },
 
     /// `<lhs> = <rhs>`.
-    Value { lhs: Lhs<Id>, rhs: Rhs<Id> },
+    Value { lhs: Lhs, rhs: Rhs },
 }
 
-pub type Type<Id> = AstNode<Type_<Id>>;
+pub type Type = AstNode<Type_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> Type<Id> {
-    pub fn arrow(&self) -> (&Type<Id>, &Type<Id>) {
+impl Type {
+    pub fn arrow(&self) -> (&Type, &Type) {
         match &self.node {
             Type_::Arrow(ty1, ty2) => (ty1, ty2),
             _ => panic!("Not arrow: {:?}", self),
@@ -308,14 +280,14 @@ impl<Id: fmt::Debug> Type<Id> {
         }
     }
 
-    pub fn app(&self) -> (&Type<Id>, &[Type<Id>]) {
+    pub fn app(&self) -> (&Type, &[Type]) {
         match &self.node {
             Type_::App(con, args) => (con, args),
             _ => panic!("Not app: {:?}", self),
         }
     }
 
-    pub fn con(&self) -> &TyCon<Id> {
+    pub fn con(&self) -> &TyCon {
         match &self.node {
             Type_::Con(con) => con,
             _ => panic!("Not app: {:?}", self),
@@ -324,27 +296,27 @@ impl<Id: fmt::Debug> Type<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Type_<Id> {
+pub enum Type_ {
     /// A tuple type with at least two elements: `(T1, T2, ...)`.
-    Tuple(Vec<Type<Id>>),
+    Tuple(Vec<Type>),
 
     /// A list type: `[T]`.
-    List(Box<Type<Id>>),
+    List(Box<Type>),
 
     /// An arrow type: `T1 -> T2`.
-    Arrow(Box<Type<Id>>, Box<Type<Id>>),
+    Arrow(Box<Type>, Box<Type>),
 
     /// A type application: `T1 T2`.
-    App(Box<Type<Id>>, Vec<Type<Id>>),
+    App(Box<Type>, Vec<Type>),
 
     /// A type constructor: `IO`, `[]`, `(->)`.
-    Con(TyCon<Id>),
+    Con(TyCon),
 
     /// A type variable: `a`, `b`.
     Var(Id),
 }
 
-impl<Id: Hash + Eq + Clone> Type_<Id> {
+impl Type_ {
     pub fn vars(&self) -> Set<Id> {
         let mut vars: Set<Id> = Default::default();
         self.vars_(&mut vars);
@@ -384,10 +356,10 @@ impl<Id: Hash + Eq + Clone> Type_<Id> {
     }
 }
 
-pub type TyCon<Id> = AstNode<TyCon_<Id>>;
+pub type TyCon = AstNode<TyCon_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> TyCon<Id> {
+impl TyCon {
     pub fn id(&self) -> &Id {
         match &self.node {
             TyCon_::Id(id) => id,
@@ -397,7 +369,7 @@ impl<Id: fmt::Debug> TyCon<Id> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TyCon_<Id> {
+pub enum TyCon_ {
     /// An identifier: `IO`, `Maybe`.
     Id(Id),
 
@@ -411,11 +383,11 @@ pub enum TyCon_<Id> {
     List,
 }
 
-pub type Lhs<Id> = AstNode<Lhs_<Id>>;
+pub type Lhs = AstNode<Lhs_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> Lhs<Id> {
-    pub fn fun(&self) -> (&Id, &[Pat<Id>]) {
+impl Lhs {
+    pub fn fun(&self) -> (&Id, &[Pat]) {
         match &self.node {
             Lhs_::Fun { var, pats } => (var, &pats),
             other => panic!("Not fun: {:?}", other),
@@ -424,16 +396,16 @@ impl<Id: fmt::Debug> Lhs<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Lhs_<Id> {
-    Pat(Pat<Id>),
-    Fun { var: Id, pats: Vec<Pat<Id>> },
+pub enum Lhs_ {
+    Pat(Pat),
+    Fun { var: Id, pats: Vec<Pat> },
 }
 
-pub type Rhs<Id> = AstNode<Rhs_<Id>>;
+pub type Rhs = AstNode<Rhs_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> Rhs<Id> {
-    pub fn rhs(&self) -> (&Exp<Id>, &[ValueDecl<Id>]) {
+impl Rhs {
+    pub fn rhs(&self) -> (&Exp, &[ValueDecl]) {
         match &self.node {
             Rhs_::Rhs { rhs, where_decls } => (rhs, &where_decls),
             other => panic!("Not rhs: {:?}", other),
@@ -442,29 +414,29 @@ impl<Id: fmt::Debug> Rhs<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Rhs_<Id> {
+pub enum Rhs_ {
     GuardedRhs {
-        rhss: Vec<GuardedRhs<Id>>,
-        where_decls: Vec<ValueDecl<Id>>,
+        rhss: Vec<GuardedRhs>,
+        where_decls: Vec<ValueDecl>,
     },
     Rhs {
-        rhs: Exp<Id>,
-        where_decls: Vec<ValueDecl<Id>>,
+        rhs: Exp,
+        where_decls: Vec<ValueDecl>,
     },
 }
 
-pub type GuardedRhs<Id> = AstNode<GuardedRhs_<Id>>;
+pub type GuardedRhs = AstNode<GuardedRhs_>;
 
 #[derive(Debug, Clone)]
-pub struct GuardedRhs_<Id> {
-    pub guards: Vec<Stmt<Id>>,
-    pub rhs: Exp<Id>,
+pub struct GuardedRhs_ {
+    pub guards: Vec<Stmt>,
+    pub rhs: Exp,
 }
 
-pub type Exp<Id> = AstNode<Exp_<Id>>;
+pub type Exp = AstNode<Exp_>;
 
 #[cfg(test)]
-impl<Id: fmt::Debug> Exp<Id> {
+impl Exp {
     pub fn var(&self) -> &Id {
         match &self.node {
             Exp_::Var(var) => var,
@@ -474,7 +446,7 @@ impl<Id: fmt::Debug> Exp<Id> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Exp_<Id> {
+pub enum Exp_ {
     /// A term variable.
     Var(Id),
 
@@ -485,53 +457,50 @@ pub enum Exp_<Id> {
     Lit(Literal),
 
     /// A lambda: `\x -> ...`.
-    Lam(Vec<Pat<Id>>, Box<Exp<Id>>),
+    Lam(Vec<Pat>, Box<Exp>),
 
     /// An application: `f x y z`.
-    App(Box<Exp<Id>>, Vec<Exp<Id>>),
+    App(Box<Exp>, Vec<Exp>),
 
     /// A tuple: `(a, b, ...)`.
-    Tuple(Vec<Exp<Id>>),
+    Tuple(Vec<Exp>),
 
     /// A list expression: `[a, b, ...]`.
-    List(Vec<Exp<Id>>),
+    List(Vec<Exp>),
 
     /// A do expression: `do { ... }`.
-    Do(Vec<Stmt<Id>>),
+    Do(Vec<Stmt>),
 
     /// A type annotation: `x :: Show a => a`.
     TypeAnnotation {
-        exp: Box<Exp<Id>>,
-        context: Vec<Type<Id>>,
-        type_: Type<Id>,
+        exp: Box<Exp>,
+        context: Vec<Type>,
+        type_: Type,
     },
 
     /// An arithmetic sequence: `[1, 3 .. 10]`.
     ArithmeticSeq {
-        exp1: Box<Exp<Id>>,
-        exp2: Option<Box<Exp<Id>>>,
-        exp3: Option<Box<Exp<Id>>>,
+        exp1: Box<Exp>,
+        exp2: Option<Box<Exp>>,
+        exp3: Option<Box<Exp>>,
     },
 
     /// A list comprehension: `[x | x <- [0 .. 10], f x]`.
-    ListComp {
-        exp: Box<Exp<Id>>,
-        quals: Vec<Stmt<Id>>,
-    },
+    ListComp { exp: Box<Exp>, quals: Vec<Stmt> },
 
     /// A pattern match: `case x of { ... }`.
-    Case(Box<Exp<Id>>, Vec<Alt<Id>>),
+    Case(Box<Exp>, Vec<Alt>),
 
     /// An if-then-else: `if x then y else z`.
-    If(Box<Exp<Id>>, Box<Exp<Id>>, Box<Exp<Id>>),
+    If(Box<Exp>, Box<Exp>, Box<Exp>),
 
     /// A let binding: `let { x = 1; y = 2 } in x + y`.
-    Let(Vec<ValueDecl<Id>>, Box<Exp<Id>>),
+    Let(Vec<ValueDecl>, Box<Exp>),
 
     /// A record update: `x { a = 1, y = 2 }`.
     Update {
-        exp: Box<Exp<Id>>,
-        updates: Vec<(Id, Exp<Id>)>,
+        exp: Box<Exp>,
+        updates: Vec<(Id, Exp)>,
     },
 
     /// An expression tree that needs to be re-associated. This node is used in binary operator
@@ -539,30 +508,30 @@ pub enum Exp_<Id> {
     /// the operators after parsing fixity declarations.
     // TODO: We don't use this yet, but we should.
     #[allow(unused)]
-    ReAssoc(Box<Exp<Id>>, Id, Box<Exp<Id>>),
+    ReAssoc(Box<Exp>, Id, Box<Exp>),
 }
 
-pub type Stmt<Id> = AstNode<Stmt_<Id>>;
+pub type Stmt = AstNode<Stmt_>;
 
 #[derive(Debug, Clone)]
-pub enum Stmt_<Id> {
-    Exp(Exp<Id>),
-    Bind(Pat<Id>, Exp<Id>),
-    Let(Vec<ValueDecl<Id>>),
+pub enum Stmt_ {
+    Exp(Exp),
+    Bind(Pat, Exp),
+    Let(Vec<ValueDecl>),
 }
 
-pub type Alt<Id> = AstNode<Alt_<Id>>;
+pub type Alt = AstNode<Alt_>;
 
 #[derive(Debug, Clone)]
-pub struct Alt_<Id> {
-    pub pat: Pat<Id>,
-    pub guarded_rhss: Vec<(Vec<Stmt<Id>>, Exp<Id>)>,
-    pub where_decls: Vec<ValueDecl<Id>>,
+pub struct Alt_ {
+    pub pat: Pat,
+    pub guarded_rhss: Vec<(Vec<Stmt>, Exp)>,
+    pub where_decls: Vec<ValueDecl>,
 }
 
-pub type Pat<Id> = AstNode<Pat_<Id>>;
+pub type Pat = AstNode<Pat_>;
 
-impl<Id> Pat<Id> {
+impl Pat {
     /// If the pattern is just a variable, get the variable.
     pub(crate) fn simple_pat_var(&self) -> Option<&Id> {
         match &self.node {
@@ -572,34 +541,34 @@ impl<Id> Pat<Id> {
     }
 }
 
-impl<Id: Hash + Eq + Clone> Pat<Id> {
+impl Pat {
     pub(crate) fn vars(&self) -> Set<Id> {
         self.node.vars()
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum Pat_<Id> {
+pub enum Pat_ {
     Var(Id),
-    As(Id, Box<Pat<Id>>),
+    As(Id, Box<Pat>),
     Lit(Literal),
     Wildcard,
-    Tuple(Vec<Pat<Id>>),
-    List(Vec<Pat<Id>>),
-    Irrefutable(Box<Pat<Id>>),
-    Con(GCon<Id>, Vec<Pat<Id>>),
+    Tuple(Vec<Pat>),
+    List(Vec<Pat>),
+    Irrefutable(Box<Pat>),
+    Con(GCon, Vec<Pat>),
 }
 
-pub type GCon<Id> = AstNode<GCon_<Id>>;
+pub type GCon = AstNode<GCon_>;
 
 #[derive(Debug, Clone)]
-pub enum GCon_<Id> {
+pub enum GCon_ {
     Tuple(u32),
     EmptyList,
     QCon(Id),
 }
 
-impl<Id: Hash + Eq + Clone> Pat_<Id> {
+impl Pat_ {
     pub fn vars(&self) -> Set<Id> {
         let mut vars: Set<Id> = Default::default();
         self.vars_(&mut vars);
@@ -630,8 +599,8 @@ impl<Id: Hash + Eq + Clone> Pat_<Id> {
     }
 }
 
-impl<Id> Rhs_<Id> {
-    pub fn where_decls(&self) -> &[ValueDecl<Id>] {
+impl Rhs_ {
+    pub fn where_decls(&self) -> &[ValueDecl] {
         match self {
             Rhs_::GuardedRhs { where_decls, .. } => where_decls,
             Rhs_::Rhs { where_decls, .. } => where_decls,
@@ -639,31 +608,31 @@ impl<Id> Rhs_<Id> {
     }
 }
 
-pub type ImportDecl<Id> = AstNode<ImportDecl_<Id>>;
+pub type ImportDecl = AstNode<ImportDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct ImportDecl_<Id> {
+pub struct ImportDecl_ {
     pub modid: String,
     pub qualified: bool,
     pub as_: Option<String>,
     pub hiding: bool,
-    pub imports: Vec<Import<Id>>,
+    pub imports: Vec<Import>,
 }
 
-pub type Import<Id> = AstNode<Import_<Id>>;
+pub type Import = AstNode<Import_>;
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub enum Import_<Id> {
+pub enum Import_ {
     Var(Id),
-    Type(TypeImport<Id>),
+    Type(TypeImport),
 }
 
-pub type TypeImport<Id> = AstNode<TypeImport_<Id>>;
+pub type TypeImport = AstNode<TypeImport_>;
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub enum TypeImport_<Id> {
+pub enum TypeImport_ {
     /// Import just the type: `import X (T)`.
     JustType,
 
@@ -677,101 +646,101 @@ pub enum TypeImport_<Id> {
     Things(Vec<Id>),
 }
 
-pub type TypeDecl<Id> = AstNode<TypeDecl_<Id>>;
+pub type TypeDecl = AstNode<TypeDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct TypeDecl_<Id> {
+pub struct TypeDecl_ {
     pub ty: Id,
     pub vars: Vec<Id>,
-    pub rhs: Type<Id>,
+    pub rhs: Type,
 }
 
-pub type TypeBinder<Id> = AstNode<TypeBinder_<Id>>;
+pub type TypeBinder = AstNode<TypeBinder_>;
 
 #[derive(Debug, Clone)]
-pub struct TypeBinder_<Id> {
+pub struct TypeBinder_ {
     pub id: Id,
-    pub ty: Option<Type<Id>>,
+    pub ty: Option<Type>,
 }
 
-pub type KindSigDecl<Id> = AstNode<KindSigDecl_<Id>>;
+pub type KindSigDecl = AstNode<KindSigDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct KindSigDecl_<Id> {
+pub struct KindSigDecl_ {
     pub ty: Id,
-    pub foralls: Vec<TypeBinder<Id>>,
-    pub sig: Type<Id>,
+    pub foralls: Vec<TypeBinder>,
+    pub sig: Type,
 }
 
-pub type DataDecl<Id> = AstNode<DataDecl_<Id>>;
+pub type DataDecl = AstNode<DataDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct DataDecl_<Id> {
-    pub context: Vec<Type<Id>>,
+pub struct DataDecl_ {
+    pub context: Vec<Type>,
     pub ty_con: Id,
     pub ty_args: Vec<Id>,
-    pub cons: Vec<Con<Id>>,
+    pub cons: Vec<Con>,
     pub deriving: Vec<Id>,
 }
 
-pub type NewtypeDecl<Id> = AstNode<NewtypeDecl_<Id>>;
+pub type NewtypeDecl = AstNode<NewtypeDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct NewtypeDecl_<Id> {
-    pub context: Vec<Type<Id>>,
+pub struct NewtypeDecl_ {
+    pub context: Vec<Type>,
     pub ty_con: Id,
     pub ty_args: Vec<Id>,
-    pub con: Con<Id>,
+    pub con: Con,
 }
 
-pub type ClassDecl<Id> = AstNode<ClassDecl_<Id>>;
+pub type ClassDecl = AstNode<ClassDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct ClassDecl_<Id> {
-    pub context: Vec<Type<Id>>,
+pub struct ClassDecl_ {
+    pub context: Vec<Type>,
     pub ty_con: Id,
     pub ty_arg: Id,
-    pub decls: Vec<ValueDecl<Id>>,
+    pub decls: Vec<ValueDecl>,
 }
 
-pub type InstanceDecl<Id> = AstNode<InstanceDecl_<Id>>;
+pub type InstanceDecl = AstNode<InstanceDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct InstanceDecl_<Id> {
-    pub context: Vec<Type<Id>>,
+pub struct InstanceDecl_ {
+    pub context: Vec<Type>,
     pub ty_con: Id,
-    pub ty: Type<Id>,
-    pub decls: Vec<ValueDecl<Id>>,
+    pub ty: Type,
+    pub decls: Vec<ValueDecl>,
 }
 
-pub type DefaultDecl<Id> = AstNode<DefaultDecl_<Id>>;
+pub type DefaultDecl = AstNode<DefaultDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct DefaultDecl_<Id> {
-    pub tys: Vec<Type<Id>>,
+pub struct DefaultDecl_ {
+    pub tys: Vec<Type>,
 }
 
-pub type FieldDecl<Id> = AstNode<FieldDecl_<Id>>;
+pub type FieldDecl = AstNode<FieldDecl_>;
 
 #[derive(Debug, Clone)]
-pub struct FieldDecl_<Id> {
+pub struct FieldDecl_ {
     // NB. Empty in non-record constructors
     pub vars: Vec<Id>,
-    pub ty: Type<Id>,
+    pub ty: Type,
 }
 
-pub type Con<Id> = AstNode<Con_<Id>>;
+pub type Con = AstNode<Con_>;
 
 #[derive(Debug, Clone)]
-pub struct Con_<Id> {
+pub struct Con_ {
     pub con: Id,
-    pub fields: Vec<FieldDecl<Id>>,
+    pub fields: Vec<FieldDecl>,
 }
 
-pub type Op<Id> = AstNode<Op_<Id>>;
+pub type Op = AstNode<Op_>;
 
 #[derive(Debug, Clone)]
-pub enum Op_<Id> {
+pub enum Op_ {
     Con(Id),
     Var(Id),
 }

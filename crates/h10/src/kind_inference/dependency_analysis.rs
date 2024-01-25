@@ -4,14 +4,14 @@ use crate::id::Id;
 use crate::scc::strongconnect;
 
 #[allow(unused)]
-pub(super) fn dependency_analysis(decls: &[ast::ParsedTopDecl]) -> Vec<Set<u32>> {
+pub(super) fn dependency_analysis(decls: &[ast::TopDecl]) -> Vec<Set<u32>> {
     let explicitly_kinded_tys = collect_explicitly_kinded_tys(decls);
     let defs = collect_implicitly_kinded_types(decls, &explicitly_kinded_tys);
     let dep_graph = create_dependency_graph(decls, &defs);
     strongconnect(decls.len() as u32, &dep_graph)
 }
 
-fn collect_explicitly_kinded_tys(decls: &[ast::ParsedTopDecl]) -> Set<Id> {
+fn collect_explicitly_kinded_tys(decls: &[ast::TopDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in decls {
         if let ast::TopDeclKind::KindSig(sig) = &decl.kind {
@@ -22,7 +22,7 @@ fn collect_explicitly_kinded_tys(decls: &[ast::ParsedTopDecl]) -> Set<Id> {
 }
 
 fn collect_implicitly_kinded_types(
-    decls: &[ast::ParsedTopDecl],
+    decls: &[ast::TopDecl],
     explicitly_kinded_tys: &Set<Id>,
 ) -> Map<Id, u32> {
     let mut tys: Map<Id, u32> = Default::default();
@@ -59,7 +59,7 @@ fn collect_implicitly_kinded_types(
 /// Maps an implicitly kinded definition to its implicitly kinded dependencies.
 type DepGraph = Map<u32, Set<u32>>;
 
-fn create_dependency_graph(decls: &[ast::ParsedTopDecl], defs: &Map<Id, u32>) -> DepGraph {
+fn create_dependency_graph(decls: &[ast::TopDecl], defs: &Map<Id, u32>) -> DepGraph {
     let mut dep_graph: DepGraph = Default::default();
 
     for (decl_idx, decl) in decls.iter().enumerate() {
@@ -70,12 +70,7 @@ fn create_dependency_graph(decls: &[ast::ParsedTopDecl], defs: &Map<Id, u32>) ->
     dep_graph
 }
 
-fn analyze_decl(
-    decl_idx: u32,
-    decl: &ast::ParsedTopDecl,
-    defs: &Map<Id, u32>,
-    dep_graph: &mut DepGraph,
-) {
+fn analyze_decl(decl_idx: u32, decl: &ast::TopDecl, defs: &Map<Id, u32>, dep_graph: &mut DepGraph) {
     match &decl.kind {
         ast::TopDeclKind::Type(type_decl) => {
             analyze_type_decl(decl_idx, type_decl, defs, dep_graph)
@@ -103,7 +98,7 @@ fn analyze_decl(
 
 fn analyze_type_decl(
     decl_idx: u32,
-    decl: &ast::ParsedTypeDecl,
+    decl: &ast::TypeDecl,
     defs: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
 ) {
@@ -112,7 +107,7 @@ fn analyze_type_decl(
 
 fn analyze_data_decl(
     decl_idx: u32,
-    decl: &ast::ParsedDataDecl,
+    decl: &ast::DataDecl,
     defs: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
 ) {
@@ -127,7 +122,7 @@ fn analyze_data_decl(
     }
 }
 
-fn analyze_con(decl_idx: u32, con: &ast::ParsedCon, defs: &Map<Id, u32>, dep_graph: &mut DepGraph) {
+fn analyze_con(decl_idx: u32, con: &ast::Con, defs: &Map<Id, u32>, dep_graph: &mut DepGraph) {
     for field in &con.node.fields {
         analyze_field(decl_idx, field, defs, dep_graph);
     }
@@ -135,7 +130,7 @@ fn analyze_con(decl_idx: u32, con: &ast::ParsedCon, defs: &Map<Id, u32>, dep_gra
 
 fn analyze_field(
     decl_idx: u32,
-    field: &ast::ParsedFieldDecl,
+    field: &ast::FieldDecl,
     defs: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
 ) {
@@ -144,7 +139,7 @@ fn analyze_field(
 
 fn analyze_newtype_decl(
     decl_idx: u32,
-    decl: &ast::ParsedNewtypeDecl,
+    decl: &ast::NewtypeDecl,
     defs: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
 ) {
@@ -153,7 +148,7 @@ fn analyze_newtype_decl(
 
 fn analyze_class_decl(
     decl_idx: u32,
-    decl: &ast::ParsedClassDecl,
+    decl: &ast::ClassDecl,
     defs: &Map<Id, u32>,
     dep_graph: &mut DepGraph,
 ) {
@@ -177,12 +172,7 @@ fn analyze_class_decl(
     }
 }
 
-fn analyze_type(
-    decl_idx: u32,
-    ty: &ast::ParsedType,
-    defs: &Map<Id, u32>,
-    dep_graph: &mut DepGraph,
-) {
+fn analyze_type(decl_idx: u32, ty: &ast::Type, defs: &Map<Id, u32>, dep_graph: &mut DepGraph) {
     match &ty.node {
         ast::Type_::Tuple(tys) => tys
             .iter()

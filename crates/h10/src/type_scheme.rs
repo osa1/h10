@@ -55,8 +55,8 @@ impl Scheme {
         span: Span,
         ty_kinds: &Map<Id, TyRef>,
         bound_tys: &TrieMap<Id, TyRef>,
-        context: &[ast::ParsedType],
-        ty: &ast::ParsedType,
+        context: &[ast::Type],
+        ty: &ast::Type,
     ) -> Self {
         let fv_kinds: Vec<(Id, TyRef)> = infer_fv_kinds(ty_kinds, context, ty, &type_ty_tyref())
             .into_iter()

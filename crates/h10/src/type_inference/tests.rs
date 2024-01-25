@@ -12,7 +12,7 @@ use crate::typing::TyRef;
 fn unify_two_way_left() {
     // An example test that checks unification result of a type variable. A bit too verbose, it
     // would be good to simplify this and add more unification tests.
-    let ty1_ast: ast::ParsedType = parse_type("a -> a").unwrap().2;
+    let ty1_ast: ast::Type = parse_type("a -> a").unwrap().2;
     let a_id: Id = ty1_ast.arrow().0.var().clone();
     let a_tyref = TyRef::new_var(type_ty_tyref(), 0);
     let ty1 = convert_ast_ty(
@@ -27,7 +27,7 @@ fn unify_two_way_left() {
         &ty1_ast,
     );
 
-    let ty2_ast: ast::ParsedType = parse_type("Int -> Int").unwrap().2;
+    let ty2_ast: ast::Type = parse_type("Int -> Int").unwrap().2;
     let ty2 = convert_ast_ty(&|_id| None, &Default::default(), &ty2_ast);
     let int_tyref = &ty2.split_fun_ty().0[0];
 
@@ -316,7 +316,7 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
     }
 }
 
-fn top_binder_ids(module: &[ast::ParsedTopDecl]) -> Set<Id> {
+fn top_binder_ids(module: &[ast::TopDecl]) -> Set<Id> {
     let mut ids: Set<Id> = Default::default();
     for decl in module {
         match &decl.kind {
@@ -349,7 +349,7 @@ fn top_binder_ids(module: &[ast::ParsedTopDecl]) -> Set<Id> {
     ids
 }
 
-fn collect_pat_ids(pat: &ast::Pat_<Id>, ids: &mut Set<Id>) {
+fn collect_pat_ids(pat: &ast::Pat_, ids: &mut Set<Id>) {
     match pat {
         ast::Pat_::Var(id) => {
             ids.insert(id.clone());

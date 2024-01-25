@@ -74,7 +74,7 @@ use crate::unification::unify;
 use std::ops::Deref;
 
 /// Infers kinds of type constructors.
-pub(crate) fn infer_type_kinds(decls: &[ast::ParsedTopDecl]) -> Map<Id, TyRef> {
+pub(crate) fn infer_type_kinds(decls: &[ast::TopDecl]) -> Map<Id, TyRef> {
     let types: Vec<TypeDecl> = collect_types(decls);
 
     // `ty_arg_kinds[i]` maps type arguments of `types[i]` to their kinds.
@@ -142,8 +142,8 @@ pub(crate) fn infer_type_kinds(decls: &[ast::ParsedTopDecl]) -> Map<Id, TyRef> {
 /// `expected_kind` is the expected kind of `ty`.
 pub(crate) fn infer_fv_kinds(
     con_kinds: &Map<Id, TyRef>,
-    preds: &[ast::ParsedType],
-    ast_ty: &ast::ParsedType,
+    preds: &[ast::Type],
+    ast_ty: &ast::Type,
     expected_kind: &TyRef,
 ) -> Vec<(Id, TyRef)> {
     // The process is similar to kind inference for type constructors. Free variables are
@@ -194,7 +194,7 @@ fn ty_kind(
     con_kinds: &Map<Id, TyRef>,
     arg_kinds: &Map<Id, TyRef>,
     bound_kinds: &Map<Id, TyRef>,
-    ty: &ast::ParsedType,
+    ty: &ast::Type,
 ) -> TyRef {
     match &ty.node {
         ast::Type_::Tuple(args) => {
@@ -268,7 +268,7 @@ fn ty_kind(
 
 /// Collect type variables in [`ty`] in [`vars_ordered`], with a fresh unification variable for
 /// each variable.
-fn collect_vars(ty: &ast::ParsedType, vars_ordered: &mut Vec<(Id, TyRef)>) {
+fn collect_vars(ty: &ast::Type, vars_ordered: &mut Vec<(Id, TyRef)>) {
     match &ty.node {
         ast::Type_::Tuple(tys) => tys.iter().for_each(|ty| collect_vars(ty, vars_ordered)),
 
@@ -323,11 +323,11 @@ struct TypeDecl {
     ///
     /// These are fields in `data`, predicates in contexts (in `data`, `class`, typeclass method
     /// type signatures), and typeclass type signatures.
-    stars: Vec<ast::ParsedType>,
+    stars: Vec<ast::Type>,
 }
 
-fn collect_types(decls: &[ast::ParsedTopDecl]) -> Vec<TypeDecl> {
-    fn data_to_type_decl(decl: &ast::ParsedDataDecl) -> TypeDecl {
+fn collect_types(decls: &[ast::TopDecl]) -> Vec<TypeDecl> {
+    fn data_to_type_decl(decl: &ast::DataDecl) -> TypeDecl {
         TypeDecl {
             con: decl.node.ty_con.clone(),
             args: decl.node.ty_args.clone(),
@@ -342,7 +342,7 @@ fn collect_types(decls: &[ast::ParsedTopDecl]) -> Vec<TypeDecl> {
         }
     }
 
-    fn newtype_to_type_decl(decl: &ast::ParsedNewtypeDecl) -> TypeDecl {
+    fn newtype_to_type_decl(decl: &ast::NewtypeDecl) -> TypeDecl {
         TypeDecl {
             con: decl.node.ty_con.clone(),
             args: decl.node.ty_args.clone(),
@@ -358,7 +358,7 @@ fn collect_types(decls: &[ast::ParsedTopDecl]) -> Vec<TypeDecl> {
         }
     }
 
-    fn type_to_type_decl(decl: &ast::ParsedTypeDecl) -> TypeDecl {
+    fn type_to_type_decl(decl: &ast::TypeDecl) -> TypeDecl {
         TypeDecl {
             con: decl.node.ty.clone(),
             args: decl.node.vars.clone(),
@@ -369,10 +369,10 @@ fn collect_types(decls: &[ast::ParsedTopDecl]) -> Vec<TypeDecl> {
 
     /// Typeclass method type signatures can be considered as data constructor fields for the
     /// purposes of kind inference. This generates those "fields".
-    fn typeclass_to_type_decl(decl: &ast::ParsedClassDecl) -> TypeDecl {
+    fn typeclass_to_type_decl(decl: &ast::ClassDecl) -> TypeDecl {
         let mut args: Set<Id> = Default::default();
         let mut bounds: Set<Id> = Default::default();
-        let mut fields: Vec<ast::ParsedType> = vec![];
+        let mut fields: Vec<ast::Type> = vec![];
 
         args.insert(decl.node.ty_arg.clone());
 

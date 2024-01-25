@@ -77,6 +77,6 @@ data Q2   = MkQ2 (Q1 T)
     assert_eq!(kinds.get(&q2_id).unwrap(), &type_ty_tyref());
 }
 
-fn parse_and_rename(pgm: &str) -> Vec<ast::ParsedTopDecl> {
+fn parse_and_rename(pgm: &str) -> Vec<ast::TopDecl> {
     parse_module(pgm).unwrap()
 }

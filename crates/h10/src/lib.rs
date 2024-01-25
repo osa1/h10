@@ -36,10 +36,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[global_allocator]
 static ALLOC: alloc::AllocStats = alloc::AllocStats;
 
-pub fn type_check_module(
-    input: &str,
-) -> (Vec<ast::ParsedTopDecl>, Map<Id, TyRef>, TrieMap<Id, Scheme>) {
-    let ast: Vec<ast::ParsedTopDecl> = parse_module(input).unwrap();
+pub fn type_check_module(input: &str) -> (Vec<ast::TopDecl>, Map<Id, TyRef>, TrieMap<Id, Scheme>) {
+    let ast: Vec<ast::TopDecl> = parse_module(input).unwrap();
     let (kinds, types) = ti_module(&ast);
     (ast, kinds, types)
 }

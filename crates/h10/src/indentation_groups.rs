@@ -47,7 +47,7 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
 
     let first_token_line_number = first_token.span().start.line;
 
-    let group = ast::ParsedTopDecl {
+    let group = ast::TopDecl {
         kind: ast::TopDeclKind::Unparsed,
         line_number: first_token_line_number,
         first_token: first_token.clone(),
@@ -139,7 +139,7 @@ fn lex(s: &str) -> TokenRef {
 /// Does not update spans of the tokens in the group, of spans of other groups.
 ///
 /// Returns the updated token.
-fn insert_to_ast_node(node: &mut ast::ParsedTopDecl, mut pos: Pos, text: &str) -> TokenRef {
+fn insert_to_ast_node(node: &mut ast::TopDecl, mut pos: Pos, text: &str) -> TokenRef {
     debug_assert!(!text.is_empty());
 
     // Currently all changes force a full re-parse of the top-level declaration.

@@ -8,7 +8,7 @@ impl Parser {
     exp → infixexp :: [context =>] type    (expression type signature)
         | infixexp
     */
-    pub fn exp(&mut self) -> ParserResult<ParsedExp> {
+    pub fn exp(&mut self) -> ParserResult<Exp> {
         let exp = self.infixexp()?;
         let l = exp.span.start;
         if self.skip_token(TokenKind::ReservedOp(ReservedOp::ColonColon)) {
@@ -35,7 +35,7 @@ impl Parser {
              | - infixexp                   (prefix negation)
              | lexp
     */
-    pub(super) fn infixexp(&mut self) -> ParserResult<ParsedExp> {
+    pub(super) fn infixexp(&mut self) -> ParserResult<Exp> {
         if let Ok(t) = self.peek_() {
             if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
                 let l = t.span().start;
@@ -81,7 +81,7 @@ impl Parser {
     Parses top-level expressions without type annotations. These expressions can't be nested in
     other expressions without being wrapped with parens.
     */
-    fn lexp(&mut self) -> ParserResult<ParsedExp> {
+    fn lexp(&mut self) -> ParserResult<Exp> {
         let (l, t, _) = self.peek()?;
         match t {
             TokenKind::ReservedOp(ReservedOp::Backslash) => {
@@ -162,7 +162,7 @@ impl Parser {
     }
 
     // fexp → [fexp] aexp                   (function application)
-    fn fexp(&mut self) -> ParserResult<ParsedExp> {
+    fn fexp(&mut self) -> ParserResult<Exp> {
         let exp1 = self.aexp()?;
         let l = exp1.span.start;
         let mut r = exp1.span.end;
@@ -209,7 +209,7 @@ impl Parser {
     of backtracking and it's difficult to give good error messages when all alternatives fail. So
     we don't follow the CFG here.
     */
-    fn aexp(&mut self) -> ParserResult<ParsedExp> {
+    fn aexp(&mut self) -> ParserResult<Exp> {
         let mut exp = self.aexp0()?;
         let l = exp.span.start;
 
@@ -234,7 +234,7 @@ impl Parser {
     }
 
     /// The part before `{ ... }` in an `aexp`.
-    fn aexp0(&mut self) -> ParserResult<ParsedExp> {
+    fn aexp0(&mut self) -> ParserResult<Exp> {
         if self.skip_token(TokenKind::Special(Special::LParen)) {
             let val = self.aexp0_parenthesized()?;
             self.expect_token(TokenKind::Special(Special::RParen))?;
@@ -393,7 +393,7 @@ impl Parser {
     // Parenthesized expressions. In addition to top-level expressions, this allows standalone
     // operators, left/right sections (operator at the beginning or end of an expression, instead
     // of infix), and comma-separated expressions (tuples).
-    fn aexp0_parenthesized(&mut self) -> ParserResult<ParsedExp> {
+    fn aexp0_parenthesized(&mut self) -> ParserResult<Exp> {
         let t = self.peek_()?;
         let l = t.span().start;
         let r = t.span().end;
@@ -537,7 +537,7 @@ impl Parser {
     }
 
     /// `{ ... }` part in an `aexp`.
-    fn parse_aexp_updates(&mut self) -> ParserResult<Vec<(String, ParsedExp)>> {
+    fn parse_aexp_updates(&mut self) -> ParserResult<Vec<(String, Exp)>> {
         self.expect_token(TokenKind::Special(Special::LBrace))?;
 
         if self.skip_token(TokenKind::Special(Special::RBrace)) {
@@ -554,7 +554,7 @@ impl Parser {
     }
 
     // fbind → qvar = exp
-    fn fbind(&mut self) -> ParserResult<(String, ParsedExp)> {
+    fn fbind(&mut self) -> ParserResult<(String, Exp)> {
         let var = self.qvar()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::Equals))?;
         let exp = self.exp()?;
@@ -562,7 +562,7 @@ impl Parser {
     }
 
     // alts → alt1 ; … ; altn               (n ≥ 1)
-    fn alts(&mut self) -> ParserResult<Vec<ParsedAlt>> {
+    fn alts(&mut self) -> ParserResult<Vec<Alt>> {
         let mut alts = vec![self.alt()?];
         while self.skip_token(TokenKind::Special(Special::Semi)) {
             alts.push(self.alt()?);
@@ -577,7 +577,7 @@ impl Parser {
 
     TODO: I don't understand why empty alt is allowed here, not implementing it for now.
     */
-    fn alt(&mut self) -> ParserResult<ParsedAlt> {
+    fn alt(&mut self) -> ParserResult<Alt> {
         let pat = self.pat()?;
         if self.skip_token(TokenKind::ReservedOp(ReservedOp::RightArrow)) {
             let rhs = self.exp()?;
@@ -620,7 +620,7 @@ impl Parser {
     }
 
     // gdpat → guards -> exp [ gdpat ]
-    fn gdpat(&mut self) -> ParserResult<Vec<(Vec<ParsedStmt>, ParsedExp)>> {
+    fn gdpat(&mut self) -> ParserResult<Vec<(Vec<Stmt>, Exp)>> {
         let guards = self.guards()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::RightArrow))?;
         let exp = self.exp()?;

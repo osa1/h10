@@ -20,21 +20,19 @@ use rpds::List;
 pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module.
-pub fn parse_module(module_str: &str) -> ParserResult<Vec<ParsedTopDecl>> {
+pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
     Parser::new(LayoutTokenGenerator::new_top_level(tokenize(module_str))).module()
 }
 
 /// Parse a type with predicates.
 #[cfg(test)]
-pub fn parse_type(
-    type_str: &str,
-) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
+pub fn parse_type(type_str: &str) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, Type)> {
     Parser::new(LayoutTokenGenerator::new(tokenize(type_str))).type_with_context()
 }
 
 /// Parse an expression.
 #[cfg(test)]
-pub fn parse_exp(exp_str: &str) -> ParserResult<ParsedExp> {
+pub fn parse_exp(exp_str: &str) -> ParserResult<Exp> {
     Parser::new(LayoutTokenGenerator::new(tokenize(exp_str))).exp()
 }
 
@@ -85,7 +83,7 @@ impl Parser {
     module → module modid [exports] where body
            | body
     */
-    fn module(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
+    fn module(&mut self) -> ParserResult<Vec<TopDecl>> {
         self.in_context(GrammarItem::Module, |self_| {
             if self_.skip_token(TokenKind::ReservedId(ReservedId::Module)) {
                 self_.expect_token_pred(|token| {
@@ -141,7 +139,7 @@ impl Parser {
          | { impdecls }
          | { topdecls }
     */
-    fn body(&mut self) -> ParserResult<Vec<ParsedTopDecl>> {
+    fn body(&mut self) -> ParserResult<Vec<TopDecl>> {
         // TODO: Currently only parsing topdecls
         self.expect_token(TokenKind::Special(Special::LBrace))?;
         let decls = self.topdecls()?;
@@ -151,7 +149,7 @@ impl Parser {
 
     // qop    → qvarop | qconop             (qualified operator)
     // qvarop → qvarsym | ` qvarid `        (qualified variable operator)
-    fn qop(&mut self) -> ParserResult<ParsedExp> {
+    fn qop(&mut self) -> ParserResult<Exp> {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
@@ -206,7 +204,7 @@ impl Parser {
          | let decls                        (local declaration)
          | exp                              (guard)
     */
-    fn qual(&mut self) -> ParserResult<ParsedStmt> {
+    fn qual(&mut self) -> ParserResult<Stmt> {
         // Same as `stmt` as `stmt` doesn't parse the trailing semicolons
         self.stmt()
     }
@@ -256,7 +254,7 @@ impl Parser {
     Note: Currently this parses `}` as well, because layout lexer does not really yield a `}` after
     popping a context. We may want to revisit this.
     */
-    fn stmts(&mut self) -> ParserResult<Vec<ParsedStmt>> {
+    fn stmts(&mut self) -> ParserResult<Vec<Stmt>> {
         let mut stmts = vec![];
         while !matches!(self.peek(), Ok((_, TokenKind::Special(Special::RBrace), _))) {
             self.skip_all(TokenKind::Special(Special::Semi));
@@ -292,7 +290,7 @@ impl Parser {
     Note: this parser does not parse the trailing semicolon and the empty case. It shouldn't be
     directly called, use `stmts` instead.
     */
-    fn stmt(&mut self) -> ParserResult<ParsedStmt> {
+    fn stmt(&mut self) -> ParserResult<Stmt> {
         if self.skip_token(TokenKind::ReservedId(ReservedId::Let)) {
             let (l, _) = self.last_tok_span();
             let decls = self.value_decls()?;
@@ -354,11 +352,11 @@ impl Parser {
     context → class
             | ( class1 , … , classn )          (n ≥ 0)
     */
-    fn context(&mut self) -> ParserResult<Vec<ParsedType>> {
+    fn context(&mut self) -> ParserResult<Vec<Type>> {
         self.context_parser(Self::class)
     }
 
-    fn try_foralls(&mut self) -> ParserResult<Vec<ParsedTypeBinder>> {
+    fn try_foralls(&mut self) -> ParserResult<Vec<TypeBinder>> {
         let mut binders = vec![];
 
         if !self.skip_token(TokenKind::ReservedId(ReservedId::Forall)) {
@@ -398,7 +396,7 @@ impl Parser {
         Ok(binders)
     }
 
-    fn try_context_arrow(&mut self) -> Option<Vec<ParsedType>> {
+    fn try_context_arrow(&mut self) -> Option<Vec<Type>> {
         self.try_(|self_| {
             let context = self_.context()?;
             self_.expect_token(TokenKind::ReservedOp(ReservedOp::FatArrow))?;
@@ -497,7 +495,7 @@ impl Parser {
          | (,{,})
          | qcon
     */
-    fn gcon(&mut self) -> ParserResult<ParsedGCon> {
+    fn gcon(&mut self) -> ParserResult<GCon> {
         let (l, t, r) = self.peek()?;
         match t {
             TokenKind::Special(Special::LParen) => {
@@ -587,7 +585,7 @@ impl Parser {
     // op → varop | conop                     (operator)
     // conop → consym | ` conid `             (constructor operator)
     #[allow(unused)]
-    fn op(&mut self) -> ParserResult<ParsedOp> {
+    fn op(&mut self) -> ParserResult<Op> {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;

@@ -34,8 +34,8 @@ impl<'a> BindingGroup<'a> {
 /// pat = `[x, y, z]`, rhs = `map f list`.
 #[derive(Debug)]
 pub(crate) struct PatBinding<'a> {
-    pub(crate) pat: &'a ast::ParsedPat,
-    pub(crate) rhs: &'a ast::ParsedRhs,
+    pub(crate) pat: &'a ast::Pat,
+    pub(crate) rhs: &'a ast::Rhs,
 }
 
 /// A function definition, split into multiple definitions. For example:
@@ -61,23 +61,23 @@ pub(crate) struct FunBindingGroup<'a> {
 #[derive(Debug)]
 pub(crate) struct FunDef<'a> {
     /// Arguments of the function.
-    pub(crate) args: &'a [ast::ParsedPat],
+    pub(crate) args: &'a [ast::Pat],
 
     /// Body of the function.
-    pub(crate) rhs: &'a ast::ParsedRhs,
+    pub(crate) rhs: &'a ast::Rhs,
 }
 
-pub(crate) fn group_top_binds(decls: &[ast::ParsedTopDecl]) -> Vec<BindingGroup> {
+pub(crate) fn group_top_binds(decls: &[ast::TopDecl]) -> Vec<BindingGroup> {
     group_binds_(decls, extract_top_bind_lhs_rhs)
 }
 
-pub(crate) fn group_binds(decls: &[ast::ParsedValueDecl]) -> Vec<BindingGroup> {
+pub(crate) fn group_binds(decls: &[ast::ValueDecl]) -> Vec<BindingGroup> {
     group_binds_(decls, extract_bind_lhs_rhs)
 }
 
 fn group_binds_<'a, Decl, F>(decls: &'a [Decl], extract_lhs_rhs: F) -> Vec<BindingGroup>
 where
-    F: Fn(&'a Decl) -> Option<(&'a ast::ParsedLhs, &'a ast::ParsedRhs)>,
+    F: Fn(&'a Decl) -> Option<(&'a ast::Lhs, &'a ast::Rhs)>,
 {
     let mut groups: Vec<BindingGroup> = Vec::with_capacity(decls.len());
 
@@ -140,9 +140,7 @@ where
     groups
 }
 
-fn extract_top_bind_lhs_rhs(
-    decl: &ast::ParsedTopDecl,
-) -> Option<(&ast::ParsedLhs, &ast::ParsedRhs)> {
+fn extract_top_bind_lhs_rhs(decl: &ast::TopDecl) -> Option<(&ast::Lhs, &ast::Rhs)> {
     if let ast::TopDeclKind::Value(value_decl) = &decl.kind {
         extract_bind_lhs_rhs(value_decl)
     } else {
@@ -150,7 +148,7 @@ fn extract_top_bind_lhs_rhs(
     }
 }
 
-fn extract_bind_lhs_rhs(decl: &ast::ParsedValueDecl) -> Option<(&ast::ParsedLhs, &ast::ParsedRhs)> {
+fn extract_bind_lhs_rhs(decl: &ast::ValueDecl) -> Option<(&ast::Lhs, &ast::Rhs)> {
     if let ast::ValueDecl_::Value { lhs, rhs } = &decl.node {
         Some((lhs, rhs))
     } else {

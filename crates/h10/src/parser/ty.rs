@@ -6,9 +6,7 @@ use h10_lexer::{ReservedOp, Special, TokenKind};
 impl Parser {
     /// Parses the part after `::` in a type signature. E.g. `x :: Show a => a -> String` the part
     /// `Show a => a -> String`.
-    pub(crate) fn type_with_context(
-        &mut self,
-    ) -> ParserResult<(Vec<ParsedTypeBinder>, Vec<ParsedType>, ParsedType)> {
+    pub(crate) fn type_with_context(&mut self) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, Type)> {
         let foralls = self.try_foralls()?;
         let context = self.try_context_arrow().unwrap_or_default();
         let ty = self.type_()?;
@@ -25,7 +23,7 @@ impl Parser {
 
     tyvar = varid
     */
-    pub(super) fn class(&mut self) -> ParserResult<ParsedType> {
+    pub(super) fn class(&mut self) -> ParserResult<Type> {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
@@ -57,7 +55,7 @@ impl Parser {
     }
 
     // type → btype [-> type]                  (function type)
-    pub(crate) fn type_(&mut self) -> ParserResult<ParsedType> {
+    pub(crate) fn type_(&mut self) -> ParserResult<Type> {
         let ty1 = self.btype()?;
         if self.skip_token(TokenKind::ReservedOp(ReservedOp::RightArrow)) {
             let ty2 = self.type_()?;
@@ -76,7 +74,7 @@ impl Parser {
     }
 
     // btype → [btype] atype                   (type application)
-    fn btype(&mut self) -> ParserResult<ParsedType> {
+    fn btype(&mut self) -> ParserResult<Type> {
         let ty1 = self.atype()?;
         let mut args = vec![];
         while self.atype_start() {
@@ -103,7 +101,7 @@ impl Parser {
           | [ type ]                           (list type)
           | ( type )                           (parenthesized constructor)
     */
-    pub(super) fn atype(&mut self) -> ParserResult<ParsedType> {
+    pub(super) fn atype(&mut self) -> ParserResult<Type> {
         if let Ok(ty) = self.try_(Self::gtycon) {
             return Ok(self.spanned(ty.span.start, ty.span.end, Type_::Con(ty)));
         }
@@ -170,7 +168,7 @@ impl Parser {
 
     qtycon = qconid
     */
-    fn gtycon(&mut self) -> ParserResult<ParsedTyCon> {
+    fn gtycon(&mut self) -> ParserResult<TyCon> {
         let t = self.peek_()?;
         let l = t.span().start;
         let r = t.span().end;
