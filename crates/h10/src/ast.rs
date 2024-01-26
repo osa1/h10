@@ -18,27 +18,6 @@ impl<T> AstNode<T> {
     pub fn new(span: Span, node: T) -> Self {
         Self { span, node }
     }
-
-    pub fn map<T2, F: FnOnce(&T) -> T2>(&self, f: F) -> AstNode<T2> {
-        AstNode {
-            span: self.span.clone(),
-            node: f(&self.node),
-        }
-    }
-
-    pub fn map_<T2, F: FnOnce(T) -> T2>(self, f: F) -> AstNode<T2> {
-        AstNode {
-            span: self.span,
-            node: f(self.node),
-        }
-    }
-
-    pub fn with_node<T2>(&self, node: T2) -> AstNode<T2> {
-        AstNode {
-            span: self.span.clone(),
-            node,
-        }
-    }
 }
 
 /// A span in a file.
@@ -105,15 +84,6 @@ impl TopDecl {
         let end = Pos::from_loc(&self.last_token.span().end);
 
         pos >= start && pos < end
-    }
-
-    pub fn map<F: FnOnce(&TopDeclKind) -> TopDeclKind>(&self, f: F) -> TopDecl {
-        TopDecl {
-            kind: f(&self.kind),
-            line_number: self.line_number,
-            first_token: self.first_token.clone(),
-            last_token: self.last_token.clone(),
-        }
     }
 
     pub fn iter_tokens(&self) -> impl Iterator<Item = TokenRef> {
