@@ -7,6 +7,6 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-lexgen = { git = "https://github.com/osa1/lexgen.git", rev = "f82eee0" }
-lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "f82eee0" }
+lexgen = { git = "https://github.com/osa1/lexgen.git", rev = "4a4d78e" }
+lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "4a4d78e" }
 smol_str = "0.2.1"

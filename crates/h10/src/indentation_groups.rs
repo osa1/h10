@@ -164,20 +164,44 @@ fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
     byte_idx
 }
 
-/// Starting with `start_token` lex until re-lexing `relex_token`, then continue re-lexing until
+/// Starting with [`token`], lex until re-lexing [`inserted_text`], then continue re-lexing until
 /// finding an identical token.
 ///
-/// `DeclArena` argument is needed to be able to get absolute spans of tokens, to be able to check
-/// if we've generated an identical token and stop.
+/// [`DeclArena`] argument is needed to be able to get absolute spans of tokens, to be able to
+/// check if we've generated an identical token and stop.
 ///
-/// TokenKind equality is based on: token kind, token text, token absolute position. I think
+/// [`TokenKind`] equality is based on: token kind, token text, token absolute position. I think
 /// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
 /// or a space (in a non-indentation position) is changed, but for now this will do.
 #[allow(unused)]
-fn relex(start_token: TokenRef, relex_token: TokenRef, arena: &DeclArena) -> TokenRef {
-    let mut chars = start_token.iter_chars();
-    let lexer = Lexer::new_from_iter(chars);
-    todo!()
+fn relex(token: TokenRef, insertion_pos: Pos, inserted_text: &str, arena: &DeclArena) -> TokenRef {
+    let start_loc = token.absolute_span(arena).start;
+    let chars = TokenCharIteratorWithInsertion::new(token, insertion_pos, inserted_text);
+    let lexer = Lexer::new_from_iter_with_loc(chars, start_loc);
+
+    let mut inserted_text_end_pos = insertion_pos;
+    for char in inserted_text.chars() {
+        inserted_text_end_pos = next_pos(inserted_text_end_pos, char);
+    }
+    let inserted_text_end_pos = inserted_text_end_pos;
+
+    let mut first_token: Option<TokenRef> = None;
+    let mut last_token: Option<TokenRef> = None;
+
+    for token in lexer {
+        let token = token.unwrap();
+        let token_ref = TokenRef::from_lexer_token(token);
+        if first_token.is_none() {
+            first_token = Some(token_ref.clone());
+        } else if let Some(last_token_) = last_token {
+            last_token_.set_next(Some(token_ref.clone()));
+        }
+        last_token = Some(token_ref.clone());
+
+        // TODO: Stop after finding an identical token.
+    }
+
+    first_token.unwrap()
 }
 
 /// Given the start position of lexing and a position yielded by the lexer, get the absolute
@@ -193,6 +217,125 @@ fn lexer_token_absolute_pos(lex_start: Pos, lexer_loc: Pos) -> Pos {
         Pos {
             line: lex_start.line + lexer_loc.line,
             char: lexer_loc.char,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TokenCharIteratorWithInsertion<'a> {
+    /// Absolute position of the current character.
+    current_pos: Pos,
+
+    source: TokenCharIterSource,
+
+    token: TokenRef,
+
+    inserted_text: &'a str,
+
+    /// Byte index to `token.text()` or `inserted_text`, depending on which one we're iterating.
+    byte_idx: usize,
+
+    /// Where the `inserted_text` should be inserted.
+    insertion_pos: Pos,
+}
+
+#[derive(Clone, Copy)]
+enum TokenCharIterSource {
+    TokenBeforeInsertion,
+
+    Insertion {
+        /// Where we were at in the token we're iterating when we came to the insertion point.
+        token_byte_idx: usize,
+    },
+
+    TokenAfterInsertion,
+}
+
+impl<'a> TokenCharIteratorWithInsertion<'a> {
+    // NB. `insertion_pos` is the absolute position.
+    fn new(token: TokenRef, insertion_pos: Pos, inserted_text: &'a str) -> Self {
+        Self {
+            current_pos: Pos::from_loc(&token.span().start),
+            source: TokenCharIterSource::TokenBeforeInsertion,
+            token,
+            inserted_text,
+            byte_idx: 0,
+            insertion_pos,
+        }
+    }
+}
+
+impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.source {
+            TokenCharIterSource::TokenBeforeInsertion => {
+                if self.current_pos == self.insertion_pos {
+                    self.source = TokenCharIterSource::Insertion {
+                        token_byte_idx: self.byte_idx,
+                    };
+                    self.byte_idx = 0;
+                    return self.next();
+                }
+
+                if self.token.text().len() < self.byte_idx {
+                    let char = self.token.text()[self.byte_idx..].chars().next().unwrap();
+                    let char_len = char.len_utf8();
+
+                    self.byte_idx += char_len;
+                    self.current_pos = next_pos(self.current_pos, char);
+
+                    Some(char)
+                } else {
+                    self.token = self.token.next().unwrap();
+                    self.next()
+                }
+            }
+
+            TokenCharIterSource::Insertion { token_byte_idx } => {
+                if self.byte_idx == self.inserted_text.len() {
+                    self.source = TokenCharIterSource::TokenAfterInsertion;
+                    self.byte_idx = token_byte_idx;
+                    return self.next();
+                }
+
+                let char = self.inserted_text[self.byte_idx..].chars().next().unwrap();
+                let char_len = char.len_utf8();
+
+                self.byte_idx += char_len;
+
+                Some(char)
+            }
+
+            TokenCharIterSource::TokenAfterInsertion => {
+                if self.token.text().len() < self.byte_idx {
+                    let char = self.token.text()[self.byte_idx..].chars().next().unwrap();
+                    let char_len = char.len_utf8();
+
+                    self.byte_idx += char_len;
+                    self.current_pos = next_pos(self.current_pos, char);
+
+                    Some(char)
+                } else {
+                    self.token = self.token.next().unwrap();
+                    self.next()
+                }
+            }
+        }
+    }
+}
+
+fn next_pos(pos: Pos, char: char) -> Pos {
+    if char == '\n' {
+        Pos {
+            line: pos.line + 1,
+            char: 0,
+        }
+    } else {
+        Pos {
+            line: pos.line,
+            char: pos.char + 1,
         }
     }
 }

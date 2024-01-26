@@ -20,7 +20,7 @@ rc_id = { path = "../rc_id" }
 console_error_panic_hook = "0.1.7"
 indoc = "2.0.4"
 lazy_static = "1.4.0"
-lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "f82eee0" }
+lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "4a4d78e" }
 rpds = "0.13"
 rustc-hash = "1.1"
 smol_str = "0.2.1"

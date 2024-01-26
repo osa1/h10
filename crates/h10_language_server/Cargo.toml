@@ -10,7 +10,7 @@ edition = "2021"
 h10_lexer = { path = "../h10_lexer" }
 
 dirs = "5.0.1"
-lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "f82eee0" }
+lexgen_util = { git = "https://github.com/osa1/lexgen.git", rev = "4a4d78e" }
 serde_json = "1.0.108"
 tokio = { version = "1.35.1", features = ["rt", "io-std", "rt-multi-thread"] }
 tower-lsp = "0.20.0"
