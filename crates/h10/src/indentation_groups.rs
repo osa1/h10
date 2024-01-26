@@ -98,14 +98,6 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         .find(|(decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
         .unwrap();
 
-    let updated_token = insert_to_ast_node(arena.get_mut(decl_idx), pos, text);
-
-    // Tokenize the updated token, starting from the token at "lookback" of the updated token.
-    // TODO: We don't generate lookbacks right now, but I think lookback of 1 token should handle
-    // majority of the cases, if not all.
-
-    let relex_start_token = updated_token.prev().unwrap_or(updated_token);
-
     // Update line numbers of groups after the current one.
     let n_lines_inserted = (text.lines().count() - 1) as u32;
     if n_lines_inserted != 0 {
@@ -114,7 +106,22 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         }
     }
 
+    let updated_token = find_token(arena.get(decl_idx), pos);
+    let relex_start_token = updated_token.prev().unwrap_or(updated_token);
+
     // TODO: Reparse.
+}
+
+fn find_token(node: &ast::TopDecl, pos: Pos) -> TokenRef {
+    // Update `pos` so that the line number is relative to the declaration.
+    let pos = Pos {
+        line: pos.line - node.span_start().line,
+        char: pos.char,
+    };
+
+    node.iter_tokens()
+        .find(|t| t.contains_location(pos))
+        .unwrap()
 }
 
 // TODO: This function should never fail, return error tokens instead.
@@ -134,39 +141,10 @@ fn lex(s: &str) -> TokenRef {
     first_token.unwrap()
 }
 
-/// Update the token in `node` with the inserted text.
-///
-/// Does not update spans of the tokens in the group, of spans of other groups.
-///
-/// Returns the updated token.
-fn insert_to_ast_node(node: &mut ast::TopDecl, mut pos: Pos, text: &str) -> TokenRef {
-    debug_assert!(!text.is_empty());
-
-    // Currently all changes force a full re-parse of the top-level declaration.
-
-    // Update `pos` so that the line number is relative to the declaration.
-    pos.line -= node.span_start().line;
-
-    // Find the token to update.
-    let token = node
-        .iter_tokens()
-        .find(|t| t.contains_location(pos))
-        .unwrap();
-
-    let insertion_byte_idx = find_byte_idx(
-        token.text.borrow().as_str(),
-        Pos::from_loc(&token.span().start),
-        pos,
-    );
-
-    token.text.borrow_mut().insert_str(insertion_byte_idx, text);
-
-    token
-}
-
 /// Given a string `text` and its position `text_start`, find the byte index in `text` of `pos`.
 ///
 /// Assumes that `pos` is within the text.
+#[allow(unused)]
 fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
     let mut char_iter = text.char_indices();
 

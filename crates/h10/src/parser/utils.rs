@@ -110,7 +110,7 @@ impl Parser {
         if let Ok(t) = self.peek_() {
             if t.token() == token {
                 self.skip();
-                return Some(t.text.borrow().to_owned());
+                return Some(t.text().to_owned());
             }
         }
         None
@@ -121,7 +121,7 @@ impl Parser {
         F: Fn(&str) -> bool,
     {
         if let Ok(t) = self.peek_() {
-            if t.token() == token && pred(&t.text.borrow()) {
+            if t.token() == token && pred(t.text()) {
                 self.skip();
                 return true;
             }
@@ -154,7 +154,7 @@ impl Parser {
         token: TokenKind,
     ) -> ParserResult<(Loc, String, Loc)> {
         self.expect_token(token)
-            .map(|t| (t.span().start, t.text.borrow().to_owned(), t.span().end))
+            .map(|t| (t.span().start, t.text().to_owned(), t.span().end))
     }
 
     pub(super) fn expect_token_pred_string<F>(
@@ -165,7 +165,7 @@ impl Parser {
         F: Fn(TokenKind) -> bool,
     {
         self.expect_token_pred(pred)
-            .map(|t| (t.span().start, t.text.borrow().to_owned(), t.span().end))
+            .map(|t| (t.span().start, t.text().to_owned(), t.span().end))
     }
 
     pub(super) fn skip(&mut self) {

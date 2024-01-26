@@ -556,7 +556,7 @@ impl Parser {
                 Ok(self.spanned(l, r, Con_ { con, fields }))
             }
 
-            TokenKind::VarSym if *t.text.borrow() == "!" => todo!(),
+            TokenKind::VarSym if t.text() == "!" => todo!(),
 
             _ => todo!(),
         }
@@ -566,7 +566,7 @@ impl Parser {
     fn con_field(&mut self) -> ParserResult<FieldDecl> {
         let t = self.peek_()?;
         let l = t.span().start;
-        if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+        if t.token() == TokenKind::VarSym && t.text() == "!" {
             self.skip();
         }
         let ty = self.atype()?;
@@ -580,7 +580,7 @@ impl Parser {
         }
 
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+            if t.token() == TokenKind::VarSym && t.text() == "!" {
                 return true;
             }
         }
@@ -594,7 +594,7 @@ impl Parser {
         let vars = self.vars()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
         let t = self.peek_()?;
-        let ty = if t.token() == TokenKind::VarSym && *t.text.borrow() == "!" {
+        let ty = if t.token() == TokenKind::VarSym && t.text() == "!" {
             self.skip();
             self.atype()?
         } else {
@@ -609,7 +609,7 @@ impl Parser {
         let t = self.next_()?;
 
         match t.token() {
-            TokenKind::ConId => Ok(t.text.borrow().to_owned()),
+            TokenKind::ConId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
                 let (_, con, _) = self.expect_token_string(TokenKind::ConSym)?;
@@ -769,7 +769,7 @@ impl Parser {
         let t = self.next_()?;
         match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
-                let con_str = t.text.borrow().to_owned();
+                let con_str = t.text().to_owned();
                 let l = t.span().start;
                 let r = t.span().end;
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));

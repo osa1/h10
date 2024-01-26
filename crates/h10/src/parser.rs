@@ -155,12 +155,12 @@ impl Parser {
         let r = t.span().end;
         match t.token() {
             TokenKind::QVarSym | TokenKind::VarSym => {
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Exp_::Var(str)))
             }
 
             TokenKind::QConSym | TokenKind::ConSym => {
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Exp_::Con(str)))
             }
 
@@ -171,8 +171,8 @@ impl Parser {
             TokenKind::Special(Special::Backtick) => {
                 let t_ = self.next_()?;
                 let exp = match t_.token() {
-                    TokenKind::QVarId | TokenKind::VarId => Exp_::Var(t_.text.borrow().to_owned()),
-                    TokenKind::QConId | TokenKind::ConId => Exp_::Con(t_.text.borrow().to_owned()),
+                    TokenKind::QVarId | TokenKind::VarId => Exp_::Var(t_.text().to_owned()),
+                    TokenKind::QConId | TokenKind::ConId => Exp_::Con(t_.text().to_owned()),
                     _ => return self.fail(l, ErrorKind::UnexpectedToken),
                 };
                 self.expect_token(TokenKind::Special(Special::Backtick))?;
@@ -217,7 +217,7 @@ impl Parser {
         match t.token() {
             TokenKind::VarId | TokenKind::QVarId => {
                 self.skip(); // consume var
-                Ok(t.text.borrow().to_owned())
+                Ok(t.text().to_owned())
             }
 
             TokenKind::Special(Special::LParen) => {
@@ -226,7 +226,7 @@ impl Parser {
                 match t.token() {
                     TokenKind::VarSym | TokenKind::QVarSym => {
                         self.expect_token(TokenKind::Special(Special::RParen))?;
-                        Ok(t.text.borrow().to_owned())
+                        Ok(t.text().to_owned())
                     }
 
                     _ => self.fail(l, ErrorKind::UnexpectedToken),
@@ -369,7 +369,7 @@ impl Parser {
             let r = t.span().end;
             match t.token() {
                 TokenKind::VarId => {
-                    let id = t.text.borrow().to_owned();
+                    let id = t.text().to_owned();
                     binders.push(self.spanned(l, r, TypeBinder_ { id, ty: None }));
                 }
 
@@ -385,7 +385,7 @@ impl Parser {
                     ));
                 }
 
-                TokenKind::VarSym if *t.text.borrow() == "." => {
+                TokenKind::VarSym if t.text() == "." => {
                     break;
                 }
 
@@ -432,7 +432,7 @@ impl Parser {
         match t.token() {
             TokenKind::VarSym => {
                 self.skip(); // consume varsym
-                Ok(t.text.borrow().to_owned())
+                Ok(t.text().to_owned())
             }
 
             TokenKind::Special(Special::Backtick) => {
@@ -464,7 +464,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
         match t.token() {
-            TokenKind::VarId => Ok(t.text.borrow().to_owned()),
+            TokenKind::VarId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
                 let t = self.next_()?;
@@ -472,7 +472,7 @@ impl Parser {
                 match t.token() {
                     TokenKind::VarSym => {
                         self.expect_token(TokenKind::Special(Special::RParen))?;
-                        Ok(t.text.borrow().to_owned())
+                        Ok(t.text().to_owned())
                     }
                     _ => self.fail(l, ErrorKind::UnexpectedToken),
                 }
@@ -536,7 +536,7 @@ impl Parser {
         let l = t.span().start;
 
         match t.token() {
-            TokenKind::QConId | TokenKind::ConId => Ok(t.text.borrow().to_owned()),
+            TokenKind::QConId | TokenKind::ConId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
                 let (_, sym, _) = self.gconsym()?;
@@ -566,7 +566,7 @@ impl Parser {
         let r = t.span().end;
         match t.token() {
             TokenKind::ReservedOp(ReservedOp::Colon) => Ok((l, ":".to_owned(), r)),
-            TokenKind::QConSym | TokenKind::ConSym => Ok((l, t.text.borrow().to_owned(), r)),
+            TokenKind::QConSym | TokenKind::ConSym => Ok((l, t.text().to_owned(), r)),
             _ => self.fail(l, ErrorKind::UnexpectedToken),
         }
     }
@@ -591,18 +591,18 @@ impl Parser {
         let r = t.span().end;
         match t.token() {
             TokenKind::ConSym => {
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Op_::Con(str)))
             }
 
             TokenKind::VarSym => {
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Op_::Var(str)))
             }
 
             TokenKind::Special(Special::Backtick) => {
                 let t_ = self.next_()?;
-                let str = t_.text.borrow().to_owned();
+                let str = t_.text().to_owned();
                 let ret = match t_.token() {
                     TokenKind::ConId => self.spanned(l, r, Op_::Con(str)),
                     TokenKind::VarId => self.spanned(l, r, Op_::Var(str)),

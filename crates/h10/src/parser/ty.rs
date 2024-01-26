@@ -29,7 +29,7 @@ impl Parser {
         let r = t.span().end;
         match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
-                let con_str = t.text.borrow().to_owned();
+                let con_str = t.text().to_owned();
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
                 let arg = if self.skip_token(TokenKind::Special(Special::LParen)) {
                     // qtycls ( tyvar atype1 ... atypen )
@@ -113,7 +113,7 @@ impl Parser {
         match t.token() {
             TokenKind::VarId => {
                 self.skip(); // consume type id
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Type_::Var(str)))
             }
 
@@ -175,7 +175,7 @@ impl Parser {
         match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume qualified type constructor
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, TyCon_::Id(str)))
             }
             TokenKind::Special(Special::LParen) => {

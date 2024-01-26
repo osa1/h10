@@ -32,7 +32,7 @@ impl Parser {
     */
     fn lpat(&mut self) -> ParserResult<Pat> {
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
+            if t.token() == TokenKind::VarSym && t.text() == "-" {
                 let l = t.span().start;
                 self.skip(); // skip '-'
                 match self.next()? {
@@ -134,7 +134,7 @@ impl Parser {
                             return Some(self_.spanned(
                                 l,
                                 rparen.span().end,
-                                Pat_::Var(t.text.borrow().to_owned()),
+                                Pat_::Var(t.text().to_owned()),
                             ));
                         }
                     }
@@ -158,7 +158,7 @@ impl Parser {
                             let rparen = self_
                                 .expect_token(TokenKind::Special(Special::RParen))
                                 .ok()?;
-                            let str = t.text.borrow().to_owned();
+                            let str = t.text().to_owned();
                             return Some(self_.spanned(
                                 l,
                                 rparen.span().end,

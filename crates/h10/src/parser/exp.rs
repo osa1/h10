@@ -37,7 +37,7 @@ impl Parser {
     */
     pub(super) fn infixexp(&mut self) -> ParserResult<Exp> {
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && *t.text.borrow() == "-" {
+            if t.token() == TokenKind::VarSym && t.text() == "-" {
                 let l = t.span().start;
                 let r = t.span().end;
                 self.skip();
@@ -355,13 +355,13 @@ impl Parser {
         match t.token() {
             TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume con
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Exp_::Con(str)))
             }
 
             TokenKind::QVarId | TokenKind::VarId => {
                 self.skip(); // consume var
-                let str = t.text.borrow().to_owned();
+                let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Exp_::Var(str)))
             }
 
@@ -412,7 +412,7 @@ impl Parser {
         ) {
             // Right section
             self.skip(); // skip symbol
-            let str = t.text.borrow().to_owned();
+            let str = t.text().to_owned();
             let fun = self.spanned(
                 l,
                 r,
@@ -436,7 +436,7 @@ impl Parser {
             let t = self.next_()?;
             let l = t.span().start;
             let r = t.span().end;
-            let str = t.text.borrow().to_owned();
+            let str = t.text().to_owned();
             let fun = match t.token() {
                 TokenKind::VarId | TokenKind::QVarId => self.spanned(l, r, Exp_::Var(str)),
                 TokenKind::ConId | TokenKind::QConId => self.spanned(l, r, Exp_::Con(str)),

@@ -15,6 +15,8 @@ use lexgen_util::Loc;
 use std::cell::RefCell;
 use std::ops::Deref;
 
+use smol_str::SmolStr;
+
 /// Wraps lexer tokens in a shared reference to allow various information and linking to other
 /// tokens.
 ///
@@ -60,7 +62,7 @@ pub struct Token {
     ast_node: RefCell<Option<DeclIdx>>,
 
     /// The token text.
-    pub text: RefCell<String>,
+    text: SmolStr,
 }
 
 impl TokenRef {
@@ -76,6 +78,10 @@ impl TokenRef {
 
     pub fn token(&self) -> LexerTokenKind {
         self.node.token
+    }
+
+    pub fn text(&self) -> &str {
+        self.text.as_str()
     }
 
     /// Get the span of the token.
@@ -213,7 +219,7 @@ impl TokenRef {
         // Check that the token texts make the original program.
         let mut token_text = String::with_capacity(expected.len());
         for token in self.iter() {
-            token_text.extend(token.deref().text.borrow().chars());
+            token_text.push_str(token.text());
         }
         assert_eq!(token_text, expected);
 
@@ -248,7 +254,7 @@ impl Token {
             prev: RefCell::new(None),
             next: RefCell::new(None),
             ast_node: RefCell::new(None),
-            text: RefCell::new(token.text.to_string()),
+            text: token.text.clone(),
         }
     }
 }
@@ -312,10 +318,9 @@ impl Iterator for TokenCharIterator {
             None => return None,
         };
 
-        let text = token.text.borrow();
+        let text = token.text();
 
         if text.len() == self.byte_idx {
-            drop(text);
             self.token = token.next();
             self.byte_idx = 0;
             return self.next();
