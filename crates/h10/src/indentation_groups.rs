@@ -171,10 +171,9 @@ fn relex(token: TokenRef, insertion_pos: Pos, inserted_text: &str, arena: &DeclA
         let new_token = TokenRef::from_lexer_token(token);
         if first_token.is_none() {
             first_token = Some(new_token.clone());
-        } else if let Some(last_token_) = last_token {
+        } else if let Some(last_token_) = &last_token {
             last_token_.set_next(Some(new_token.clone()));
         }
-        last_token = Some(new_token.clone());
 
         let new_token_start_pos = Pos::from_loc(&new_token.span().start);
         let new_token_end_pos = Pos::from_loc(&new_token.span().end);
@@ -194,13 +193,17 @@ fn relex(token: TokenRef, insertion_pos: Pos, inserted_text: &str, arena: &DeclA
                     && old_token_end_pos == new_token_end_pos
                     && old_token_.text() == new_token.text()
                 {
-                    new_token.set_next(old_token_.next());
+                    if let Some(last_token_) = last_token {
+                        last_token_.set_next(Some(old_token_.clone()));
+                    }
                     break 'lexing;
                 }
 
                 break;
             }
         }
+
+        last_token = Some(new_token.clone());
     }
 
     first_token.unwrap()

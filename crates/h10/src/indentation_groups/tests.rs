@@ -3,22 +3,6 @@ use h10_lexer::Lexer;
 
 use indoc::indoc;
 
-fn lex(s: &str) -> TokenRef {
-    let lexer = Lexer::new(s);
-    let mut first_token: Option<TokenRef> = None;
-    let mut last_token: Option<TokenRef> = None;
-    for t in lexer {
-        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
-        if first_token.is_none() {
-            first_token = Some(t.clone());
-        } else if let Some(last_token_) = last_token {
-            last_token_.set_next(Some(t.clone()));
-        }
-        last_token = Some(t.clone());
-    }
-    first_token.unwrap()
-}
-
 #[test]
 fn simple_parsing_1() {
     let pgm = indoc! {"
@@ -205,4 +189,72 @@ fn insertion_iteration_3() {
             data C
         "}
     );
+}
+
+#[test]
+fn relex_same_group() {
+    let pgm = indoc! {"
+        f x y =
+            x y
+            z t
+    "};
+
+    let token = lex(pgm);
+    let initial_token_list: Vec<TokenRef> = token.iter().collect();
+
+    let arena = DeclArena::new();
+
+    let relex_start_token = token.iter().nth(8).unwrap();
+    assert_eq!(relex_start_token.text(), "x");
+
+    let new_token = relex(
+        relex_start_token.clone(),
+        Pos { line: 1, char: 5 },
+        " +",
+        &arena,
+    );
+
+    // The tokens before the first one should not be identical.
+    assert_eq!(
+        &token.iter().take(8).collect::<Vec<TokenRef>>(),
+        &initial_token_list[0..8]
+    );
+
+    // Starting from `relex` the whole line should be re-generated.
+    assert_eq!(new_token.text(), "x");
+    assert_ne!(new_token, relex_start_token);
+
+    assert_eq!(
+        new_token.iter_chars().collect::<String>(),
+        "x + y\n    z t\n"
+    );
+
+    let new_token_list: Vec<TokenRef> = new_token.iter().collect();
+    assert_eq!(&new_token_list[6..], &initial_token_list[12..]); // "z t\n"
+}
+
+fn lex(s: &str) -> TokenRef {
+    let lexer = Lexer::new(s);
+    let mut first_token: Option<TokenRef> = None;
+    let mut last_token: Option<TokenRef> = None;
+    for t in lexer {
+        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
+        if first_token.is_none() {
+            first_token = Some(t.clone());
+        } else if let Some(last_token_) = last_token {
+            last_token_.set_next(Some(t.clone()));
+        }
+        last_token = Some(t.clone());
+    }
+    first_token.unwrap()
+}
+
+#[allow(unused)]
+fn collect_token_kinds(token: &TokenRef) -> Vec<TokenKind> {
+    token.iter().map(|t| t.token()).collect()
+}
+
+#[allow(unused)]
+fn collect_token_texts(token: &TokenRef) -> Vec<String> {
+    token.iter().map(|t| t.text().to_owned()).collect()
 }
