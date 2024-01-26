@@ -13,6 +13,7 @@ use rc_id::RcId;
 use lexgen_util::Loc;
 
 use std::cell::RefCell;
+use std::fmt;
 use std::ops::Deref;
 
 use smol_str::SmolStr;
@@ -21,7 +22,7 @@ use smol_str::SmolStr;
 /// tokens.
 ///
 /// Equality and hash are implemented based on reference equality.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenRef {
     node: RcId<Token>,
 }
@@ -63,6 +64,19 @@ pub struct Token {
 
     /// The token text.
     text: SmolStr,
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Token")
+            .field("token", &self.token)
+            .field("span", &self.span)
+            // .field("prev", &self.prev)
+            // .field("next", &self.next)
+            .field("ast_node", &self.ast_node)
+            .field("text", &self.text)
+            .finish()
+    }
 }
 
 impl TokenRef {

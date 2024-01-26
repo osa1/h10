@@ -141,29 +141,6 @@ fn lex(s: &str) -> TokenRef {
     first_token.unwrap()
 }
 
-/// Given a string `text` and its position `text_start`, find the byte index in `text` of `pos`.
-///
-/// Assumes that `pos` is within the text.
-#[allow(unused)]
-fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
-    let mut char_iter = text.char_indices();
-
-    let mut iter_pos = text_start;
-    let mut byte_idx = 0;
-    while iter_pos != pos {
-        let (byte_idx_, char) = char_iter.next().unwrap();
-        byte_idx = byte_idx_;
-        if char == '\n' {
-            iter_pos.line += 1;
-            iter_pos.char = 0;
-        } else {
-            iter_pos.char += 1;
-        }
-    }
-
-    byte_idx
-}
-
 /// Starting with [`token`], lex until re-lexing [`inserted_text`], then continue re-lexing until
 /// finding an identical token.
 ///
@@ -176,7 +153,7 @@ fn find_byte_idx(text: &str, text_start: Pos, pos: Pos) -> usize {
 #[allow(unused)]
 fn relex(token: TokenRef, insertion_pos: Pos, inserted_text: &str, arena: &DeclArena) -> TokenRef {
     let start_loc = token.absolute_span(arena).start;
-    let chars = TokenCharIteratorWithInsertion::new(token, insertion_pos, inserted_text);
+    let chars = TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text);
     let lexer = Lexer::new_from_iter_with_loc(chars, start_loc);
 
     let mut inserted_text_end_pos = insertion_pos;
@@ -188,17 +165,42 @@ fn relex(token: TokenRef, insertion_pos: Pos, inserted_text: &str, arena: &DeclA
     let mut first_token: Option<TokenRef> = None;
     let mut last_token: Option<TokenRef> = None;
 
-    for token in lexer {
+    let mut old_token = Some(token);
+    'lexing: for token in lexer {
         let token = token.unwrap();
-        let token_ref = TokenRef::from_lexer_token(token);
+        let new_token = TokenRef::from_lexer_token(token);
         if first_token.is_none() {
-            first_token = Some(token_ref.clone());
+            first_token = Some(new_token.clone());
         } else if let Some(last_token_) = last_token {
-            last_token_.set_next(Some(token_ref.clone()));
+            last_token_.set_next(Some(new_token.clone()));
         }
-        last_token = Some(token_ref.clone());
+        last_token = Some(new_token.clone());
 
-        // TODO: Stop after finding an identical token.
+        let new_token_start_pos = Pos::from_loc(&new_token.span().start);
+        let new_token_end_pos = Pos::from_loc(&new_token.span().end);
+        if Pos::from_loc(&new_token.span().end) > inserted_text_end_pos {
+            while let Some(old_token_) = &old_token {
+                let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
+                let old_token_end_pos = Pos::from_loc(&old_token_.span().end);
+                if old_token_start_pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
+                    < new_token_start_pos
+                {
+                    old_token = old_token_.next();
+                    continue;
+                }
+
+                if old_token_.token() == new_token.token()
+                    && old_token_start_pos == new_token_start_pos
+                    && old_token_end_pos == new_token_end_pos
+                    && old_token_.text() == new_token.text()
+                {
+                    new_token.set_next(old_token_.next());
+                    break 'lexing;
+                }
+
+                break;
+            }
+        }
     }
 
     first_token.unwrap()
@@ -279,7 +281,7 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
                     return self.next();
                 }
 
-                if self.token.text().len() < self.byte_idx {
+                if self.byte_idx < self.token.text().len() {
                     let char = self.token.text()[self.byte_idx..].chars().next().unwrap();
                     let char_len = char.len_utf8();
 
@@ -289,6 +291,7 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
                     Some(char)
                 } else {
                     self.token = self.token.next().unwrap();
+                    self.byte_idx = 0;
                     self.next()
                 }
             }
@@ -309,7 +312,7 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
             }
 
             TokenCharIterSource::TokenAfterInsertion => {
-                if self.token.text().len() < self.byte_idx {
+                if self.byte_idx < self.token.text().len() {
                     let char = self.token.text()[self.byte_idx..].chars().next().unwrap();
                     let char_len = char.len_utf8();
 
@@ -318,8 +321,14 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
 
                     Some(char)
                 } else {
-                    self.token = self.token.next().unwrap();
-                    self.next()
+                    match self.token.next() {
+                        None => None,
+                        Some(next) => {
+                            self.token = next;
+                            self.byte_idx = 0;
+                            self.next()
+                        }
+                    }
                 }
             }
         }

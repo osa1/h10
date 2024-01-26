@@ -120,3 +120,89 @@ fn simple_parsing_3() {
 
     token.check_token_str(pgm);
 }
+
+#[test]
+fn insertion_iteration_0() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex(pgm);
+
+    let insertion_pos = Pos { line: 0, char: 6 };
+    let inserted_text = "";
+    let new_text: String =
+        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+
+    assert_eq!(new_text, pgm);
+}
+
+#[test]
+fn insertion_iteration_1() {
+    let pgm = indoc! {"
+            data B
+        "};
+
+    let token = lex(pgm);
+
+    let insertion_pos = Pos { line: 0, char: 0 };
+    let inserted_text = "data A\n";
+    let new_text: String =
+        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+
+    assert_eq!(
+        new_text,
+        indoc! {"
+            data A
+            data B
+        "}
+    );
+}
+
+#[test]
+fn insertion_iteration_2() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex(pgm);
+
+    let insertion_pos = Pos { line: 0, char: 6 };
+    let inserted_text = " = A";
+    let new_text: String =
+        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+
+    assert_eq!(
+        new_text,
+        indoc! {"
+            data A = A
+            data B
+        "}
+    );
+}
+
+#[test]
+fn insertion_iteration_3() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex(pgm);
+
+    let insertion_pos = Pos { line: 1, char: 6 };
+    let inserted_text = "\ndata C";
+    let new_text: String =
+        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+
+    assert_eq!(
+        new_text,
+        indoc! {"
+            data A
+            data B
+            data C
+        "}
+    );
+}
