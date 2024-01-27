@@ -95,7 +95,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         .iter()
         .copied()
         .enumerate()
-        .find(|(decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
+        .find(|(_decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
         .unwrap();
 
     // Update line numbers of groups after the current one.
