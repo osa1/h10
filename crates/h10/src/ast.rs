@@ -68,6 +68,9 @@ pub struct TopDecl {
 
     /// Previous declaration in the declaration's module.
     pub prev: Option<DeclIdx>,
+
+    /// Whether this declaration was modified after the last time it was parsed.
+    pub modified: bool,
 }
 
 impl fmt::Debug for TopDecl {
@@ -180,9 +183,6 @@ pub enum TopDeclKind {
     Class(ClassDecl),
     Instance(InstanceDecl),
     Default(DefaultDecl),
-
-    /// A top-level declaration that's either not parsed yet, or was modified and needs re-parsing.
-    #[allow(unused)]
     Unparsed,
 }
 

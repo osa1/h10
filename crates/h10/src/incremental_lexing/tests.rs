@@ -114,13 +114,12 @@ fn relex_insertion_same_group() {
 
     // The tokens before the first updated one should be identical.
     assert_eq!(
-        &token.iter().take(8).collect::<Vec<TokenRef>>(),
-        &initial_token_list[0..8]
+        &token.iter().take(9).collect::<Vec<TokenRef>>(),
+        &initial_token_list[0..9]
     );
 
-    // Starting from `relex` the whole line should be re-generated.
     assert_eq!(new_token.text(), "x");
-    assert_ne!(new_token, relex_start_token);
+    assert_eq!(new_token, relex_start_token);
 
     assert_eq!(
         new_token.iter_chars().collect::<String>(),

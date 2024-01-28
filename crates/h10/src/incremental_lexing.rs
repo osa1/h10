@@ -6,7 +6,7 @@ use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Lexer;
 
-/// Starting with [`token`], lex until re-lexing [`inserted_text`] when inserted at
+/// Starting with [`lex_start`], lex until re-lexing [`inserted_text`] when inserted at
 /// [`insertion_pos`], then continue re-lexing until finding an identical token.
 ///
 /// [`DeclArena`] argument is needed to be able to get absolute spans of tokens, to be able to
@@ -16,18 +16,19 @@ use h10_lexer::Lexer;
 /// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
 /// or a space (in a non-indentation position) is changed, but for now this will do.
 ///
-/// The returned token is the replacement for [`token`]. The caller should update:
+/// The returned token is the replacement for [`lex_start`]. The caller should update:
 ///
-/// - If [`token`] is the first or last token of an AST node, the AST node.
+/// - If [`lex_start`] is the first or last token of an AST node, the AST node.
 /// - The previous token's `next`.
 pub(crate) fn relex_insertion(
-    token: TokenRef,
+    lex_start: TokenRef,
     insertion_pos: Pos,
     inserted_text: &str,
     arena: &DeclArena,
 ) -> TokenRef {
-    let start_loc = token.absolute_span(arena).start;
-    let chars = TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text);
+    let start_loc = lex_start.absolute_span(arena).start;
+    let chars =
+        TokenCharIteratorWithInsertion::new(lex_start.clone(), insertion_pos, inserted_text);
     let lexer = Lexer::new_from_iter_with_loc(chars, start_loc);
 
     let mut inserted_text_end_pos = insertion_pos;
@@ -36,51 +37,76 @@ pub(crate) fn relex_insertion(
     }
     let inserted_text_end_pos = inserted_text_end_pos;
 
-    let mut first_token: Option<TokenRef> = None;
-    let mut last_token: Option<TokenRef> = None;
+    // Collect generated tokens in a vector, link them together before returning, to avoid messing
+    // with the 'next' pointers while the lexer and `old_token` below holds aliases.
+    let mut tokens: Vec<TokenRef> = vec![];
 
-    let mut old_token: Option<TokenRef> = Some(token.clone());
-    'lexing: for token in lexer {
+    let mut old_token: Option<TokenRef> = Some(lex_start.clone());
+    for token in lexer {
         let token = token.unwrap();
         let new_token = TokenRef::from_lexer_token(token);
-        if first_token.is_none() {
-            first_token = Some(new_token.clone());
-        } else if let Some(last_token_) = &last_token {
-            last_token_.set_next(Some(new_token.clone()));
-        }
 
         let new_token_start_pos = Pos::from_loc(&new_token.span().start);
         let new_token_end_pos = Pos::from_loc(&new_token.span().end);
-        if Pos::from_loc(&new_token.span().end) > inserted_text_end_pos {
-            while let Some(old_token_) = &old_token {
-                let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
-                let old_token_end_pos = Pos::from_loc(&old_token_.span().end);
-                if old_token_start_pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
-                    < new_token_start_pos
-                {
-                    old_token = old_token_.next();
-                    continue;
-                }
 
-                if old_token_.token() == new_token.token()
-                    && old_token_start_pos == new_token_start_pos
-                    && old_token_end_pos == new_token_end_pos
-                    && old_token_.text() == new_token.text()
-                {
-                    if let Some(last_token_) = last_token {
-                        last_token_.set_next(Some(old_token_.clone()));
-                    }
-                    break 'lexing;
-                }
+        let after_insertion = Pos::from_loc(&new_token.span().end) > inserted_text_end_pos;
 
+        // Find the old token at the current position, or after it if there isn't a token starting
+        // at the same position.
+        while let Some(old_token_) = &old_token {
+            let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
+
+            if old_token_start_pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
+                >= new_token_start_pos
+            {
                 break;
             }
+
+            old_token = old_token_.next();
         }
 
-        last_token = Some(new_token.clone());
+        match &old_token {
+            Some(old_token_) => {
+                let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
+                let old_token_end_pos = Pos::from_loc(&old_token_.span().end);
+
+                let generated_same_token = old_token_.token() == new_token.token()
+                    && old_token_start_pos == new_token_start_pos
+                    && old_token_end_pos == new_token_end_pos
+                    && old_token_.text() == new_token.text();
+
+                if generated_same_token {
+                    // Reuse the old token.
+                    // TODO: We can allocate a `TokenRef` only when generating a new token.
+                    tokens.push(old_token_.clone());
+                    if after_insertion {
+                        break;
+                    }
+                    old_token = old_token_.next();
+                } else {
+                    tokens.push(new_token);
+                }
+            }
+            None => {
+                tokens.push(new_token);
+            }
+        }
     }
 
-    first_token.unwrap()
+    link_tokens(tokens)
+}
+
+fn link_tokens(tokens: Vec<TokenRef>) -> TokenRef {
+    let mut iter = tokens.into_iter();
+    let ret = iter.next().unwrap();
+
+    let mut current = ret.clone();
+    for next in iter {
+        current.set_next(Some(next.clone()));
+        current = next;
+    }
+
+    ret
 }
 
 #[derive(Clone)]

@@ -86,6 +86,7 @@ pub(crate) fn reparse_indentation_groups_token(
         last_token: new_group_end.clone(),
         next: None,
         prev: prev_decl_idx,
+        modified: false,
     };
     let new_decl_idx = arena.allocate(new_group);
     if let Some(prev_decl_idx) = prev_decl_idx {
@@ -103,11 +104,14 @@ pub(crate) fn reparse_indentation_groups_token(
             reparse_indentation_groups_token(next_group_start, Some(new_decl_idx), arena);
         }
     } else if let Some(next_group_start) = new_group_end.next() {
-        reparse_indentation_groups_decl(
-            next_group_start.ast_node().unwrap(),
-            Some(new_decl_idx),
-            arena,
-        );
+        match next_group_start.ast_node() {
+            Some(next_group_idx) => {
+                reparse_indentation_groups_decl(next_group_idx, Some(new_decl_idx), arena);
+            }
+            None => {
+                reparse_indentation_groups_token(next_group_start, Some(new_decl_idx), arena);
+            }
+        }
     }
 
     new_decl_idx

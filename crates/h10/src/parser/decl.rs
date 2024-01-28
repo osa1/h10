@@ -139,6 +139,7 @@ impl Parser {
             last_token: self.last_tok.clone().unwrap(),
             next: None,
             prev: None,
+            modified: false,
         })
     }
 
