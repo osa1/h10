@@ -60,7 +60,8 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         return;
     }
 
-    let n_lines_inserted = (text.lines().count() - 1) as u32;
+    // NB. We can't use `lines` here as it yields one line for both "a" and "a\n".
+    let n_lines_inserted = text.chars().filter(|c| *c == '\n').count() as u32;
 
     // Insert before the first group.
     if pos < arena.get(defs[0]).span_start() {
