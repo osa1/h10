@@ -7,7 +7,7 @@ use crate::pos::Pos;
 // use indoc::indoc;
 
 #[test]
-fn simple_insert_first() {
+fn single_group_insert_first() {
     let pgm = "f x = x";
     let token = lex_full(pgm);
     let mut arena = DeclArena::new();
@@ -29,7 +29,7 @@ fn simple_insert_first() {
 }
 
 #[test]
-fn simple_insert_middle() {
+fn single_group_insert_middle() {
     let pgm = "f x = x";
     let token = lex_full(pgm);
     let mut arena = DeclArena::new();
@@ -51,7 +51,7 @@ fn simple_insert_middle() {
 }
 
 #[test]
-fn simple_insert_last() {
+fn single_group_insert_last() {
     let pgm = "f x = x";
     let token = lex_full(pgm);
     let mut arena = DeclArena::new();
@@ -70,13 +70,27 @@ fn simple_insert_last() {
 
     let new_pgm: String = token.iter_chars().collect();
 
-    println!(
-        "{:?}",
-        token
-            .iter()
-            .map(|t| t.text().to_string())
-            .collect::<Vec<String>>()
+    assert_eq!(new_pgm, "f x = x + 1");
+}
+
+#[test]
+fn single_group_insert_new_group_first() {
+    let pgm = "f x = x\n";
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+
+    assert_eq!(groups.len(), 1);
+    let group_idx = groups[0];
+
+    assert_eq!(arena.get(group_idx).first_token, token);
+
+    insert(
+        &mut arena,
+        &mut groups,
+        Pos { line: 0, char: 0 },
+        "data X = X\n",
     );
 
-    assert_eq!(new_pgm, "f x = x + 1");
+    assert_eq!(groups.len(), 2);
 }
