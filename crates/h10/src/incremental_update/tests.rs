@@ -20,9 +20,8 @@ fn single_group_insert_first() {
 
     assert_eq!(groups.len(), 1);
     let new_group_idx = groups[0];
-    assert_eq!(new_group_idx, group_idx);
 
-    assert_ne!(arena.get(group_idx).first_token, token);
+    assert_ne!(arena.get(new_group_idx).first_token, token);
 
     let new_pgm: String = arena.get(group_idx).first_token.iter_chars().collect();
     assert_eq!(new_pgm, "q f x = x");
@@ -43,10 +42,9 @@ fn single_group_insert_middle() {
     insert(&mut arena, &mut groups, Pos { line: 0, char: 6 }, "1 + ");
 
     assert_eq!(groups.len(), 1);
-    let new_group_idx = groups[0];
-    assert_eq!(new_group_idx, group_idx);
 
-    let new_pgm: String = token.iter_chars().collect();
+    let new_group_idx = groups[0];
+    let new_pgm: String = arena.get(new_group_idx).first_token.iter_chars().collect();
     assert_eq!(new_pgm, "f x = 1 + x");
 }
 
@@ -65,11 +63,9 @@ fn single_group_insert_last() {
     insert(&mut arena, &mut groups, Pos { line: 0, char: 7 }, " + 1");
 
     assert_eq!(groups.len(), 1);
+
     let new_group_idx = groups[0];
-    assert_eq!(new_group_idx, group_idx);
-
-    let new_pgm: String = token.iter_chars().collect();
-
+    let new_pgm: String = arena.get(new_group_idx).first_token.iter_chars().collect();
     assert_eq!(new_pgm, "f x = x + 1");
 }
 
@@ -93,4 +89,7 @@ fn single_group_insert_new_group_first() {
     );
 
     assert_eq!(groups.len(), 2);
+
+    let new_pgm: String = arena.get(groups[0]).first_token.iter_chars().collect();
+    assert_eq!(new_pgm, "data X = X\nf x = x\n");
 }

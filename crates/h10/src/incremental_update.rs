@@ -45,7 +45,17 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         }
 
         let prev_decl = last_def.prev;
-        reparse_indentation_groups_decl(last_def_idx, prev_decl, arena);
+        let new_decl = reparse_indentation_groups_decl(last_def_idx, prev_decl, arena);
+
+        defs.pop();
+        let mut decl = new_decl;
+        loop {
+            defs.push(decl);
+            decl = match arena.get(decl).next {
+                Some(next) => next,
+                None => break,
+            };
+        }
 
         return;
     }
@@ -79,7 +89,17 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         empty_token.set_next(Some(first_token));
 
         let token = relex_insertion(empty_token, pos, text, arena);
-        reparse_indentation_groups_token(token, None, arena);
+        let mut decl = reparse_indentation_groups_token(token, None, arena);
+
+        defs.clear();
+        loop {
+            defs.push(decl);
+            decl = match arena.get(decl).next {
+                Some(next) => next,
+                None => break,
+            };
+        }
+
         return;
     }
 
@@ -99,7 +119,9 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     }
 
     let updated_token: TokenRef = find_token(arena.get(decl_idx), pos);
-    let relex_start_token: TokenRef = updated_token.prev().unwrap_or(updated_token);
+    let relex_start_token: TokenRef = updated_token
+        .prev()
+        .unwrap_or_else(|| updated_token.clone());
     let token_before_start: Option<TokenRef> = relex_start_token.prev();
     let new_token = relex_insertion(relex_start_token.clone(), pos, text, arena);
 
@@ -117,7 +139,19 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     arena.get_mut(modified_ast_node).kind = ast::TopDeclKind::Unparsed;
 
     let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
-    reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
+    let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
+
+    defs.drain(decl_idx_idx..);
+    if relex_start_token != updated_token {
+        defs.pop();
+    }
+    loop {
+        defs.push(decl);
+        decl = match arena.get(decl).next {
+            Some(next) => next,
+            None => break,
+        };
+    }
 }
 
 fn find_token(node: &ast::TopDecl, pos: Pos) -> TokenRef {
