@@ -119,10 +119,11 @@ impl TokenRef {
     }
 
     /// Whether the token is the last token of a top-level declaration.
-    ///
-    /// Panics if the token is not a part of a declaration.
     pub fn is_last_token(&self, arena: &DeclArena) -> bool {
-        &arena.get(self.ast_node().unwrap()).last_token == self
+        match self.ast_node() {
+            Some(decl_idx) => &arena.get(decl_idx).last_token == self,
+            None => false,
+        }
     }
 
     pub fn set_next(&self, next: Option<TokenRef>) {
@@ -171,8 +172,15 @@ impl TokenRef {
         *self.node.prev.borrow_mut() = None;
     }
 
-    pub fn set_ast_node(&self, node_idx: DeclIdx) {
+    /// Set the AST node of the token and update span line numbers to make them relative to the AST
+    /// node.
+    pub fn set_ast_node(&self, node_idx: DeclIdx, arena: &DeclArena) {
+        let absolute_span = self.absolute_span(arena);
+        let absolute_line = absolute_span.start.line;
         *self.ast_node.borrow_mut() = Some(node_idx);
+        let ast_node_line = arena.get(node_idx).line_number;
+        self.span.borrow_mut().start.line = absolute_line - ast_node_line;
+        self.span.borrow_mut().end.line -= absolute_line - ast_node_line;
     }
 
     pub fn ast_node(&self) -> Option<DeclIdx> {

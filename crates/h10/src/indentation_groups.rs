@@ -18,60 +18,28 @@ fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<D
         }
     }
 
-    let mut groups: Vec<DeclIdx> = vec![];
+    reparse_indentation_groups_token(token.clone(), None, arena);
 
-    loop {
-        let group_idx = parse_group(token.clone(), arena);
-        groups.push(group_idx);
-        let next = arena.get(group_idx).last_token.next();
-
-        match next {
-            Some(next) => token = next,
-            None => break,
-        }
+    let mut decls: Vec<DeclIdx> = vec![];
+    let mut top_decl = token.ast_node().unwrap();
+    decls.push(top_decl);
+    while let Some(next) = arena.get(top_decl).next {
+        decls.push(next);
+        top_decl = next;
     }
 
-    groups
-}
-
-fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
-    let last_token = find_group_end(first_token.clone());
-
-    let first_token_line_number = first_token.span().start.line;
-
-    let group = ast::TopDecl {
-        kind: ast::TopDeclKind::Unparsed,
-        line_number: first_token_line_number,
-        first_token: first_token.clone(),
-        last_token: last_token.clone(),
-        next: None,
-        prev: None,
-    };
-
-    let group_idx = arena.allocate(group);
-
-    // Set AST nodes of tokens in the group.
-    for token in first_token.iter_until(&last_token) {
-        token.set_ast_node(group_idx);
-
-        // Line numbers of tokens attached to AST nodes will be relative to the AST node.
-        token.span.borrow_mut().start.line -= first_token_line_number;
-        token.span.borrow_mut().end.line -= first_token_line_number;
-    }
-
-    group_idx
+    decls
 }
 
 /// Re-parse indentation groups after re-lexing, starting with the group at [`decl_idx`].
 ///
-/// Reused AST are turned into [`TopDecl::Unparsed`] as they need to be re-parsed.
+/// Reused AST nodes are turned into [`TopDecl::Unparsed`] as they need to be re-parsed.
 ///
 /// New AST nodes are introduces as [`TopDecl::Unparsed`].
 ///
 /// AST nodes with no modified tokens are re-used if the token after the last token of the groups
 /// is still a non-whitesapce token at column 0. If not, the two groups are merged in a new
 /// [`TopDecl::Unparsed`]. This is the lookahead check before reducing a non-terminal.
-#[allow(unused)]
 fn reparse_indentation_groups_decl(
     decl_idx: DeclIdx,
     prev_decl_idx: Option<DeclIdx>,
@@ -104,6 +72,7 @@ fn reparse_indentation_groups_decl(
     reparse_indentation_groups_token(decl.first_token.clone(), prev_decl_idx, arena);
 }
 
+/// Re-parse indentationg groups starting with the token [`new_group_start`].
 fn reparse_indentation_groups_token(
     new_group_start: TokenRef,
     prev_decl_idx: Option<DeclIdx>,
@@ -128,7 +97,7 @@ fn reparse_indentation_groups_token(
     let break_next_down = !new_group_end.is_last_token(arena);
 
     for token in new_group_start.iter_until(&new_group_end) {
-        token.set_ast_node(new_decl_idx);
+        token.set_ast_node(new_decl_idx, arena);
     }
 
     if break_next_down {
