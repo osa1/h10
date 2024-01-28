@@ -70,7 +70,7 @@ pub(crate) fn reparse_indentation_groups_decl(
     reparse_indentation_groups_token(decl.first_token.clone(), prev_decl_idx, arena);
 }
 
-/// Re-parse indentationg groups starting with the token [`new_group_start`].
+/// Re-parse indentation groups starting with the token [`new_group_start`].
 pub(crate) fn reparse_indentation_groups_token(
     new_group_start: TokenRef,
     prev_decl_idx: Option<DeclIdx>,
