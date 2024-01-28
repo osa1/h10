@@ -52,6 +52,9 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
         line_number: first_token_line_number,
         first_token: first_token.clone(),
         last_token: last_token.clone(),
+        modified: false,
+        next: None,
+        prev: None,
     };
 
     let group_idx = arena.allocate(group);

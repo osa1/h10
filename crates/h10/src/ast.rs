@@ -1,4 +1,5 @@
 use crate::collections::Set;
+use crate::decl_arena::DeclIdx;
 use crate::id::Id;
 use crate::pos::Pos;
 use crate::token::TokenRef;
@@ -61,6 +62,15 @@ pub struct TopDecl {
     /// This will almost always be a whitespace token as there needs to be at least one new line
     /// between top-level declarations, and files usually end with a new line.
     pub last_token: TokenRef,
+
+    /// Whether a token of this declaration was modified during re-lexing.
+    pub modified: bool,
+
+    /// Next declaration in the declaration's module.
+    pub next: Option<DeclIdx>,
+
+    /// Previous declaration in the declaration's module.
+    pub prev: Option<DeclIdx>,
 }
 
 impl fmt::Debug for TopDecl {
