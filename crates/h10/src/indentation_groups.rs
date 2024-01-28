@@ -3,13 +3,11 @@ mod tests;
 
 use crate::ast;
 use crate::decl_arena::{DeclArena, DeclIdx};
-use crate::lexing::lex_full;
-use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::TokenKind;
 
 /// Parse indentation groups as [`ast::TopDeclKind::Unparsed`] declarations.
-fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
+pub(crate) fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
     // Skip initial whitespace.
     while matches!(token.token(), TokenKind::Whitespace) {
         match token.next() {
@@ -40,7 +38,7 @@ fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<D
 /// AST nodes with no modified tokens are re-used if the token after the last token of the groups
 /// is still a non-whitesapce token at column 0. If not, the two groups are merged in a new
 /// [`TopDecl::Unparsed`]. This is the lookahead check before reducing a non-terminal.
-fn reparse_indentation_groups_decl(
+pub(crate) fn reparse_indentation_groups_decl(
     decl_idx: DeclIdx,
     prev_decl_idx: Option<DeclIdx>,
     arena: &mut DeclArena,
@@ -73,7 +71,7 @@ fn reparse_indentation_groups_decl(
 }
 
 /// Re-parse indentationg groups starting with the token [`new_group_start`].
-fn reparse_indentation_groups_token(
+pub(crate) fn reparse_indentation_groups_token(
     new_group_start: TokenRef,
     prev_decl_idx: Option<DeclIdx>,
     arena: &mut DeclArena,
@@ -131,60 +129,4 @@ fn find_group_end(token: TokenRef) -> TokenRef {
 /// Whether the token is the start of an indentation group.
 fn is_group_start(token: &TokenRef) -> bool {
     !matches!(token.token(), TokenKind::Whitespace) && token.span().start.col == 0
-}
-
-#[allow(unused)]
-pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &str) {
-    if text.is_empty() {
-        return;
-    }
-
-    if defs.is_empty() {
-        let tokens = lex_full(text);
-        *defs = parse_indentation_groups(tokens, arena);
-        return;
-    }
-
-    // Insert before the first group.
-    if pos < arena.get(defs[0]).span_start() {
-        todo!()
-    }
-
-    // Insert after the last group.
-    if pos >= arena.get(*defs.last().unwrap()).span_end() {
-        todo!()
-    }
-
-    // TODO: Binary search.
-    let (decl_idx_idx, decl_idx) = defs
-        .iter()
-        .copied()
-        .enumerate()
-        .find(|(_decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
-        .unwrap();
-
-    // Update line numbers of groups after the current one.
-    let n_lines_inserted = (text.lines().count() - 1) as u32;
-    if n_lines_inserted != 0 {
-        for decl_idx in &defs[decl_idx_idx + 1..] {
-            arena.get_mut(*decl_idx).line_number += n_lines_inserted;
-        }
-    }
-
-    let updated_token = find_token(arena.get(decl_idx), pos);
-    let relex_start_token = updated_token.prev().unwrap_or(updated_token);
-
-    // TODO: Reparse.
-}
-
-fn find_token(node: &ast::TopDecl, pos: Pos) -> TokenRef {
-    // Update `pos` so that the line number is relative to the declaration.
-    let pos = Pos {
-        line: pos.line - node.span_start().line,
-        char: pos.char,
-    };
-
-    node.iter_tokens()
-        .find(|t| t.contains_location(pos))
-        .unwrap()
 }

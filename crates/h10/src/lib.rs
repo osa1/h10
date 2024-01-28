@@ -12,6 +12,7 @@ mod dependency_analysis;
 mod id;
 mod incremental_lexing;
 mod incremental_parsing;
+pub mod incremental_update;
 mod indentation_groups;
 mod kind_inference;
 mod layout_token_generator;

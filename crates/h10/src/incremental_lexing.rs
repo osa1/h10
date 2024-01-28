@@ -15,8 +15,7 @@ use h10_lexer::Lexer;
 /// [`TokenKind`] equality is based on: token kind, token text, token absolute position. I think
 /// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
 /// or a space (in a non-indentation position) is changed, but for now this will do.
-#[allow(unused)]
-fn relex_insertion(
+pub(crate) fn relex_insertion(
     token: TokenRef,
     insertion_pos: Pos,
     inserted_text: &str,
