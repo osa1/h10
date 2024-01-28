@@ -1,5 +1,8 @@
 //! Defines the entry points for LSP updates.
 
+#[cfg(test)]
+mod tests;
+
 use crate::ast::{self, Span};
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::incremental_lexing::relex_insertion;
@@ -27,7 +30,24 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
 
     // Insert after the last group.
     if pos >= arena.get(*defs.last().unwrap()).span_end() {
-        todo!()
+        let last_def_idx = *defs.last().unwrap();
+        let last_def = arena.get(last_def_idx);
+
+        // The file should be tokenized including the trailing whitespace, so insertion to the end
+        // can be at the last position.
+        assert!(pos == last_def.span_end());
+
+        let last_token = last_def.last_token.clone();
+        let new_token = relex_insertion(last_token.clone(), pos, text, arena);
+
+        if let Some(prev) = last_token.prev() {
+            prev.set_next(Some(new_token.clone()));
+        }
+
+        let prev_decl = last_def.prev;
+        reparse_indentation_groups_decl(last_def_idx, prev_decl, arena);
+
+        return;
     }
 
     let n_lines_inserted = (text.lines().count() - 1) as u32;
@@ -80,12 +100,17 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
 
     let updated_token: TokenRef = find_token(arena.get(decl_idx), pos);
     let relex_start_token: TokenRef = updated_token.prev().unwrap_or(updated_token);
-
     let token_before_start: Option<TokenRef> = relex_start_token.prev();
     let new_token = relex_insertion(relex_start_token.clone(), pos, text, arena);
 
     if let Some(prev_token) = token_before_start {
-        prev_token.set_next(Some(new_token));
+        prev_token.set_next(Some(new_token.clone()));
+    }
+
+    if relex_start_token.is_first_token(arena) {
+        arena
+            .get_mut(relex_start_token.ast_node().unwrap())
+            .first_token = new_token;
     }
 
     let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();

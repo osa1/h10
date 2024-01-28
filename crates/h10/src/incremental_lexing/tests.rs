@@ -112,7 +112,7 @@ fn relex_insertion_same_group() {
         &arena,
     );
 
-    // The tokens before the first one should not be identical.
+    // The tokens before the first updated one should be identical.
     assert_eq!(
         &token.iter().take(8).collect::<Vec<TokenRef>>(),
         &initial_token_list[0..8]

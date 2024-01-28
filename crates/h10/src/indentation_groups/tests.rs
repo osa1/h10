@@ -104,13 +104,3 @@ fn simple_parsing_3() {
 
     token.check_token_str(pgm);
 }
-
-#[allow(unused)]
-fn collect_token_kinds(token: &TokenRef) -> Vec<TokenKind> {
-    token.iter().map(|t| t.token()).collect()
-}
-
-#[allow(unused)]
-fn collect_token_texts(token: &TokenRef) -> Vec<String> {
-    token.iter().map(|t| t.text().to_owned()).collect()
-}

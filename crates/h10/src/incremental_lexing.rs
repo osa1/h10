@@ -15,6 +15,11 @@ use h10_lexer::Lexer;
 /// [`TokenKind`] equality is based on: token kind, token text, token absolute position. I think
 /// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
 /// or a space (in a non-indentation position) is changed, but for now this will do.
+///
+/// The returned token is the replacement for [`token`]. The caller should update:
+///
+/// - If [`token`] is the first or last token of an AST node, the AST node.
+/// - The previous token's `next`.
 pub(crate) fn relex_insertion(
     token: TokenRef,
     insertion_pos: Pos,
@@ -34,7 +39,7 @@ pub(crate) fn relex_insertion(
     let mut first_token: Option<TokenRef> = None;
     let mut last_token: Option<TokenRef> = None;
 
-    let mut old_token = Some(token);
+    let mut old_token: Option<TokenRef> = Some(token.clone());
     'lexing: for token in lexer {
         let token = token.unwrap();
         let new_token = TokenRef::from_lexer_token(token);

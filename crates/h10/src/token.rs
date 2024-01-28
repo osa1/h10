@@ -118,6 +118,14 @@ impl TokenRef {
         span
     }
 
+    /// Whether the token is the first token of a top-level declaration.
+    pub fn is_first_token(&self, arena: &DeclArena) -> bool {
+        match self.ast_node() {
+            Some(decl_idx) => &arena.get(decl_idx).first_token == self,
+            None => false,
+        }
+    }
+
     /// Whether the token is the last token of a top-level declaration.
     pub fn is_last_token(&self, arena: &DeclArena) -> bool {
         match self.ast_node() {
