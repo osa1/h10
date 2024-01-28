@@ -16,10 +16,9 @@ pub(crate) fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclAren
         }
     }
 
-    reparse_indentation_groups_token(token.clone(), None, arena);
+    let mut top_decl = reparse_indentation_groups_token(token.clone(), None, arena);
 
     let mut decls: Vec<DeclIdx> = vec![];
-    let mut top_decl = token.ast_node().unwrap();
     decls.push(top_decl);
     while let Some(next) = arena.get(top_decl).next {
         decls.push(next);
@@ -30,6 +29,9 @@ pub(crate) fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclAren
 }
 
 /// Re-parse indentation groups after re-lexing, starting with the group at [`decl_idx`].
+///
+/// Returns the new declaraiton index for the declaration at [`decl_idx`]. When the declaration is
+/// reused it's the same as the [`decl_idx`].
 ///
 /// Reused AST nodes are turned into [`TopDecl::Unparsed`] as they need to be re-parsed.
 ///
@@ -42,7 +44,7 @@ pub(crate) fn reparse_indentation_groups_decl(
     decl_idx: DeclIdx,
     prev_decl_idx: Option<DeclIdx>,
     arena: &mut DeclArena,
-) {
+) -> DeclIdx {
     let decl = arena.get(decl_idx);
 
     // A node can be reused if it's not modified and the next token's indentation was not
@@ -57,25 +59,23 @@ pub(crate) fn reparse_indentation_groups_decl(
         };
 
     if reuse {
-        match decl.next {
-            Some(next_decl_idx) => {
-                return reparse_indentation_groups_decl(next_decl_idx, Some(decl_idx), arena);
-            }
-            None => {
-                return;
-            }
+        if let Some(next_decl_idx) = decl.next {
+            reparse_indentation_groups_decl(next_decl_idx, Some(decl_idx), arena);
         }
+        return decl_idx;
     }
 
-    reparse_indentation_groups_token(decl.first_token.clone(), prev_decl_idx, arena);
+    reparse_indentation_groups_token(decl.first_token.clone(), prev_decl_idx, arena)
 }
 
 /// Re-parse indentation groups starting with the token [`new_group_start`].
+///
+/// Returns the declaration index of the first declaration starting at [`new_group_start`].
 pub(crate) fn reparse_indentation_groups_token(
     new_group_start: TokenRef,
     prev_decl_idx: Option<DeclIdx>,
     arena: &mut DeclArena,
-) {
+) -> DeclIdx {
     let new_group_end = find_group_end(new_group_start.clone());
 
     let new_group = ast::TopDecl {
@@ -109,6 +109,8 @@ pub(crate) fn reparse_indentation_groups_token(
             arena,
         );
     }
+
+    new_decl_idx
 }
 
 /// Find the last token of the indentation group of the given token.
