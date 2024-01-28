@@ -63,9 +63,6 @@ pub struct TopDecl {
     /// between top-level declarations, and files usually end with a new line.
     pub last_token: TokenRef,
 
-    /// Whether a token of this declaration was modified during re-lexing.
-    pub modified: bool,
-
     /// Next declaration in the declaration's module.
     pub next: Option<DeclIdx>,
 

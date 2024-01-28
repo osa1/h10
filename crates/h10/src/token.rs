@@ -118,6 +118,13 @@ impl TokenRef {
         span
     }
 
+    /// Whether the token is the last token of a top-level declaration.
+    ///
+    /// Panics if the token is not a part of a declaration.
+    pub fn is_last_token(&self, arena: &DeclArena) -> bool {
+        &arena.get(self.ast_node().unwrap()).last_token == self
+    }
+
     pub fn set_next(&self, next: Option<TokenRef>) {
         *self.node.next.borrow_mut() = next.clone();
         if let Some(next) = next {

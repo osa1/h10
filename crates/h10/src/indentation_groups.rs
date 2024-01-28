@@ -35,15 +35,7 @@ fn parse_indentation_groups(mut token: TokenRef, arena: &mut DeclArena) -> Vec<D
 }
 
 fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
-    let mut last_token = first_token.clone();
-
-    while let Some(next_token) = last_token.next() {
-        let indent = next_token.span().start.col;
-        if !matches!(next_token.token(), TokenKind::Whitespace) && indent == 0 {
-            break;
-        }
-        last_token = next_token;
-    }
+    let last_token = find_group_end(first_token.clone());
 
     let first_token_line_number = first_token.span().start.line;
 
@@ -52,7 +44,6 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
         line_number: first_token_line_number,
         first_token: first_token.clone(),
         last_token: last_token.clone(),
-        modified: false,
         next: None,
         prev: None,
     };
@@ -69,6 +60,108 @@ fn parse_group(first_token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     }
 
     group_idx
+}
+
+/// Re-parse indentation groups after re-lexing, starting with the group at [`decl_idx`].
+///
+/// Reused AST are turned into [`TopDecl::Unparsed`] as they need to be re-parsed.
+///
+/// New AST nodes are introduces as [`TopDecl::Unparsed`].
+///
+/// AST nodes with no modified tokens are re-used if the token after the last token of the groups
+/// is still a non-whitesapce token at column 0. If not, the two groups are merged in a new
+/// [`TopDecl::Unparsed`]. This is the lookahead check before reducing a non-terminal.
+#[allow(unused)]
+fn reparse_indentation_groups_decl(
+    decl_idx: DeclIdx,
+    prev_decl_idx: Option<DeclIdx>,
+    arena: &mut DeclArena,
+) {
+    let decl = arena.get(decl_idx);
+
+    // A node can be reused if it's not modified and the next token's indentation was not
+    // updated.
+    //
+    // Next token indentation check is basically the lookahead check before reducing a
+    // non-terminal.
+    let reuse = !matches!(decl.kind, ast::TopDeclKind::Unparsed)
+        && match decl.last_token.next() {
+            Some(next) => is_group_start(&next),
+            None => true,
+        };
+
+    if reuse {
+        match decl.next {
+            Some(next_decl_idx) => {
+                return reparse_indentation_groups_decl(next_decl_idx, Some(decl_idx), arena);
+            }
+            None => {
+                return;
+            }
+        }
+    }
+
+    reparse_indentation_groups_token(decl.first_token.clone(), prev_decl_idx, arena);
+}
+
+fn reparse_indentation_groups_token(
+    new_group_start: TokenRef,
+    prev_decl_idx: Option<DeclIdx>,
+    arena: &mut DeclArena,
+) {
+    let new_group_end = find_group_end(new_group_start.clone());
+
+    let new_group = ast::TopDecl {
+        kind: ast::TopDeclKind::Unparsed,
+        // TODO: this is probably not right as the token line number will be relative?
+        line_number: new_group_start.span().start.line,
+        first_token: new_group_start.clone(),
+        last_token: new_group_end.clone(),
+        next: None,
+        prev: prev_decl_idx,
+    };
+    let new_decl_idx = arena.allocate(new_group);
+    if let Some(prev_decl_idx) = prev_decl_idx {
+        arena.get_mut(prev_decl_idx).next = Some(new_decl_idx);
+    }
+
+    let break_next_down = !new_group_end.is_last_token(arena);
+
+    for token in new_group_start.iter_until(&new_group_end) {
+        token.set_ast_node(new_decl_idx);
+    }
+
+    if break_next_down {
+        if let Some(next_group_start) = new_group_end.next() {
+            reparse_indentation_groups_token(next_group_start, Some(new_decl_idx), arena);
+        }
+    } else if let Some(next_group_start) = new_group_end.next() {
+        reparse_indentation_groups_decl(
+            next_group_start.ast_node().unwrap(),
+            Some(new_decl_idx),
+            arena,
+        );
+    }
+}
+
+/// Find the last token of the indentation group of the given token.
+///
+/// Starting with the given token, follow the links until finding a start of an indentation group
+/// and return the token before that.
+fn find_group_end(token: TokenRef) -> TokenRef {
+    let mut last_token = token;
+    while let Some(next_token) = last_token.next() {
+        if is_group_start(&next_token) {
+            break;
+        }
+        last_token = next_token;
+    }
+    last_token
+}
+
+/// Whether the token is the start of an indentation group.
+fn is_group_start(token: &TokenRef) -> bool {
+    !matches!(token.token(), TokenKind::Whitespace) && token.span().start.col == 0
 }
 
 #[allow(unused)]
