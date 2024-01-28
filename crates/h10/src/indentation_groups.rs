@@ -52,16 +52,34 @@ pub(crate) fn reparse_indentation_groups_decl(
     //
     // Next token indentation check is basically the lookahead check before reducing a
     // non-terminal.
-    let reuse = !matches!(decl.kind, ast::TopDeclKind::Unparsed)
+    let reuse = !decl.modified
         && match decl.last_token.next() {
             Some(next) => is_group_start(&next),
             None => true,
         };
 
     if reuse {
-        if let Some(next_decl_idx) = decl.next {
-            reparse_indentation_groups_decl(next_decl_idx, Some(decl_idx), arena);
+        if let Some(prev_decl_idx) = prev_decl_idx {
+            arena.get_mut(prev_decl_idx).next = Some(decl_idx);
         }
+
+        let decl = arena.get(decl_idx);
+
+        if let Some(next_token) = decl.last_token.next() {
+            match decl.next {
+                Some(next_decl_idx) => {
+                    if next_token == arena.get(next_decl_idx).first_token {
+                        reparse_indentation_groups_decl(next_decl_idx, Some(decl_idx), arena);
+                    } else {
+                        reparse_indentation_groups_token(next_token, Some(decl_idx), arena);
+                    }
+                }
+                None => {
+                    reparse_indentation_groups_token(next_token, Some(decl_idx), arena);
+                }
+            }
+        }
+
         return decl_idx;
     }
 

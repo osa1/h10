@@ -153,7 +153,7 @@ fn multiple_groups_insert_middle() {
     );
 
     // FIXME
-    // assert_eq!(groups[0], old_groups[0]);
+    assert_eq!(groups[0], old_groups[0]);
     // assert_eq!(groups[2], old_groups[1]);
 
     let new_pgm: String = arena.get(groups[0]).first_token.iter_chars().collect();

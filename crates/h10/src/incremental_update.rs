@@ -119,6 +119,10 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     }
 
     let updated_token: TokenRef = find_token(arena.get(decl_idx), pos);
+    if let Some(decl_idx) = updated_token.ast_node() {
+        arena.get_mut(decl_idx).modified = true;
+    }
+
     let relex_start_token: TokenRef = updated_token
         .prev()
         .unwrap_or_else(|| updated_token.clone());
