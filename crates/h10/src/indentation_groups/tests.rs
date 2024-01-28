@@ -1,5 +1,5 @@
 use super::*;
-use h10_lexer::Lexer;
+use crate::lexing::lex_full;
 
 use indoc::indoc;
 
@@ -11,7 +11,7 @@ fn simple_parsing_1() {
         "};
 
     let mut arena = DeclArena::new();
-    let token = lex(pgm);
+    let token = lex_full(pgm);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
 
@@ -43,7 +43,7 @@ fn simple_parsing_2() {
             data B
         "};
     let mut arena = DeclArena::new();
-    let token = lex(pgm);
+    let token = lex_full(pgm);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
 
@@ -86,7 +86,7 @@ fn simple_parsing_3() {
                 t = 5       -- 11
         "};
     let mut arena = DeclArena::new();
-    let token = lex(pgm);
+    let token = lex_full(pgm);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
 
@@ -103,150 +103,6 @@ fn simple_parsing_3() {
     assert_eq!(group2.line_number, 7);
 
     token.check_token_str(pgm);
-}
-
-#[test]
-fn insertion_iteration_0() {
-    let pgm = indoc! {"
-            data A
-            data B
-        "};
-
-    let token = lex(pgm);
-
-    let insertion_pos = Pos { line: 0, char: 6 };
-    let inserted_text = "";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
-
-    assert_eq!(new_text, pgm);
-}
-
-#[test]
-fn insertion_iteration_1() {
-    let pgm = indoc! {"
-            data B
-        "};
-
-    let token = lex(pgm);
-
-    let insertion_pos = Pos { line: 0, char: 0 };
-    let inserted_text = "data A\n";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
-
-    assert_eq!(
-        new_text,
-        indoc! {"
-            data A
-            data B
-        "}
-    );
-}
-
-#[test]
-fn insertion_iteration_2() {
-    let pgm = indoc! {"
-            data A
-            data B
-        "};
-
-    let token = lex(pgm);
-
-    let insertion_pos = Pos { line: 0, char: 6 };
-    let inserted_text = " = A";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
-
-    assert_eq!(
-        new_text,
-        indoc! {"
-            data A = A
-            data B
-        "}
-    );
-}
-
-#[test]
-fn insertion_iteration_3() {
-    let pgm = indoc! {"
-            data A
-            data B
-        "};
-
-    let token = lex(pgm);
-
-    let insertion_pos = Pos { line: 1, char: 6 };
-    let inserted_text = "\ndata C";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
-
-    assert_eq!(
-        new_text,
-        indoc! {"
-            data A
-            data B
-            data C
-        "}
-    );
-}
-
-#[test]
-fn relex_same_group() {
-    let pgm = indoc! {"
-        f x y =
-            x y
-            z t
-    "};
-
-    let token = lex(pgm);
-    let initial_token_list: Vec<TokenRef> = token.iter().collect();
-
-    let arena = DeclArena::new();
-
-    let relex_start_token = token.iter().nth(8).unwrap();
-    assert_eq!(relex_start_token.text(), "x");
-
-    let new_token = relex(
-        relex_start_token.clone(),
-        Pos { line: 1, char: 5 },
-        " +",
-        &arena,
-    );
-
-    // The tokens before the first one should not be identical.
-    assert_eq!(
-        &token.iter().take(8).collect::<Vec<TokenRef>>(),
-        &initial_token_list[0..8]
-    );
-
-    // Starting from `relex` the whole line should be re-generated.
-    assert_eq!(new_token.text(), "x");
-    assert_ne!(new_token, relex_start_token);
-
-    assert_eq!(
-        new_token.iter_chars().collect::<String>(),
-        "x + y\n    z t\n"
-    );
-
-    let new_token_list: Vec<TokenRef> = new_token.iter().collect();
-    assert_eq!(&new_token_list[6..], &initial_token_list[12..]); // "z t\n"
-}
-
-fn lex(s: &str) -> TokenRef {
-    let lexer = Lexer::new(s);
-    let mut first_token: Option<TokenRef> = None;
-    let mut last_token: Option<TokenRef> = None;
-    for t in lexer {
-        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
-        if first_token.is_none() {
-            first_token = Some(t.clone());
-        } else if let Some(last_token_) = last_token {
-            last_token_.set_next(Some(t.clone()));
-        }
-        last_token = Some(t.clone());
-    }
-    first_token.unwrap()
 }
 
 #[allow(unused)]
