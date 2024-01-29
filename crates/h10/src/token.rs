@@ -6,15 +6,15 @@ use crate::collections::Set;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::pos::Pos;
 
+use arc_id::ArcId;
 use h10_lexer::Token as LexerToken;
 use h10_lexer::TokenKind as LexerTokenKind;
-use rc_id::RcId;
 
 use lexgen_util::Loc;
 
-use std::cell::RefCell;
 use std::fmt;
 use std::ops::Deref;
+use std::sync::Mutex;
 
 use smol_str::SmolStr;
 
@@ -24,7 +24,7 @@ use smol_str::SmolStr;
 /// Equality and hash are implemented based on reference equality.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenRef {
-    node: RcId<Token>,
+    node: ArcId<Token>,
 }
 
 impl Deref for TokenRef {
@@ -47,20 +47,20 @@ pub struct Token {
     ///
     /// Column number is also relative, but it's also absolute as top-level groups always start at
     /// column 0.
-    pub span: RefCell<Span>,
+    pub span: Mutex<Span>,
 
     /// The previous token.
-    prev: RefCell<Option<TokenRef>>,
+    prev: Mutex<Option<TokenRef>>,
 
     /// The next token.
-    next: RefCell<Option<TokenRef>>,
+    next: Mutex<Option<TokenRef>>,
 
     /// When this token is a part of an AST node, the reference to the node.
     ///
     /// Currently only update top-level declarations when re-parsing, so this holds an index to a
     /// top-level declaration. In the future we may want to hold references to arbitrary AST nodes
     /// to allow more fine-grained incremental updates.
-    ast_node: RefCell<Option<DeclIdx>>,
+    ast_node: Mutex<Option<DeclIdx>>,
 
     /// The token text.
     text: SmolStr,
@@ -82,7 +82,7 @@ impl fmt::Debug for Token {
 impl TokenRef {
     pub fn new(token: LexerToken, span: Span) -> Self {
         Self {
-            node: RcId::new(Token::new(token, span)),
+            node: ArcId::new(Token::new(token, span)),
         }
     }
 
@@ -103,7 +103,7 @@ impl TokenRef {
     /// When the token is attached to an AST (i.e. [`ast_node`] is not `None`), the line numbers will
     /// be relative to the AST node. If you need absolute line numbers, use [`absolute_span`].
     pub fn span(&self) -> Span {
-        self.node.span.borrow().clone()
+        self.node.span.lock().unwrap().clone()
     }
 
     /// Similar to [`span`], but the returned span will have absolute line numbers even when the
@@ -135,18 +135,18 @@ impl TokenRef {
     }
 
     pub fn set_next(&self, next: Option<TokenRef>) {
-        *self.node.next.borrow_mut() = next.clone();
+        *self.node.next.lock().unwrap() = next.clone();
         if let Some(next) = next {
-            *next.node.prev.borrow_mut() = Some(self.clone());
+            *next.node.prev.lock().unwrap() = Some(self.clone());
         }
     }
 
     pub fn next(&self) -> Option<TokenRef> {
-        self.node.next.borrow().clone()
+        self.node.next.lock().unwrap().clone()
     }
 
     pub fn prev(&self) -> Option<TokenRef> {
-        self.node.prev.borrow().clone()
+        self.node.prev.lock().unwrap().clone()
     }
 
     /// Returns an iterator that iterates all tokens starting from `self` until the end of the
@@ -176,8 +176,8 @@ impl TokenRef {
     }
 
     pub fn clear_links(&self) {
-        *self.node.next.borrow_mut() = None;
-        *self.node.prev.borrow_mut() = None;
+        *self.node.next.lock().unwrap() = None;
+        *self.node.prev.lock().unwrap() = None;
     }
 
     /// Set the AST node of the token and update span line numbers to make them relative to the AST
@@ -185,14 +185,14 @@ impl TokenRef {
     pub fn set_ast_node(&self, node_idx: DeclIdx, arena: &DeclArena) {
         let absolute_span = self.absolute_span(arena);
         let absolute_line = absolute_span.start.line;
-        *self.ast_node.borrow_mut() = Some(node_idx);
+        *self.ast_node.lock().unwrap() = Some(node_idx);
         let ast_node_line = arena.get(node_idx).line_number;
-        self.span.borrow_mut().start.line = absolute_line - ast_node_line;
-        self.span.borrow_mut().end.line -= absolute_line - ast_node_line;
+        self.span.lock().unwrap().start.line = absolute_line - ast_node_line;
+        self.span.lock().unwrap().end.line -= absolute_line - ast_node_line;
     }
 
     pub fn ast_node(&self) -> Option<DeclIdx> {
-        *self.ast_node.borrow()
+        *self.ast_node.lock().unwrap()
     }
 
     /// Whether the token contains the given location.
@@ -287,10 +287,10 @@ impl Token {
 
         Self {
             token: token.kind,
-            span: RefCell::new(span),
-            prev: RefCell::new(None),
-            next: RefCell::new(None),
-            ast_node: RefCell::new(None),
+            span: Mutex::new(span),
+            prev: Mutex::new(None),
+            next: Mutex::new(None),
+            ast_node: Mutex::new(None),
             text: token.text.clone(),
         }
     }

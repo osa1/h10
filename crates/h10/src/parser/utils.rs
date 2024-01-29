@@ -174,7 +174,7 @@ impl Parser {
     }
 
     pub(super) fn last_tok_span(&self) -> (Loc, Loc) {
-        let span = self.last_tok.as_ref().unwrap().span.borrow();
+        let span = self.last_tok.as_ref().unwrap().span.lock().unwrap();
         (span.start, span.end)
     }
 }

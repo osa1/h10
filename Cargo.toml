@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/arc_id",
     "crates/h10",
     "crates/h10_language_server",
     "crates/h10_lexer",

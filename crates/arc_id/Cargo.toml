@@ -1,0 +1,7 @@
+[package]
+name = "arc_id"
+version = "0.1.0"
+authors = ["Ömer Sinan Ağacan <omeragacan@gmail.com>"]
+repository = "https://github.com/osa1/h10"
+license = "MIT"
+edition = "2021"

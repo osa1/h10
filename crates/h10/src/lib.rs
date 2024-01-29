@@ -1,13 +1,13 @@
 #![allow(clippy::new_without_default, clippy::manual_range_contains)]
 
 pub mod alloc;
-mod ast;
+pub mod ast;
 mod ast_to_ty;
 mod bind_groups;
 mod class_collector;
 mod class_env;
 mod collections;
-mod decl_arena;
+pub mod decl_arena;
 mod dependency_analysis;
 mod id;
 mod incremental_lexing;
@@ -17,7 +17,7 @@ mod kind_inference;
 mod layout_token_generator;
 mod lexing;
 mod parser;
-mod pos;
+pub mod pos;
 mod scc;
 mod scope_map;
 mod token;

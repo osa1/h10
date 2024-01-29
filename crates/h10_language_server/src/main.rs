@@ -1,10 +1,14 @@
-#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::field_reassign_with_default, deprecated)]
 
+mod ast;
 mod buffer;
 mod token;
 
+use ast::Ast;
 use buffer::{Buffer, Token};
 use token::TOKEN_TYPES;
+
+use h10_lexer::{ReservedId, TokenKind};
 
 use std::fs::File;
 use std::io::Write;
@@ -32,18 +36,19 @@ fn main() {
             log_file: Mutex::new(log_file),
             file_uri: Mutex::new(None),
             buffer: Mutex::new(None),
+            ast: Ast::new(),
         });
         Server::new(stdin, stdout, socket).serve(service).await;
     });
 }
 
-#[derive(Debug)]
 struct Backend {
     #[allow(unused)]
     client: Client,
     log_file: Mutex<File>,
     file_uri: Mutex<Option<Url>>,
     buffer: Mutex<Option<Buffer>>,
+    ast: Ast,
 }
 
 #[tower_lsp::async_trait]
@@ -113,7 +118,7 @@ impl LanguageServer for Backend {
 
         // TODO: Are the changes sorted by range? We may need to sort it and apply changes starting
         // from the later ones in the document to avoid invalidating positions.
-        for change in params.content_changes {
+        for change in &params.content_changes {
             let range = match &change.range {
                 Some(range) => range,
                 None => {
@@ -124,6 +129,10 @@ impl LanguageServer for Backend {
 
             buffer.update(range.start, range.end, &change.text);
         }
+
+        for change in params.content_changes {
+            self.ast.update(change.range.unwrap(), &change.text);
+        }
     }
 
     // Note: VSCode doesn't call this after every modification, we can generate the result lazily.
@@ -132,30 +141,63 @@ impl LanguageServer for Backend {
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
         writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-        Ok(None)
-        // let url: Url = self.file_uri.lock().unwrap().clone().unwrap();
-        // Ok(Some(DocumentSymbolResponse::Flat(vec![
-        //     SymbolInformation {
-        //         name: "test".to_owned(),
-        //         kind: SymbolKind::FUNCTION,
-        //         tags: None,
-        //         location: Location::new(
-        //             url,
-        //             Range {
-        //                 start: Position {
-        //                     line: 0,
-        //                     character: 0,
-        //                 },
-        //                 end: Position {
-        //                     line: 0,
-        //                     character: 0,
-        //                 },
-        //             },
-        //         ),
-        //         container_name: None,
-        //         deprecated: None,
-        //     },
-        // ])))
+
+        let mut symbols: Vec<SymbolInformation> = vec![];
+        let url: Url = self.file_uri.lock().unwrap().clone().unwrap();
+        for decl in self.ast.data.lock().unwrap().iter_decls() {
+            let (kind, name) = match decl.first_token.token() {
+                TokenKind::VarId => (SymbolKind::FUNCTION, decl.first_token.text().to_owned()),
+
+                TokenKind::ReservedId(ReservedId::Class | ReservedId::Instance) => {
+                    let next_token = match decl.first_token.next() {
+                        None => continue,
+                        Some(next_token) => next_token,
+                    };
+                    match next_token.token() {
+                        TokenKind::ConId => (SymbolKind::CLASS, next_token.text().to_owned()),
+                        _ => continue,
+                    }
+                }
+
+                TokenKind::ReservedId(
+                    ReservedId::Data | ReservedId::Newtype | ReservedId::Type,
+                ) => {
+                    let next_token = match decl.first_token.next() {
+                        None => continue,
+                        Some(next_token) => next_token,
+                    };
+                    match next_token.token() {
+                        TokenKind::ConId => (SymbolKind::STRUCT, next_token.text().to_owned()),
+                        _ => continue,
+                    }
+                }
+
+                _ => continue,
+            };
+
+            symbols.push(SymbolInformation {
+                name,
+                kind,
+                tags: None,
+                location: Location::new(
+                    url.clone(),
+                    Range {
+                        start: Position {
+                            line: decl.span_start().line,
+                            character: decl.span_start().char,
+                        },
+                        end: Position {
+                            line: decl.span_end().line,
+                            character: decl.span_end().char,
+                        },
+                    },
+                ),
+                container_name: None,
+                deprecated: None,
+            });
+        }
+
+        Ok(Some(DocumentSymbolResponse::Flat(symbols)))
     }
 
     async fn semantic_tokens_full(
