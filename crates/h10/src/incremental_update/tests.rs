@@ -398,3 +398,12 @@ fn append_last_1() {
 
     assert_eq!(groups.len(), 3);
 }
+
+#[test]
+fn remove_all() {
+    let pgm = "f :: Int -> Int";
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    remove(&mut arena, &mut groups, Pos::new(0, 0), Pos::new(0, 15));
+}
