@@ -114,7 +114,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
 
     defs.drain(decl_idx_idx..);
-    if relex_start_token != updated_token {
+    if relex_start_token.ast_node() != updated_token.ast_node() {
         defs.pop();
     }
     loop {
@@ -183,7 +183,7 @@ pub fn remove(
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
 
     defs.drain(decl_idx_idx..);
-    if relex_start_token != updated_token {
+    if relex_start_token.ast_node() != updated_token.ast_node() {
         defs.pop();
     }
     loop {

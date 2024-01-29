@@ -173,6 +173,25 @@ fn deletion_iteration_2() {
 }
 
 #[test]
+fn deletion_iteration_3() {
+    let pgm = "y ::";
+
+    let token = lex_full(pgm);
+
+    let deletion_start = Pos { line: 0, char: 3 };
+    let deletion_end = Pos { line: 0, char: 4 };
+    let new_text: String = TokenCharIteratorWithDeletion::new(
+        token.clone(),
+        deletion_start,
+        deletion_end,
+        &DeclArena::new(),
+    )
+    .collect();
+
+    assert_eq!(new_text, "y :");
+}
+
+#[test]
 fn relex_insertion_same_group() {
     let pgm = indoc! {"
         f x y =

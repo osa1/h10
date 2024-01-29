@@ -326,3 +326,41 @@ fn append_line_no_newline() {
     let new_pgm: String = group0.first_token.iter_chars().collect();
     assert_eq!(new_pgm, "ab");
 }
+
+#[test]
+fn remove_last() {
+    let pgm = indoc! {"
+        f :: Int -> Int
+
+        x :: Int -> Int
+
+        y ::"};
+
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 3);
+
+    remove(&mut arena, &mut groups, Pos::new(4, 3), Pos::new(4, 4));
+
+    assert_eq!(groups.len(), 3);
+}
+
+#[test]
+fn append_last() {
+    let pgm = indoc! {"
+        f :: Int -> Int
+
+        x :: Int -> Int
+
+        y :"};
+
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 3);
+
+    insert(&mut arena, &mut groups, Pos::new(4, 3), ":");
+
+    assert_eq!(groups.len(), 3);
+}
