@@ -167,7 +167,7 @@ impl LanguageServer for Backend {
                 TokenKind::VarId => (SymbolKind::FUNCTION, decl.first_token.text().to_owned()),
 
                 TokenKind::ReservedId(ReservedId::Class | ReservedId::Instance) => {
-                    let next_token = match decl.first_token.next() {
+                    let next_token = match decl.first_token.next().and_then(|t| t.next()) {
                         None => continue,
                         Some(next_token) => next_token,
                     };
@@ -180,7 +180,7 @@ impl LanguageServer for Backend {
                 TokenKind::ReservedId(
                     ReservedId::Data | ReservedId::Newtype | ReservedId::Type,
                 ) => {
-                    let next_token = match decl.first_token.next() {
+                    let next_token = match decl.first_token.next().and_then(|t| t.next()) {
                         None => continue,
                         Some(next_token) => next_token,
                     };
