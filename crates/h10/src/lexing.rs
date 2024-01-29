@@ -1,5 +1,8 @@
+use crate::ast::Span;
 use crate::token::TokenRef;
-use h10_lexer::Lexer;
+use h10_lexer::{Lexer, Token, TokenKind};
+
+use lexgen_util::Loc;
 
 /// Tokenize a file from scrath.
 ///
@@ -17,5 +20,24 @@ pub(crate) fn lex_full(s: &str) -> TokenRef {
         }
         last_token = Some(t.clone());
     }
-    first_token.unwrap()
+    first_token.unwrap_or_else(|| {
+        TokenRef::new(
+            Token {
+                kind: TokenKind::Whitespace,
+                text: "".into(),
+            },
+            Span {
+                start: Loc {
+                    line: 0,
+                    col: 0,
+                    byte_idx: 0,
+                },
+                end: Loc {
+                    line: 0,
+                    col: 0,
+                    byte_idx: 0,
+                },
+            },
+        )
+    })
 }

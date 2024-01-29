@@ -82,11 +82,19 @@ impl fmt::Debug for TopDecl {
 
 impl TopDecl {
     pub fn span_start(&self) -> Pos {
-        Pos::from_loc(&self.first_token.span().start)
+        let token_pos = Pos::from_loc(&self.first_token.span().start);
+        Pos {
+            line: token_pos.line + self.line_number,
+            char: token_pos.char,
+        }
     }
 
     pub fn span_end(&self) -> Pos {
-        Pos::from_loc(&self.last_token.span().end)
+        let token_pos = Pos::from_loc(&self.last_token.span().end);
+        Pos {
+            line: token_pos.line + self.line_number,
+            char: token_pos.char,
+        }
     }
 
     pub fn contains_location(&self, pos: Pos) -> bool {

@@ -260,3 +260,40 @@ fn multiple_groups_merge() {
     let new_pgm: String = arena.get(groups[0]).first_token.iter_chars().collect();
     assert_eq!(new_pgm, "f x = x X\n");
 }
+
+#[test]
+fn insert_to_empty_doc() {
+    let token = lex_full("");
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 0);
+
+    insert(
+        &mut arena,
+        &mut groups,
+        Pos::new(0, 0),
+        indoc! {"
+            f :: Int -> Int
+
+            data Test = Test
+
+            newtype Blah
+        "},
+    );
+
+    assert_eq!(groups.len(), 3);
+
+    let decl0 = arena.get(groups[0]);
+    assert_eq!(decl0.span_start(), Pos::new(0, 0));
+    assert_eq!(decl0.span_end(), Pos::new(2, 0));
+
+    let decl1 = arena.get(groups[1]);
+    assert_eq!(decl1.span_start(), Pos::new(2, 0));
+    // FIXME
+    // assert_eq!(decl1.span_end(), Pos::new(4, 0));
+
+    let decl2 = arena.get(groups[2]);
+    assert_eq!(decl2.span_start(), Pos::new(4, 0));
+    // FIXME
+    // assert_eq!(decl2.span_end(), Pos::new(5, 0));
+}
