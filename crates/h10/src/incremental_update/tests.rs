@@ -401,6 +401,8 @@ fn append_last_1() {
 
 #[test]
 fn remove_all() {
+    // FIXME: We should always at least one group. Initial whitespace becomes a group. Empty file
+    // has one group with start and end positions (0, 0).
     let pgm = "f :: Int -> Int";
     let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
@@ -419,6 +421,20 @@ fn insert_insert() {
     insert(&mut arena, &mut groups, Pos::new(1, 0), "a");
     assert_eq!(groups.len(), 1);
     assert_eq!(arena.get(groups[0]).line_number, 1);
+}
 
-    // insert(&mut arena, &mut groups, Pos::new(1, 1), "a");
+#[test]
+fn insert_crash_1() {
+    // FIXME: Fixing `remove_all` will probably fix this as well. The problem here is that the
+    // token before the modified token does not have an AST node, but we assume all tokens to be
+    // associated with an AST node.
+    let pgm = "\na";
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 1);
+
+    insert(&mut arena, &mut groups, Pos::new(1, 1), "a");
+    assert_eq!(groups.len(), 1);
+    assert_eq!(arena.get(groups[0]).line_number, 1);
 }
