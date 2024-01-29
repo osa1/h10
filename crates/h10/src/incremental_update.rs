@@ -28,38 +28,6 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         return;
     }
 
-    // Insert after the last group.
-    if pos >= arena.get(*defs.last().unwrap()).span_end() {
-        let last_def_idx = *defs.last().unwrap();
-        let last_def = arena.get(last_def_idx);
-
-        // The file should be tokenized including the trailing whitespace, so insertion to the end
-        // can be at the last position.
-        assert!(pos == last_def.span_end());
-
-        let last_token = last_def.last_token.clone();
-        let new_token = relex_insertion(last_token.clone(), pos, text, arena);
-
-        if let Some(prev) = last_token.prev() {
-            prev.set_next(Some(new_token.clone()));
-        }
-
-        let prev_decl = last_def.prev;
-        let new_decl = reparse_indentation_groups_decl(last_def_idx, prev_decl, arena);
-
-        defs.pop();
-        let mut decl = new_decl;
-        loop {
-            defs.push(decl);
-            decl = match arena.get(decl).next {
-                Some(next) => next,
-                None => break,
-            };
-        }
-
-        return;
-    }
-
     // NB. We can't use `lines` here as it yields one line for both "a" and "a\n".
     let n_lines_inserted = text.chars().filter(|c| *c == '\n').count() as u32;
 
@@ -104,13 +72,8 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         return;
     }
 
-    // TODO: Binary search.
-    let (decl_idx_idx, decl_idx) = defs
-        .iter()
-        .copied()
-        .enumerate()
-        .find(|(_decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
-        .unwrap();
+    let decl_idx_idx = find_ast(arena, defs, pos);
+    let decl_idx = defs[decl_idx_idx];
 
     // TODO: When we insert at the beginning of the declaration at `decl_idx` we can update the
     // line number of the decl and see if we can reuse it.
@@ -122,7 +85,8 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         }
     }
 
-    let updated_token: TokenRef = find_token(arena.get(decl_idx), pos);
+    let updated_token: TokenRef = find_token(arena.get(decl_idx), pos)
+        .unwrap_or_else(|| arena.get(decl_idx).last_token.clone());
     if let Some(decl_idx) = updated_token.ast_node() {
         arena.get_mut(decl_idx).modified = true;
     }
@@ -179,14 +143,10 @@ pub fn remove(
 
     // Since trailing whitespaces are included in the groups, we should be able to find a group
     // at the given position.
-    let (decl_idx_idx, decl_idx) = defs
-        .iter()
-        .copied()
-        .enumerate()
-        .find(|(_decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(removal_start))
-        .unwrap();
+    let decl_idx_idx = find_ast(arena, defs, removal_start);
+    let decl_idx = defs[decl_idx_idx];
 
-    let updated_token = find_token(arena.get(decl_idx), removal_start);
+    let updated_token = find_token(arena.get(decl_idx), removal_start).unwrap();
     let relex_start_token: TokenRef = updated_token
         .prev()
         .unwrap_or_else(|| updated_token.clone());
@@ -235,14 +195,25 @@ pub fn remove(
     }
 }
 
-fn find_token(node: &ast::TopDecl, pos: Pos) -> TokenRef {
+/// Find the declaration for the change applied to [`pos`]. Returns the index of the declaration's
+/// index in [`defs`].
+fn find_ast(arena: &DeclArena, defs: &[DeclIdx], pos: Pos) -> usize {
+    for (decl_idx_idx, decl_idx) in defs.iter().enumerate() {
+        if arena.get(*decl_idx).contains_location(pos) {
+            return decl_idx_idx;
+        }
+    }
+
+    assert!(pos >= arena.get(*defs.last().unwrap()).span_end());
+    defs.len() - 1
+}
+
+fn find_token(node: &ast::TopDecl, pos: Pos) -> Option<TokenRef> {
     // Update `pos` so that the line number is relative to the declaration.
     let pos = Pos {
         line: pos.line - node.span_start().line,
         char: pos.char,
     };
 
-    node.iter_tokens()
-        .find(|t| t.contains_location(pos))
-        .unwrap()
+    node.iter_tokens().find(|t| t.contains_location(pos))
 }

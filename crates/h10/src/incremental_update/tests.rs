@@ -307,3 +307,22 @@ fn insert_to_empty_doc() {
     assert_eq!(decl2.span_start(), Pos::new(4, 0));
     assert_eq!(decl2.span_end(), Pos::new(5, 0));
 }
+
+#[test]
+fn append_line_no_newline() {
+    let token = lex_full("a");
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_end(), Pos::new(0, 1));
+
+    insert(&mut arena, &mut groups, Pos::new(0, 1), "b");
+    assert_eq!(groups.len(), 1);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_end(), Pos::new(0, 2));
+
+    let new_pgm: String = group0.first_token.iter_chars().collect();
+    assert_eq!(new_pgm, "ab");
+}
