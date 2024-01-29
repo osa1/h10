@@ -98,8 +98,7 @@ pub(crate) fn reparse_indentation_groups_token(
 
     let new_group = ast::TopDecl {
         kind: ast::TopDeclKind::Unparsed,
-        // TODO: this is probably not right as the token line number will be relative?
-        line_number: new_group_start.span().start.line,
+        line_number: new_group_start.absolute_span(arena).start.line,
         first_token: new_group_start.clone(),
         last_token: new_group_end.clone(),
         next: None,

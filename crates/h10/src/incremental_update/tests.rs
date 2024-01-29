@@ -328,7 +328,7 @@ fn append_line_no_newline() {
 }
 
 #[test]
-fn remove_last() {
+fn remove_last_within_token() {
     let pgm = indoc! {"
         f :: Int -> Int
 
@@ -347,7 +347,41 @@ fn remove_last() {
 }
 
 #[test]
-fn append_last() {
+fn insert_token_spans() {
+    let pgm = indoc! {"
+        f :: Int -> Int
+
+        x :: Int -> Int
+
+        y ::"};
+
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 3);
+
+    insert(&mut arena, &mut groups, Pos::new(4, 4), " ");
+    assert_eq!(groups.len(), 3);
+
+    assert_eq!(arena.get(groups[0]).next, Some(groups[1]));
+    assert_eq!(arena.get(groups[1]).prev, Some(groups[0]));
+    assert_eq!(arena.get(groups[1]).next, Some(groups[2]));
+    assert_eq!(arena.get(groups[2]).prev, Some(groups[1]));
+
+    let group2 = arena.get(groups[2]);
+    assert_eq!(group2.span_end(), Pos::new(4, 5));
+
+    for group_idx in &groups {
+        let group = arena.get(*group_idx);
+        for (token_idx, token) in group.iter_tokens().enumerate() {
+            assert_eq!(token.ast_node(), Some(*group_idx));
+            assert_eq!(token.span().start.line, 0, "token index = {}", token_idx);
+        }
+    }
+}
+
+#[test]
+fn append_last_1() {
     let pgm = indoc! {"
         f :: Int -> Int
 

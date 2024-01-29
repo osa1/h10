@@ -60,6 +60,9 @@ impl AstData {
             char: range.end.character,
         };
 
+        eprintln!("Range {} - {}", pos_start, pos_end);
+        eprintln!("Text = {:?}", text);
+
         incremental_update::remove(&mut self.arena, &mut self.decls, pos_start, pos_end);
         incremental_update::insert(&mut self.arena, &mut self.decls, pos_start, text);
 
