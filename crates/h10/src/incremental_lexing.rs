@@ -39,7 +39,6 @@ pub(crate) fn relex_insertion(
     })
 }
 
-#[allow(unused)]
 pub(crate) fn relex_deletion(
     lex_start: TokenRef,
     deletion_start: Pos,

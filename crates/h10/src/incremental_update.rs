@@ -144,7 +144,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     }
 
     let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
-    arena.get_mut(modified_ast_node).kind = ast::TopDeclKind::Unparsed;
+    arena.get_mut(modified_ast_node).modified = true;
 
     let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
@@ -190,6 +190,8 @@ pub fn remove(
     let relex_start_token: TokenRef = updated_token
         .prev()
         .unwrap_or_else(|| updated_token.clone());
+
+    // New token will be linked to this.
     let token_before_start: Option<TokenRef> = relex_start_token.prev();
 
     let n_lines_removed = removal_end.line - removal_start.line;
@@ -203,6 +205,7 @@ pub fn remove(
 
     let new_token = relex_deletion(relex_start_token.clone(), removal_start, removal_end, arena);
 
+    // Update links to `relex_start_token` with `new_token`.
     if let Some(prev_token) = token_before_start {
         prev_token.set_next(Some(new_token.clone()));
     }
@@ -214,7 +217,7 @@ pub fn remove(
     }
 
     let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
-    arena.get_mut(modified_ast_node).kind = ast::TopDeclKind::Unparsed;
+    arena.get_mut(modified_ast_node).modified = true;
 
     let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
