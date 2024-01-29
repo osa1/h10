@@ -1,5 +1,6 @@
 use crate::layout_token_generator::LayoutTokenGenerator;
 use crate::lexing::lex_full;
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{Lexer, Literal, ReservedId, ReservedOp, Special, TokenKind};
 
@@ -34,7 +35,7 @@ fn class_where_no_indent() {
     let input = r#"
 class X where
 a = 1"#;
-    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new_top_level(lex_full(input))
+    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new_top_level(lex_full(input, Pos::ZERO))
         .map(|t| t.unwrap().token())
         .collect();
     assert_eq!(
@@ -60,7 +61,7 @@ fn record_literal() {
     // Test that the layout lexer handles `{` and `}` in a context where an implicit layout is not
     // expected (i.e. after a `let`, `where`, `of`, `do`).
     let input = "data A = A { x :: Int }";
-    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(lex_full(input))
+    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(lex_full(input, Pos::ZERO))
         .map(|t| t.unwrap().token())
         .collect();
     assert_eq!(

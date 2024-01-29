@@ -1,5 +1,6 @@
 use super::*;
 use crate::lexing::lex_full;
+use crate::pos::Pos;
 
 use indoc::indoc;
 
@@ -10,7 +11,7 @@ fn insertion_iteration_0() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let insertion_pos = Pos { line: 0, char: 6 };
     let inserted_text = "";
@@ -31,7 +32,7 @@ fn insertion_iteration_1() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let insertion_pos = Pos { line: 0, char: 0 };
     let inserted_text = "data A\n";
@@ -59,7 +60,7 @@ fn insertion_iteration_2() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let insertion_pos = Pos { line: 0, char: 6 };
     let inserted_text = " = A";
@@ -87,7 +88,7 @@ fn insertion_iteration_3() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let insertion_pos = Pos { line: 1, char: 6 };
     let inserted_text = "\ndata C";
@@ -116,7 +117,7 @@ fn deletion_iteration_0() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let deletion_start = Pos { line: 1, char: 0 };
     let deletion_end = Pos { line: 2, char: 0 };
@@ -138,7 +139,7 @@ fn deletion_iteration_1() {
             data B
         "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let deletion_start = Pos { line: 0, char: 0 };
     let deletion_end = Pos { line: 1, char: 0 };
@@ -157,7 +158,7 @@ fn deletion_iteration_1() {
 fn deletion_iteration_2() {
     let pgm = "data A";
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let deletion_start = Pos { line: 0, char: 2 };
     let deletion_end = Pos { line: 0, char: 4 };
@@ -176,7 +177,7 @@ fn deletion_iteration_2() {
 fn deletion_iteration_3() {
     let pgm = "y ::";
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
 
     let deletion_start = Pos { line: 0, char: 3 };
     let deletion_end = Pos { line: 0, char: 4 };
@@ -199,7 +200,7 @@ fn relex_insertion_same_group() {
             z t
     "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let initial_token_list: Vec<TokenRef> = token.iter().collect();
 
     let arena = DeclArena::new();
@@ -239,7 +240,7 @@ fn relex_insertion_new_group() {
         type Z = Z
     "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let initial_token_list: Vec<TokenRef> = token.iter().collect();
 
     let arena = DeclArena::new();

@@ -208,7 +208,17 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
 
                     Some(char)
                 } else {
-                    self.token = self.token.next().unwrap();
+                    match self.token.next() {
+                        Some(next) => {
+                            self.token = next;
+                        }
+                        None => {
+                            debug_assert_eq!(self.current_pos, self.insertion_pos);
+                            self.source = TokenCharIterSource::Insertion {
+                                token_byte_idx: self.byte_idx,
+                            };
+                        }
+                    }
                     self.byte_idx = 0;
                     self.next()
                 }

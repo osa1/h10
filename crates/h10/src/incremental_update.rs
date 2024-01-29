@@ -23,7 +23,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     }
 
     if defs.is_empty() {
-        let tokens = lex_full(text);
+        let tokens = lex_full(text, pos);
         *defs = parse_indentation_groups(tokens, arena);
         return;
     }

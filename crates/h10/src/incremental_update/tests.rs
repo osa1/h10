@@ -9,7 +9,7 @@ use indoc::indoc;
 #[test]
 fn single_group_insert_first() {
     let pgm = "f x = x";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -30,7 +30,7 @@ fn single_group_insert_first() {
 #[test]
 fn single_group_insert_middle() {
     let pgm = "f x = x";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -55,7 +55,7 @@ fn single_group_insert_middle() {
 #[test]
 fn single_group_insert_last() {
     let pgm = "f x = x";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -76,7 +76,7 @@ fn single_group_insert_last() {
 #[test]
 fn single_group_insert_new_group_first() {
     let pgm = "f x = x\n";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -101,7 +101,7 @@ fn single_group_insert_new_group_first() {
 #[test]
 fn single_group_insert_new_group_last() {
     let pgm = "f x = x\n";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -129,7 +129,7 @@ fn multiple_groups_insert_middle() {
         data X = X
         data Z = Z
     "};
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups: Vec<DeclIdx> = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -183,7 +183,7 @@ fn multiple_groups_insert_middle() {
 #[test]
 fn single_group_remove_first() {
     let pgm = "f x = 1 + x";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 1);
@@ -206,7 +206,7 @@ fn single_group_remove_first() {
 #[test]
 fn single_group_remove_middle() {
     let pgm = "f x = 1 + x";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 1);
@@ -229,7 +229,7 @@ fn single_group_remove_middle() {
 #[test]
 fn single_group_remove_last() {
     let pgm = "f x = x + 1";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 1);
@@ -256,7 +256,7 @@ fn multiple_groups_merge() {
         data X = X
     "};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -275,7 +275,7 @@ fn multiple_groups_merge() {
 
 #[test]
 fn insert_to_empty_doc() {
-    let token = lex_full("");
+    let token = lex_full("", Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 0);
@@ -310,7 +310,7 @@ fn insert_to_empty_doc() {
 
 #[test]
 fn append_line_no_newline() {
-    let token = lex_full("a");
+    let token = lex_full("a", Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
@@ -336,7 +336,7 @@ fn remove_last_within_token() {
 
         y ::"};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
@@ -355,7 +355,7 @@ fn insert_token_spans() {
 
         y ::"};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
@@ -389,7 +389,7 @@ fn append_last_1() {
 
         y :"};
 
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
@@ -402,8 +402,23 @@ fn append_last_1() {
 #[test]
 fn remove_all() {
     let pgm = "f :: Int -> Int";
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     remove(&mut arena, &mut groups, Pos::new(0, 0), Pos::new(0, 15));
+}
+
+#[test]
+fn insert_insert() {
+    let pgm = "\n";
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 0);
+
+    insert(&mut arena, &mut groups, Pos::new(1, 0), "a");
+    assert_eq!(groups.len(), 1);
+    assert_eq!(arena.get(groups[0]).line_number, 1);
+
+    // insert(&mut arena, &mut groups, Pos::new(1, 1), "a");
 }

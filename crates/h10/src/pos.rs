@@ -16,6 +16,8 @@ impl fmt::Display for Pos {
 }
 
 impl Pos {
+    pub const ZERO: Pos = Pos { line: 0, char: 0 };
+
     pub fn new(line: u32, char: u32) -> Self {
         Self { line, char }
     }

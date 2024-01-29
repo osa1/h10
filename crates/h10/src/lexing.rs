@@ -1,4 +1,5 @@
 use crate::ast::Span;
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{Lexer, Token, TokenKind};
 
@@ -7,8 +8,15 @@ use lexgen_util::Loc;
 /// Tokenize a file from scrath.
 ///
 /// Tokens are linked together and their line numbers are absolute.
-pub(crate) fn lex_full(s: &str) -> TokenRef {
-    let lexer = Lexer::new(s);
+pub(crate) fn lex_full(s: &str, start_pos: Pos) -> TokenRef {
+    let lexer = Lexer::new_from_iter_with_loc(
+        s.chars(),
+        Loc {
+            line: start_pos.line,
+            col: start_pos.char,
+            byte_idx: 0,
+        },
+    );
     let mut first_token: Option<TokenRef> = None;
     let mut last_token: Option<TokenRef> = None;
     for t in lexer {

@@ -1,5 +1,6 @@
 use super::*;
 use crate::lexing::lex_full;
+use crate::pos::Pos;
 
 use indoc::indoc;
 
@@ -11,7 +12,7 @@ fn simple_parsing_1() {
         "};
 
     let mut arena = DeclArena::new();
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
 
@@ -43,7 +44,7 @@ fn simple_parsing_2() {
             data B
         "};
     let mut arena = DeclArena::new();
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
 
@@ -86,7 +87,7 @@ fn simple_parsing_3() {
                 t = 5       -- 11
         "};
     let mut arena = DeclArena::new();
-    let token = lex_full(pgm);
+    let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
 
