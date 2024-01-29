@@ -169,3 +169,85 @@ fn multiple_groups_insert_middle() {
         "}
     );
 }
+
+#[test]
+fn single_group_remove_first() {
+    let pgm = "f x = 1 + x";
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+
+    assert_eq!(groups.len(), 1);
+    let group_idx = groups[0];
+
+    remove(
+        &mut arena,
+        &mut groups,
+        Pos { line: 0, char: 0 },
+        Pos { line: 0, char: 2 },
+    );
+
+    assert_eq!(groups.len(), 1);
+
+    let new_group_idx = groups[0];
+    assert_eq!(group_idx, new_group_idx);
+
+    assert_ne!(arena.get(new_group_idx).first_token, token);
+
+    let new_pgm: String = arena.get(group_idx).first_token.iter_chars().collect();
+    assert_eq!(new_pgm, "x = 1 + x");
+}
+
+#[test]
+fn single_group_remove_middle() {
+    let pgm = "f x = 1 + x";
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+
+    assert_eq!(groups.len(), 1);
+    let group_idx = groups[0];
+
+    remove(
+        &mut arena,
+        &mut groups,
+        Pos { line: 0, char: 6 },
+        Pos { line: 0, char: 10 },
+    );
+
+    assert_eq!(groups.len(), 1);
+
+    let new_group_idx = groups[0];
+    assert_eq!(group_idx, new_group_idx);
+    assert_eq!(arena.get(new_group_idx).first_token, token);
+
+    let new_pgm: String = arena.get(group_idx).first_token.iter_chars().collect();
+    assert_eq!(new_pgm, "f x = x");
+}
+
+#[test]
+fn single_group_remove_last() {
+    let pgm = "f x = x + 1";
+    let token = lex_full(pgm);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+
+    assert_eq!(groups.len(), 1);
+    let group_idx = groups[0];
+
+    remove(
+        &mut arena,
+        &mut groups,
+        Pos { line: 0, char: 7 },
+        Pos { line: 0, char: 11 },
+    );
+
+    assert_eq!(groups.len(), 1);
+
+    let new_group_idx = groups[0];
+    assert_eq!(group_idx, new_group_idx);
+    assert_eq!(arena.get(new_group_idx).first_token, token);
+
+    let new_pgm: String = arena.get(group_idx).first_token.iter_chars().collect();
+    assert_eq!(new_pgm, "f x = x");
+}

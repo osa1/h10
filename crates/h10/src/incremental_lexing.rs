@@ -66,14 +66,14 @@ where
     F: Fn(Pos) -> Pos,
 {
     let start_loc = lex_start.absolute_span(arena).start;
-    let lexer = Lexer::new_from_iter_with_loc(char_iter, start_loc);
+    let mut lexer = Lexer::new_from_iter_with_loc(char_iter, start_loc);
 
     // Collect generated tokens in a vector, link them together before returning, to avoid messing
     // with the 'next' pointers while the lexer and `old_token` below holds aliases.
     let mut tokens: Vec<TokenRef> = vec![];
 
     let mut old_token: Option<TokenRef> = Some(lex_start.clone());
-    for token in lexer {
+    for token in lexer.by_ref() {
         let token = token.unwrap();
         let new_token = TokenRef::from_lexer_token(token);
 
@@ -120,6 +120,10 @@ where
                 tokens.push(new_token);
             }
         }
+    }
+
+    if lexer.next().is_none() {
+        tokens.last().unwrap().set_next(None);
     }
 
     link_tokens(tokens)
