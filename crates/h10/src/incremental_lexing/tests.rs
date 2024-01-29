@@ -14,8 +14,13 @@ fn insertion_iteration_0() {
 
     let insertion_pos = Pos { line: 0, char: 6 };
     let inserted_text = "";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+    let new_text: String = TokenCharIteratorWithInsertion::new(
+        token.clone(),
+        insertion_pos,
+        inserted_text,
+        &DeclArena::new(),
+    )
+    .collect();
 
     assert_eq!(new_text, pgm);
 }
@@ -30,8 +35,13 @@ fn insertion_iteration_1() {
 
     let insertion_pos = Pos { line: 0, char: 0 };
     let inserted_text = "data A\n";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+    let new_text: String = TokenCharIteratorWithInsertion::new(
+        token.clone(),
+        insertion_pos,
+        inserted_text,
+        &DeclArena::new(),
+    )
+    .collect();
 
     assert_eq!(
         new_text,
@@ -53,8 +63,13 @@ fn insertion_iteration_2() {
 
     let insertion_pos = Pos { line: 0, char: 6 };
     let inserted_text = " = A";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+    let new_text: String = TokenCharIteratorWithInsertion::new(
+        token.clone(),
+        insertion_pos,
+        inserted_text,
+        &DeclArena::new(),
+    )
+    .collect();
 
     assert_eq!(
         new_text,
@@ -76,8 +91,13 @@ fn insertion_iteration_3() {
 
     let insertion_pos = Pos { line: 1, char: 6 };
     let inserted_text = "\ndata C";
-    let new_text: String =
-        TokenCharIteratorWithInsertion::new(token.clone(), insertion_pos, inserted_text).collect();
+    let new_text: String = TokenCharIteratorWithInsertion::new(
+        token.clone(),
+        insertion_pos,
+        inserted_text,
+        &DeclArena::new(),
+    )
+    .collect();
 
     assert_eq!(
         new_text,
@@ -87,6 +107,69 @@ fn insertion_iteration_3() {
             data C
         "}
     );
+}
+
+#[test]
+fn deletion_iteration_0() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex_full(pgm);
+
+    let deletion_start = Pos { line: 1, char: 0 };
+    let deletion_end = Pos { line: 2, char: 0 };
+    let new_text: String = TokenCharIteratorWithDeletion::new(
+        token.clone(),
+        deletion_start,
+        deletion_end,
+        &DeclArena::new(),
+    )
+    .collect();
+
+    assert_eq!(new_text, "data A\n",);
+}
+
+#[test]
+fn deletion_iteration_1() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex_full(pgm);
+
+    let deletion_start = Pos { line: 0, char: 0 };
+    let deletion_end = Pos { line: 1, char: 0 };
+    let new_text: String = TokenCharIteratorWithDeletion::new(
+        token.clone(),
+        deletion_start,
+        deletion_end,
+        &DeclArena::new(),
+    )
+    .collect();
+
+    assert_eq!(new_text, "data B\n");
+}
+
+#[test]
+fn deletion_iteration_2() {
+    let pgm = "data A";
+
+    let token = lex_full(pgm);
+
+    let deletion_start = Pos { line: 0, char: 2 };
+    let deletion_end = Pos { line: 0, char: 4 };
+    let new_text: String = TokenCharIteratorWithDeletion::new(
+        token.clone(),
+        deletion_start,
+        deletion_end,
+        &DeclArena::new(),
+    )
+    .collect();
+
+    assert_eq!(new_text, "da A");
 }
 
 #[test]

@@ -26,16 +26,47 @@ pub(crate) fn relex_insertion(
     inserted_text: &str,
     arena: &DeclArena,
 ) -> TokenRef {
-    let start_loc = lex_start.absolute_span(arena).start;
     let chars =
-        TokenCharIteratorWithInsertion::new(lex_start.clone(), insertion_pos, inserted_text);
-    let lexer = Lexer::new_from_iter_with_loc(chars, start_loc);
+        TokenCharIteratorWithInsertion::new(lex_start.clone(), insertion_pos, inserted_text, arena);
 
     let mut inserted_text_end_pos = insertion_pos;
     for char in inserted_text.chars() {
         inserted_text_end_pos = next_pos(inserted_text_end_pos, char);
     }
-    let inserted_text_end_pos = inserted_text_end_pos;
+
+    relex(lex_start, chars, inserted_text_end_pos, arena, |pos| {
+        pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
+    })
+}
+
+#[allow(unused)]
+pub(crate) fn relex_deletion(
+    lex_start: TokenRef,
+    deletion_start: Pos,
+    deletion_end: Pos,
+    arena: &DeclArena,
+) -> TokenRef {
+    let chars =
+        TokenCharIteratorWithDeletion::new(lex_start.clone(), deletion_start, deletion_end, arena);
+
+    relex(lex_start, chars, deletion_end, arena, |pos| {
+        pos.adjust_for_deletion(deletion_start, deletion_end)
+    })
+}
+
+fn relex<I, F>(
+    lex_start: TokenRef,
+    char_iter: I,
+    update_end_pos: Pos,
+    arena: &DeclArena,
+    adjust_old_token_pos: F,
+) -> TokenRef
+where
+    I: Iterator<Item = char> + Clone,
+    F: Fn(Pos) -> Pos,
+{
+    let start_loc = lex_start.absolute_span(arena).start;
+    let lexer = Lexer::new_from_iter_with_loc(char_iter, start_loc);
 
     // Collect generated tokens in a vector, link them together before returning, to avoid messing
     // with the 'next' pointers while the lexer and `old_token` below holds aliases.
@@ -49,16 +80,14 @@ pub(crate) fn relex_insertion(
         let new_token_start_pos = Pos::from_loc(&new_token.span().start);
         let new_token_end_pos = Pos::from_loc(&new_token.span().end);
 
-        let after_insertion = Pos::from_loc(&new_token.span().end) > inserted_text_end_pos;
+        let after_update = Pos::from_loc(&new_token.span().end) > update_end_pos;
 
         // Find the old token at the current position, or after it if there isn't a token starting
         // at the same position.
         while let Some(old_token_) = &old_token {
             let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
 
-            if old_token_start_pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
-                >= new_token_start_pos
-            {
+            if adjust_old_token_pos(old_token_start_pos) >= new_token_start_pos {
                 break;
             }
 
@@ -79,7 +108,7 @@ pub(crate) fn relex_insertion(
                     // Reuse the old token.
                     // TODO: We can allocate a `TokenRef` only when generating a new token.
                     tokens.push(old_token_.clone());
-                    if after_insertion {
+                    if after_update {
                         break;
                     }
                     old_token = old_token_.next();
@@ -141,9 +170,9 @@ enum TokenCharIterSource {
 
 impl<'a> TokenCharIteratorWithInsertion<'a> {
     // NB. `insertion_pos` is the absolute position.
-    fn new(token: TokenRef, insertion_pos: Pos, inserted_text: &'a str) -> Self {
+    fn new(token: TokenRef, insertion_pos: Pos, inserted_text: &'a str, arena: &DeclArena) -> Self {
         Self {
-            current_pos: Pos::from_loc(&token.span().start),
+            current_pos: Pos::from_loc(&token.absolute_span(arena).start),
             source: TokenCharIterSource::TokenBeforeInsertion,
             token,
             inserted_text,
@@ -217,6 +246,70 @@ impl<'a> Iterator for TokenCharIteratorWithInsertion<'a> {
                     }
                 }
             }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TokenCharIteratorWithDeletion {
+    /// Current position.
+    current_pos: Pos,
+
+    /// Current token.
+    token: TokenRef,
+
+    /// Byte index of the next character in the current token.
+    byte_idx: usize,
+
+    /// Where the deletion starts.
+    deletion_start: Pos,
+
+    /// Where the deletion ends.
+    deletion_end: Pos,
+}
+
+impl TokenCharIteratorWithDeletion {
+    fn new(token: TokenRef, deletion_start: Pos, deletion_end: Pos, arena: &DeclArena) -> Self {
+        Self {
+            current_pos: Pos::from_loc(&token.absolute_span(arena).start),
+            token,
+            byte_idx: 0,
+            deletion_start,
+            deletion_end,
+        }
+    }
+}
+
+impl Iterator for TokenCharIteratorWithDeletion {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (char, pos) = if self.byte_idx < self.token.text().len() {
+                let char = self.token.text()[self.byte_idx..].chars().next().unwrap();
+                let pos = self.current_pos;
+                let char_len = char.len_utf8();
+
+                self.byte_idx += char_len;
+                self.current_pos = next_pos(self.current_pos, char);
+
+                (char, pos)
+            } else {
+                match self.token.next() {
+                    None => return None,
+                    Some(next) => {
+                        self.token = next;
+                        self.byte_idx = 0;
+                        return self.next();
+                    }
+                };
+            };
+
+            if pos >= self.deletion_start && pos < self.deletion_end {
+                continue;
+            }
+
+            return Some(char);
         }
     }
 }
