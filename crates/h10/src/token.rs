@@ -183,12 +183,12 @@ impl TokenRef {
     /// Set the AST node of the token and update span line numbers to make them relative to the AST
     /// node.
     pub fn set_ast_node(&self, node_idx: DeclIdx, arena: &DeclArena) {
-        let absolute_span = self.absolute_span(arena);
-        let absolute_line = absolute_span.start.line;
+        let mut new_span = self.absolute_span(arena);
         *self.ast_node.lock().unwrap() = Some(node_idx);
         let ast_node_line = arena.get(node_idx).line_number;
-        self.span.lock().unwrap().start.line = absolute_line - ast_node_line;
-        self.span.lock().unwrap().end.line -= absolute_line - ast_node_line;
+        new_span.start.line -= ast_node_line;
+        new_span.end.line -= ast_node_line;
+        *self.span.lock().unwrap() = new_span;
     }
 
     pub fn ast_node(&self) -> Option<DeclIdx> {

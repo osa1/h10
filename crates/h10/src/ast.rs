@@ -98,10 +98,7 @@ impl TopDecl {
     }
 
     pub fn contains_location(&self, pos: Pos) -> bool {
-        let start = Pos::from_loc(&self.first_token.span().start);
-        let end = Pos::from_loc(&self.last_token.span().end);
-
-        pos >= start && pos < end
+        pos >= self.span_start() && pos < self.span_end()
     }
 
     pub fn iter_tokens(&self) -> impl Iterator<Item = TokenRef> {
