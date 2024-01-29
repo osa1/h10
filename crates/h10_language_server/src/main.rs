@@ -120,7 +120,6 @@ impl LanguageServer for Backend {
                 },
             },
             &params.text_document.text,
-            &mut self.log_file.lock().unwrap(),
         );
         *self.file_uri.lock().unwrap() = Some(uri);
     }
@@ -145,11 +144,7 @@ impl LanguageServer for Backend {
         }
 
         for change in params.content_changes {
-            self.ast.update(
-                change.range.unwrap(),
-                &change.text,
-                &mut self.log_file.lock().unwrap(),
-            );
+            self.ast.update(change.range.unwrap(), &change.text);
         }
     }
 

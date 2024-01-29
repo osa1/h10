@@ -3,8 +3,6 @@ use h10::decl_arena::{DeclArena, DeclIdx};
 use h10::incremental_update;
 use h10::pos::Pos;
 
-use std::fs::File;
-use std::io::Write;
 use std::sync::Mutex;
 
 use tower_lsp::lsp_types::Range;
@@ -25,8 +23,8 @@ impl Ast {
         }
     }
 
-    pub fn update(&self, range: Range, text: &str, log_file: &mut File) {
-        self.data.lock().unwrap().update(range, text, log_file)
+    pub fn update(&self, range: Range, text: &str) {
+        self.data.lock().unwrap().update(range, text)
     }
 }
 
@@ -38,10 +36,18 @@ impl AstData {
         }
     }
 
-    fn update(&mut self, range: Range, text: &str, log_file: &mut File) {
-        writeln!(log_file, "AST before update:").unwrap();
+    fn update(&mut self, range: Range, text: &str) {
+        eprintln!("AST before update:");
         for decl in self.iter_decls() {
-            writeln!(log_file, "  {:?}", decl).unwrap();
+            eprintln!(
+                "  {:?} {}-{} {:?}",
+                decl.kind,
+                decl.span_start(),
+                decl.span_end(),
+                decl.iter_tokens()
+                    .map(|t| t.text().to_owned())
+                    .collect::<String>(),
+            )
         }
 
         let pos_start = Pos {
@@ -57,16 +63,17 @@ impl AstData {
         incremental_update::remove(&mut self.arena, &mut self.decls, pos_start, pos_end);
         incremental_update::insert(&mut self.arena, &mut self.decls, pos_start, text);
 
-        writeln!(log_file, "AST after update:").unwrap();
+        eprintln!("AST after update:");
         for decl in self.iter_decls() {
-            writeln!(
-                log_file,
-                "  {:?} {}-{}",
+            eprintln!(
+                "  {:?} {}-{} {:?}",
                 decl.kind,
                 decl.span_start(),
-                decl.span_end()
-            )
-            .unwrap();
+                decl.span_end(),
+                decl.iter_tokens()
+                    .map(|t| t.text().to_owned())
+                    .collect::<String>(),
+            );
         }
     }
 
