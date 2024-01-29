@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt;
 
 use lexgen_util::Loc;
 
@@ -6,6 +7,12 @@ use lexgen_util::Loc;
 pub struct Pos {
     pub line: u32,
     pub char: u32,
+}
+
+impl fmt::Display for Pos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.char)
+    }
 }
 
 impl Pos {

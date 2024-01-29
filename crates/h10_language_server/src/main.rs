@@ -108,6 +108,20 @@ impl LanguageServer for Backend {
         writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
         let uri = params.text_document.uri;
         *self.buffer.lock().unwrap() = Some(Buffer::with_contents(&params.text_document.text));
+        self.ast.update(
+            Range {
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 0,
+                },
+            },
+            &params.text_document.text,
+            &mut self.log_file.lock().unwrap(),
+        );
         *self.file_uri.lock().unwrap() = Some(uri);
     }
 
@@ -131,7 +145,11 @@ impl LanguageServer for Backend {
         }
 
         for change in params.content_changes {
-            self.ast.update(change.range.unwrap(), &change.text);
+            self.ast.update(
+                change.range.unwrap(),
+                &change.text,
+                &mut self.log_file.lock().unwrap(),
+            );
         }
     }
 

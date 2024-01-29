@@ -3,6 +3,8 @@ use h10::decl_arena::{DeclArena, DeclIdx};
 use h10::incremental_update;
 use h10::pos::Pos;
 
+use std::fs::File;
+use std::io::Write;
 use std::sync::Mutex;
 
 use tower_lsp::lsp_types::Range;
@@ -23,8 +25,8 @@ impl Ast {
         }
     }
 
-    pub fn update(&self, range: Range, text: &str) {
-        self.data.lock().unwrap().update(range, text)
+    pub fn update(&self, range: Range, text: &str, log_file: &mut File) {
+        self.data.lock().unwrap().update(range, text, log_file)
     }
 }
 
@@ -36,7 +38,12 @@ impl AstData {
         }
     }
 
-    fn update(&mut self, range: Range, text: &str) {
+    fn update(&mut self, range: Range, text: &str, log_file: &mut File) {
+        writeln!(log_file, "AST before update:").unwrap();
+        for decl in self.iter_decls() {
+            writeln!(log_file, "  {:?}", decl).unwrap();
+        }
+
         let pos_start = Pos {
             line: range.start.line,
             char: range.start.character,
@@ -48,8 +55,19 @@ impl AstData {
         };
 
         incremental_update::remove(&mut self.arena, &mut self.decls, pos_start, pos_end);
-
         incremental_update::insert(&mut self.arena, &mut self.decls, pos_start, text);
+
+        writeln!(log_file, "AST after update:").unwrap();
+        for decl in self.iter_decls() {
+            writeln!(
+                log_file,
+                "  {:?} {}-{}",
+                decl.kind,
+                decl.span_start(),
+                decl.span_end()
+            )
+            .unwrap();
+        }
     }
 
     pub fn iter_decls(&self) -> impl Iterator<Item = &ast::TopDecl> {
