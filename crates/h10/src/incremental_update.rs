@@ -112,6 +112,9 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         .find(|(_decl_idx_idx, decl_idx)| arena.get(*decl_idx).contains_location(pos))
         .unwrap();
 
+    // TODO: When we insert at the beginning of the declaration at `decl_idx` we can update the
+    // line number of the decl and see if we can reuse it.
+
     // Update line numbers of groups after the current one.
     if n_lines_inserted != 0 {
         for decl_idx in &defs[decl_idx_idx + 1..] {
