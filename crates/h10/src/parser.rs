@@ -10,9 +10,11 @@ mod tests;
 
 use crate::ast::*;
 use crate::layout_token_generator::{LayoutError, LayoutTokenGenerator};
+use crate::lexing::lex_full;
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
+use crate::pos::Pos;
 use crate::token::TokenRef;
-use h10_lexer::{Lexer, ReservedId, ReservedOp, Special, TokenKind};
+use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
 use lexgen_util::Loc;
 use rpds::List;
@@ -21,35 +23,22 @@ pub type ParserResult<A> = Result<A, Error>;
 
 /// Parse a module.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
-    Parser::new(LayoutTokenGenerator::new_top_level(tokenize(module_str))).module()
+    let token = lex_full(module_str, Pos::ZERO);
+    Parser::new(LayoutTokenGenerator::new_top_level(token)).module()
 }
 
 /// Parse a type with predicates.
 #[cfg(test)]
 pub fn parse_type(type_str: &str) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, Type)> {
-    Parser::new(LayoutTokenGenerator::new(tokenize(type_str))).type_with_context()
+    let token = lex_full(type_str, Pos::ZERO);
+    Parser::new(LayoutTokenGenerator::new(token)).type_with_context()
 }
 
 /// Parse an expression.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<Exp> {
-    Parser::new(LayoutTokenGenerator::new(tokenize(exp_str))).exp()
-}
-
-fn tokenize(input: &str) -> TokenRef {
-    let lexer = Lexer::new(input);
-    let mut first_token: Option<TokenRef> = None;
-    let mut last_token: Option<TokenRef> = None;
-    for t in lexer {
-        let t: TokenRef = TokenRef::from_lexer_token(t.unwrap());
-        if first_token.is_none() {
-            first_token = Some(t.clone());
-        } else if let Some(last_token_) = last_token {
-            last_token_.set_next(Some(t.clone()));
-        }
-        last_token = Some(t.clone());
-    }
-    first_token.unwrap()
+    let token = lex_full(exp_str, Pos::ZERO);
+    Parser::new(LayoutTokenGenerator::new(token)).exp()
 }
 
 #[derive(Clone)]
