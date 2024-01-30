@@ -47,6 +47,9 @@ pub struct Token {
     ///
     /// Column number is also relative, but it's also absolute as top-level groups always start at
     /// column 0.
+    //
+    // TODO: We can move this out of the mutex if we store absolute positions instead of relative
+    // to the AST node, as we never really udpate a token's span, we only update its links.
     pub span: Mutex<Span>,
 
     /// The previous token.
