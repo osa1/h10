@@ -278,7 +278,11 @@ fn insert_to_empty_doc() {
     let token = lex_full("", Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
-    assert_eq!(groups.len(), 0);
+
+    // TODO: `lex_full` returns an empty whitespace token, which `parse_indentation_groups` groups.
+    // With this we will probably start assuming that groups are never empty. Maybe make `lex_full`
+    // return an `Option`.
+    assert_eq!(groups.len(), 1);
 
     insert(
         &mut arena,
@@ -400,14 +404,28 @@ fn append_last_1() {
 }
 
 #[test]
-fn remove_all() {
-    // FIXME: We should always at least one group. Initial whitespace becomes a group. Empty file
-    // has one group with start and end positions (0, 0).
+fn remove_all_single_group() {
     let pgm = "f :: Int -> Int";
     let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     remove(&mut arena, &mut groups, Pos::new(0, 0), Pos::new(0, 15));
+    assert_eq!(groups.len(), 0);
+}
+
+#[test]
+fn remove_all_mutiple_groups() {
+    let pgm = indoc! {"
+        a
+        b
+    "};
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    remove(&mut arena, &mut groups, Pos::new(0, 0), Pos::new(2, 0));
+    assert_eq!(groups.len(), 0);
 }
 
 #[test]
@@ -416,25 +434,23 @@ fn insert_insert() {
     let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
-    assert_eq!(groups.len(), 0);
+    assert_eq!(groups.len(), 1);
 
     insert(&mut arena, &mut groups, Pos::new(1, 0), "a");
-    assert_eq!(groups.len(), 1);
-    assert_eq!(arena.get(groups[0]).line_number, 1);
+    assert_eq!(groups.len(), 2);
+    assert_eq!(arena.get(groups[0]).line_number, 0);
+    assert_eq!(arena.get(groups[1]).line_number, 1);
 }
 
 #[test]
 fn insert_crash_1() {
-    // FIXME: Fixing `remove_all` will probably fix this as well. The problem here is that the
-    // token before the modified token does not have an AST node, but we assume all tokens to be
-    // associated with an AST node.
     let pgm = "\na";
     let token = lex_full(pgm, Pos::ZERO);
     let mut arena = DeclArena::new();
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
-    assert_eq!(groups.len(), 1);
+    assert_eq!(groups.len(), 2);
 
     insert(&mut arena, &mut groups, Pos::new(1, 1), "a");
-    assert_eq!(groups.len(), 1);
-    assert_eq!(arena.get(groups[0]).line_number, 1);
+    assert_eq!(groups.len(), 2);
+    assert_eq!(arena.get(groups[1]).line_number, 1);
 }

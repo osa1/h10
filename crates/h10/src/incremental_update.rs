@@ -23,6 +23,9 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     }
 
     if defs.is_empty() {
+        if text.is_empty() {
+            return;
+        }
         let tokens = lex_full(text, pos);
         *defs = parse_indentation_groups(tokens, arena);
         return;
@@ -159,21 +162,42 @@ pub fn remove(
     // Update line numbers of groups after the current one.
     if n_lines_removed != 0 {
         for decl_idx in &defs[decl_idx_idx + 1..] {
-            arena.get_mut(*decl_idx).line_number -= n_lines_removed;
+            let decl = arena.get_mut(*decl_idx);
+            // Use saturating sub: if a group line number is 5 and we remove 10 lines, that means
+            // the group will either be removed completely or it'll start at line 0 after the
+            // deletion.
+            decl.line_number = decl.line_number.saturating_sub(n_lines_removed);
         }
     }
 
-    let new_token = relex_deletion(relex_start_token.clone(), removal_start, removal_end, arena);
+    let new_token: Option<TokenRef> =
+        relex_deletion(relex_start_token.clone(), removal_start, removal_end, arena);
 
     // Update links to `relex_start_token` with `new_token`.
+    // Link from the previous token:
     if let Some(prev_token) = token_before_start {
-        prev_token.set_next(Some(new_token.clone()));
+        prev_token.set_next(new_token.clone());
     }
 
+    // Link from the AST node:
     if relex_start_token.is_first_token(arena) {
-        arena
-            .get_mut(relex_start_token.ast_node().unwrap())
-            .first_token = new_token;
+        let ast_node = arena.get(relex_start_token.ast_node().unwrap());
+        match new_token {
+            Some(new_token) => {
+                arena
+                    .get_mut(relex_start_token.ast_node().unwrap())
+                    .first_token = new_token;
+            }
+            None => {
+                // The token and the rest of the tokens were removed. Remove the AST node.
+                if let Some(prev_node_idx) = ast_node.prev {
+                    arena.get_mut(prev_node_idx).next = None;
+                }
+                arena.free(decl_idx);
+                defs.drain(decl_idx_idx..);
+                return;
+            }
+        }
     }
 
     let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();

@@ -9,12 +9,10 @@ use h10_lexer::Lexer;
 /// Starting with [`lex_start`], lex until re-lexing [`inserted_text`] when inserted at
 /// [`insertion_pos`], then continue re-lexing until finding an identical token.
 ///
+/// [`inserted_text`] should not be empty.
+///
 /// [`DeclArena`] argument is needed to be able to get absolute spans of tokens, to be able to
 /// check if we've generated an identical token and stop.
-///
-/// [`TokenKind`] equality is based on: token kind, token text, token absolute position. I think
-/// technically it can be more relaxed then this to avoid redundant work when e.g. a string literal
-/// or a space (in a non-indentation position) is changed, but for now this will do.
 ///
 /// The returned token is the replacement for [`lex_start`]. The caller should update:
 ///
@@ -26,6 +24,8 @@ pub(crate) fn relex_insertion(
     inserted_text: &str,
     arena: &DeclArena,
 ) -> TokenRef {
+    debug_assert!(!inserted_text.is_empty());
+
     let chars =
         TokenCharIteratorWithInsertion::new(lex_start.clone(), insertion_pos, inserted_text, arena);
 
@@ -34,9 +34,12 @@ pub(crate) fn relex_insertion(
         inserted_text_end_pos = next_pos(inserted_text_end_pos, char);
     }
 
+    // Because `inserted_text` is not empty, `relex` should return at least one token and this
+    // `unwrap` is safe.
     relex(lex_start, chars, inserted_text_end_pos, arena, |pos| {
         pos.adjust_for_insertion(insertion_pos, inserted_text_end_pos)
     })
+    .unwrap()
 }
 
 pub(crate) fn relex_deletion(
@@ -44,7 +47,7 @@ pub(crate) fn relex_deletion(
     deletion_start: Pos,
     deletion_end: Pos,
     arena: &DeclArena,
-) -> TokenRef {
+) -> Option<TokenRef> {
     let chars =
         TokenCharIteratorWithDeletion::new(lex_start.clone(), deletion_start, deletion_end, arena);
 
@@ -59,12 +62,13 @@ fn relex<I, F>(
     update_end_pos: Pos,
     arena: &DeclArena,
     adjust_old_token_pos: F,
-) -> TokenRef
+) -> Option<TokenRef>
 where
     I: Iterator<Item = char> + Clone,
     F: Fn(Pos) -> Pos,
 {
     let start_loc = lex_start.absolute_span(arena).start;
+
     let mut lexer = Lexer::new_from_iter_with_loc(char_iter, start_loc);
 
     // Collect generated tokens in a vector, link them together before returning, to avoid messing
@@ -130,9 +134,12 @@ where
     link_tokens(tokens)
 }
 
-fn link_tokens(tokens: Vec<TokenRef>) -> TokenRef {
+fn link_tokens(tokens: Vec<TokenRef>) -> Option<TokenRef> {
     let mut iter = tokens.into_iter();
-    let ret = iter.next().unwrap();
+    let ret = match iter.next() {
+        Some(ret) => ret,
+        None => return None,
+    };
 
     let mut current = ret.clone();
     for next in iter {
@@ -140,7 +147,7 @@ fn link_tokens(tokens: Vec<TokenRef>) -> TokenRef {
         current = next;
     }
 
-    ret
+    Some(ret)
 }
 
 #[derive(Clone)]

@@ -89,19 +89,19 @@ fn simple_parsing_3() {
     let mut arena = DeclArena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
-    assert_eq!(groups.len(), 3);
+    assert_eq!(groups.len(), 4);
 
-    let group0 = arena.get(groups[0]);
     let group1 = arena.get(groups[1]);
     let group2 = arena.get(groups[2]);
+    let group3 = arena.get(groups[3]);
 
-    for token in group0.iter_tokens() {
+    for token in group1.iter_tokens() {
         assert_eq!(token.span().start.line, 0);
     }
 
-    assert_eq!(group0.line_number, 1);
-    assert_eq!(group1.line_number, 3);
-    assert_eq!(group2.line_number, 7);
+    assert_eq!(group1.line_number, 1);
+    assert_eq!(group2.line_number, 3);
+    assert_eq!(group3.line_number, 7);
 
     token.check_token_str(pgm);
 }

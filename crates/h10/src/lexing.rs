@@ -5,9 +5,11 @@ use h10_lexer::{Lexer, Token, TokenKind};
 
 use lexgen_util::Loc;
 
-/// Tokenize a file from scrath.
+/// Tokenize a file from scratch.
 ///
 /// Tokens are linked together and their line numbers are absolute.
+///
+/// If [`s`] is empty, this returns a whitespace token with (0, 0) as the start and end locations.
 pub(crate) fn lex_full(s: &str, start_pos: Pos) -> TokenRef {
     let lexer = Lexer::new_from_iter_with_loc(
         s.chars(),
