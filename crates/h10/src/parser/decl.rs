@@ -103,7 +103,7 @@ impl Parser {
     */
     fn topdecl(&mut self) -> ParserResult<TopDecl> {
         let t = self.peek_()?;
-        let top_decl_kind: TopDeclKind = match t.token() {
+        let top_decl_kind: TopDeclKind = match t.kind() {
             TokenKind::ReservedId(ReservedId::Kind) => {
                 self.kind_sig_decl().map(TopDeclKind::KindSig)
             }
@@ -538,7 +538,7 @@ impl Parser {
     fn constr(&mut self) -> ParserResult<Con> {
         let t = self.peek_()?;
         let l = t.span().start;
-        match t.token() {
+        match t.kind() {
             TokenKind::ConId | TokenKind::Special(Special::LParen) => {
                 let con = self.con()?;
                 let mut fields = vec![];
@@ -569,7 +569,7 @@ impl Parser {
     fn con_field(&mut self) -> ParserResult<FieldDecl> {
         let t = self.peek_()?;
         let l = t.span().start;
-        if t.token() == TokenKind::VarSym && t.text() == "!" {
+        if t.kind() == TokenKind::VarSym && t.text() == "!" {
             self.skip();
         }
         let ty = self.atype()?;
@@ -583,7 +583,7 @@ impl Parser {
         }
 
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && t.text() == "!" {
+            if t.kind() == TokenKind::VarSym && t.text() == "!" {
                 return true;
             }
         }
@@ -597,7 +597,7 @@ impl Parser {
         let vars = self.vars()?;
         self.expect_token(TokenKind::ReservedOp(ReservedOp::ColonColon))?;
         let t = self.peek_()?;
-        let ty = if t.token() == TokenKind::VarSym && t.text() == "!" {
+        let ty = if t.kind() == TokenKind::VarSym && t.text() == "!" {
             self.skip();
             self.atype()?
         } else {
@@ -611,7 +611,7 @@ impl Parser {
     fn con(&mut self) -> ParserResult<String> {
         let t = self.next_()?;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::ConId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
@@ -770,7 +770,7 @@ impl Parser {
     // simpleclass → qtycls tyvar
     fn simpleclass(&mut self) -> ParserResult<Type> {
         let t = self.next_()?;
-        match t.token() {
+        match t.kind() {
             TokenKind::QConId | TokenKind::ConId => {
                 let con_str = t.text().to_owned();
                 let l = t.span().start;

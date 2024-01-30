@@ -102,7 +102,7 @@ where
                 let old_token_start_pos = Pos::from_loc(&old_token_.absolute_span(arena).start);
                 let old_token_end_pos = Pos::from_loc(&old_token_.absolute_span(arena).end);
 
-                let generated_same_token = old_token_.token() == new_token.token()
+                let generated_same_token = old_token_.kind() == new_token.kind()
                     && old_token_start_pos == new_token_start_pos
                     && old_token_end_pos == new_token_end_pos
                     && old_token_.text() == new_token.text();

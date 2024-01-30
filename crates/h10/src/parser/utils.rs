@@ -59,13 +59,13 @@ impl Parser {
     /// returns virtual semicolons and braces when necessary.
     pub(super) fn peek(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
         self.peek_()
-            .map(|t| (t.span().start, t.token(), t.span().end))
+            .map(|t| (t.span().start, t.kind(), t.span().end))
     }
 
     /// Get the next token. This is the same as `peek`, but it increments the lexer.
     pub(super) fn next(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
         self.next_()
-            .map(|t| (t.span().start, t.token(), t.span().end))
+            .map(|t| (t.span().start, t.kind(), t.span().end))
     }
 
     pub(super) fn try_<A, F>(&mut self, f: F) -> ParserResult<A>
@@ -98,7 +98,7 @@ impl Parser {
 
     pub(super) fn skip_token(&mut self, token: TokenKind) -> bool {
         if let Ok(t) = self.peek_() {
-            if t.token() == token {
+            if t.kind() == token {
                 self.skip();
                 return true;
             }
@@ -108,7 +108,7 @@ impl Parser {
 
     pub(super) fn skip_token_string(&mut self, token: TokenKind) -> Option<String> {
         if let Ok(t) = self.peek_() {
-            if t.token() == token {
+            if t.kind() == token {
                 self.skip();
                 return Some(t.text().to_owned());
             }
@@ -121,7 +121,7 @@ impl Parser {
         F: Fn(&str) -> bool,
     {
         if let Ok(t) = self.peek_() {
-            if t.token() == token && pred(t.text()) {
+            if t.kind() == token && pred(t.text()) {
                 self.skip();
                 return true;
             }
@@ -142,7 +142,7 @@ impl Parser {
         F: Fn(TokenKind) -> bool,
     {
         let t = self.next_()?;
-        if pred(t.token()) {
+        if pred(t.kind()) {
             Ok(t)
         } else {
             self.fail(t.span().start, ErrorKind::UnexpectedToken)

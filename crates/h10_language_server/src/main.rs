@@ -158,7 +158,7 @@ impl LanguageServer for Backend {
         let mut symbols: Vec<SymbolInformation> = vec![];
         let url: Url = self.file_uri.lock().unwrap().clone().unwrap();
         for decl in self.ast.data.lock().unwrap().iter_decls() {
-            let (kind, name) = match decl.first_token.token() {
+            let (kind, name) = match decl.first_token.kind() {
                 TokenKind::VarId => (SymbolKind::FUNCTION, decl.first_token.text().to_owned()),
 
                 TokenKind::ReservedId(ReservedId::Class | ReservedId::Instance) => {
@@ -166,7 +166,7 @@ impl LanguageServer for Backend {
                         None => continue,
                         Some(next_token) => next_token,
                     };
-                    match next_token.token() {
+                    match next_token.kind() {
                         TokenKind::ConId => (SymbolKind::CLASS, next_token.text().to_owned()),
                         _ => continue,
                     }
@@ -179,7 +179,7 @@ impl LanguageServer for Backend {
                         None => continue,
                         Some(next_token) => next_token,
                     };
-                    match next_token.token() {
+                    match next_token.kind() {
                         TokenKind::ConId => (SymbolKind::STRUCT, next_token.text().to_owned()),
                         _ => continue,
                     }

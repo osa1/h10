@@ -96,7 +96,7 @@ impl Iterator for LayoutTokenGenerator {
         let token = match &self.token {
             Some(token) => {
                 if matches!(
-                    token.token(),
+                    token.kind(),
                     TokenKind::Whitespace | TokenKind::Comment { .. },
                 ) {
                     self.token = token.next();
@@ -137,7 +137,7 @@ impl Iterator for LayoutTokenGenerator {
             }
         };
 
-        if matches!(token.token(), TokenKind::Special(Special::LBrace)) {
+        if matches!(token.kind(), TokenKind::Special(Special::LBrace)) {
             // Explicit layout.
             self.do_layout = false;
             self.context.push(Context::Explicit);
@@ -187,7 +187,7 @@ impl Iterator for LayoutTokenGenerator {
             return Some(Ok(lbrace(start)));
         }
 
-        if matches!(token.token(), TokenKind::Special(Special::RBrace),) {
+        if matches!(token.kind(), TokenKind::Special(Special::RBrace),) {
             // Pop explicit layout.
             match self.context.pop() {
                 Some(Context::Explicit) => {}
@@ -248,7 +248,7 @@ impl Iterator for LayoutTokenGenerator {
         self.token = ret.next();
 
         self.do_layout = matches!(
-            ret.token(),
+            ret.kind(),
             TokenKind::ReservedId(
                 ReservedId::Do | ReservedId::Of | ReservedId::Where | ReservedId::Let
             ),

@@ -143,5 +143,5 @@ fn find_group_end(token: TokenRef) -> TokenRef {
 
 /// Whether the token is the start of an indentation group.
 fn is_group_start(token: &TokenRef) -> bool {
-    !matches!(token.token(), TokenKind::Whitespace) && token.span().start.col == 0
+    !matches!(token.kind(), TokenKind::Whitespace) && token.span().start.col == 0
 }

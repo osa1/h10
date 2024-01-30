@@ -36,7 +36,7 @@ fn class_where_no_indent() {
 class X where
 a = 1"#;
     let tokens: Vec<TokenKind> = LayoutTokenGenerator::new_top_level(lex_full(input, Pos::ZERO))
-        .map(|t| t.unwrap().token())
+        .map(|t| t.unwrap().kind())
         .collect();
     assert_eq!(
         tokens,
@@ -62,7 +62,7 @@ fn record_literal() {
     // expected (i.e. after a `let`, `where`, `of`, `do`).
     let input = "data A = A { x :: Int }";
     let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(lex_full(input, Pos::ZERO))
-        .map(|t| t.unwrap().token())
+        .map(|t| t.unwrap().kind())
         .collect();
     assert_eq!(
         tokens,

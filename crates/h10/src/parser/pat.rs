@@ -32,7 +32,7 @@ impl Parser {
     */
     fn lpat(&mut self) -> ParserResult<Pat> {
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && t.text() == "-" {
+            if t.kind() == TokenKind::VarSym && t.text() == "-" {
                 let l = t.span().start;
                 self.skip(); // skip '-'
                 match self.next()? {
@@ -126,7 +126,7 @@ impl Parser {
                 // var → ( varsym )
                 let varsym = self.try_opt(|self_| {
                     if let Ok(t) = self_.peek_() {
-                        if matches!(t.token(), TokenKind::VarSym | TokenKind::QVarSym) {
+                        if matches!(t.kind(), TokenKind::VarSym | TokenKind::QVarSym) {
                             self_.skip();
                             let rparen = self_
                                 .expect_token(TokenKind::Special(Special::RParen))
@@ -149,7 +149,7 @@ impl Parser {
                 let gconsym = self.try_opt(|self_| {
                     if let Ok(t) = self_.peek_() {
                         if matches!(
-                            t.token(),
+                            t.kind(),
                             TokenKind::ReservedOp(ReservedOp::Colon)
                                 | TokenKind::QConSym
                                 | TokenKind::ConSym,

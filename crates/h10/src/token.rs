@@ -38,7 +38,7 @@ impl Deref for TokenRef {
 
 pub struct Token {
     /// The token kind.
-    token: LexerTokenKind,
+    kind: LexerTokenKind,
 
     /// Span of the token.
     ///
@@ -69,7 +69,7 @@ pub struct Token {
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Token")
-            .field("token", &self.token)
+            .field("kind", &self.kind)
             .field("span", &self.span)
             // .field("prev", &self.prev)
             // .field("next", &self.next)
@@ -90,8 +90,8 @@ impl TokenRef {
         Self::new(t, Span { start, end })
     }
 
-    pub fn token(&self) -> LexerTokenKind {
-        self.node.token
+    pub fn kind(&self) -> LexerTokenKind {
+        self.node.kind
     }
 
     pub fn text(&self) -> &str {
@@ -214,7 +214,7 @@ impl TokenRef {
             let new = tokens.insert(token.clone());
             if !new {
                 if &token == self {
-                    panic!("Token {:?} linked to itself", token.token());
+                    panic!("Token {:?} linked to itself", token.kind());
                 }
 
                 // We've seen `token` twice, add tokens from `self` to the first occurrence of
@@ -222,15 +222,15 @@ impl TokenRef {
                 let mut token_list: Vec<LexerTokenKind> = Vec::with_capacity(tokens.len());
                 let mut debug_list_token = self.clone();
                 while debug_list_token != token {
-                    token_list.push(debug_list_token.token());
+                    token_list.push(debug_list_token.kind());
                     debug_list_token = debug_list_token.next().unwrap();
                 }
 
                 // Add the loop.
-                token_list.push(debug_list_token.token());
+                token_list.push(debug_list_token.kind());
                 debug_list_token = debug_list_token.next().unwrap();
                 while debug_list_token != token {
-                    token_list.push(debug_list_token.token());
+                    token_list.push(debug_list_token.kind());
                     debug_list_token = debug_list_token.next().unwrap();
                 }
 
@@ -286,7 +286,7 @@ impl Token {
         */
 
         Self {
-            token: token.kind,
+            kind: token.kind,
             span: Mutex::new(span),
             prev: Mutex::new(None),
             next: Mutex::new(None),

@@ -98,7 +98,7 @@ impl Parser {
             if let Some(token_or_error) = self_.token_gen.next() {
                 match token_or_error {
                     Ok(token) => {
-                        panic!("Token after module: {:?} ({})", token.token(), token.span());
+                        panic!("Token after module: {:?} ({})", token.kind(), token.span());
                     }
                     Err(error) => {
                         panic!("Error after module: {:?}", error);
@@ -153,7 +153,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
-        match t.token() {
+        match t.kind() {
             TokenKind::QVarSym | TokenKind::VarSym => {
                 let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Exp_::Var(str)))
@@ -170,7 +170,7 @@ impl Parser {
 
             TokenKind::Special(Special::Backtick) => {
                 let t_ = self.next_()?;
-                let exp = match t_.token() {
+                let exp = match t_.kind() {
                     TokenKind::QVarId | TokenKind::VarId => Exp_::Var(t_.text().to_owned()),
                     TokenKind::QConId | TokenKind::ConId => Exp_::Con(t_.text().to_owned()),
                     _ => return self.fail(l, ErrorKind::UnexpectedToken),
@@ -214,7 +214,7 @@ impl Parser {
         let t = self.peek_()?;
         let l = t.span().start;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::VarId | TokenKind::QVarId => {
                 self.skip(); // consume var
                 Ok(t.text().to_owned())
@@ -223,7 +223,7 @@ impl Parser {
             TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
                 let t = self.next_()?;
-                match t.token() {
+                match t.kind() {
                     TokenKind::VarSym | TokenKind::QVarSym => {
                         self.expect_token(TokenKind::Special(Special::RParen))?;
                         Ok(t.text().to_owned())
@@ -367,7 +367,7 @@ impl Parser {
             let t = self.next_()?;
             let l = t.span().start;
             let r = t.span().end;
-            match t.token() {
+            match t.kind() {
                 TokenKind::VarId => {
                     let id = t.text().to_owned();
                     binders.push(self.spanned(l, r, TypeBinder_ { id, ty: None }));
@@ -429,7 +429,7 @@ impl Parser {
         let t = self.peek_()?;
         let l = t.span().start;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::VarSym => {
                 self.skip(); // consume varsym
                 Ok(t.text().to_owned())
@@ -463,13 +463,13 @@ impl Parser {
     fn var(&mut self) -> ParserResult<String> {
         let t = self.next_()?;
         let l = t.span().start;
-        match t.token() {
+        match t.kind() {
             TokenKind::VarId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
                 let t = self.next_()?;
                 let l = t.span().start;
-                match t.token() {
+                match t.kind() {
                     TokenKind::VarSym => {
                         self.expect_token(TokenKind::Special(Special::RParen))?;
                         Ok(t.text().to_owned())
@@ -535,7 +535,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::QConId | TokenKind::ConId => Ok(t.text().to_owned()),
 
             TokenKind::Special(Special::LParen) => {
@@ -564,7 +564,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
-        match t.token() {
+        match t.kind() {
             TokenKind::ReservedOp(ReservedOp::Colon) => Ok((l, ":".to_owned(), r)),
             TokenKind::QConSym | TokenKind::ConSym => Ok((l, t.text().to_owned(), r)),
             _ => self.fail(l, ErrorKind::UnexpectedToken),
@@ -589,7 +589,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
-        match t.token() {
+        match t.kind() {
             TokenKind::ConSym => {
                 let str = t.text().to_owned();
                 Ok(self.spanned(l, r, Op_::Con(str)))
@@ -603,7 +603,7 @@ impl Parser {
             TokenKind::Special(Special::Backtick) => {
                 let t_ = self.next_()?;
                 let str = t_.text().to_owned();
-                let ret = match t_.token() {
+                let ret = match t_.kind() {
                     TokenKind::ConId => self.spanned(l, r, Op_::Con(str)),
                     TokenKind::VarId => self.spanned(l, r, Op_::Var(str)),
                     _ => return self.fail(l, ErrorKind::UnexpectedToken),

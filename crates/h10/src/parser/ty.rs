@@ -27,7 +27,7 @@ impl Parser {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
-        match t.token() {
+        match t.kind() {
             TokenKind::QConId | TokenKind::ConId => {
                 let con_str = t.text().to_owned();
                 let con = self.spanned(l, r, Type_::Con(self.spanned(l, r, TyCon_::Id(con_str))));
@@ -110,7 +110,7 @@ impl Parser {
         let l = t.span().start;
         let r = t.span().end;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::VarId => {
                 self.skip(); // consume type id
                 let str = t.text().to_owned();
@@ -172,7 +172,7 @@ impl Parser {
         let t = self.peek_()?;
         let l = t.span().start;
         let r = t.span().end;
-        match t.token() {
+        match t.kind() {
             TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume qualified type constructor
                 let str = t.text().to_owned();
@@ -181,7 +181,7 @@ impl Parser {
             TokenKind::Special(Special::LParen) => {
                 self.skip(); // consume '('
                 let t_ = self.peek_()?;
-                match t_.token() {
+                match t_.kind() {
                     TokenKind::Special(Special::RParen) => {
                         self.skip(); // consume ')'
                         let (_, r_) = self.last_tok_span();

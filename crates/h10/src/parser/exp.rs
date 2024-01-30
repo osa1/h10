@@ -37,7 +37,7 @@ impl Parser {
     */
     pub(super) fn infixexp(&mut self) -> ParserResult<Exp> {
         if let Ok(t) = self.peek_() {
-            if t.token() == TokenKind::VarSym && t.text() == "-" {
+            if t.kind() == TokenKind::VarSym && t.text() == "-" {
                 let l = t.span().start;
                 let r = t.span().end;
                 self.skip();
@@ -352,7 +352,7 @@ impl Parser {
         let l = t.span().start;
         let r = t.span().end;
 
-        match t.token() {
+        match t.kind() {
             TokenKind::QConId | TokenKind::ConId => {
                 self.skip(); // consume con
                 let str = t.text().to_owned();
@@ -398,12 +398,12 @@ impl Parser {
         let l = t.span().start;
         let r = t.span().end;
 
-        if t.token() == TokenKind::Special(Special::RParen) {
+        if t.kind() == TokenKind::Special(Special::RParen) {
             return Ok(self.spanned(l, r, Exp_::Tuple(vec![])));
         }
 
         if matches!(
-            t.token(),
+            t.kind(),
             TokenKind::QVarSym
                 | TokenKind::VarSym
                 | TokenKind::QConSym
@@ -416,7 +416,7 @@ impl Parser {
             let fun = self.spanned(
                 l,
                 r,
-                if matches!(t.token(), TokenKind::QVarSym | TokenKind::VarSym) {
+                if matches!(t.kind(), TokenKind::QVarSym | TokenKind::VarSym) {
                     Exp_::Var(str)
                 } else {
                     Exp_::Con(str)
@@ -430,14 +430,14 @@ impl Parser {
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if t.token() == TokenKind::Special(Special::Backtick) {
+        if t.kind() == TokenKind::Special(Special::Backtick) {
             // Right section, id operator
             self.skip();
             let t = self.next_()?;
             let l = t.span().start;
             let r = t.span().end;
             let str = t.text().to_owned();
-            let fun = match t.token() {
+            let fun = match t.kind() {
                 TokenKind::VarId | TokenKind::QVarId => self.spanned(l, r, Exp_::Var(str)),
                 TokenKind::ConId | TokenKind::QConId => self.spanned(l, r, Exp_::Con(str)),
                 _ => return self.fail(l, ErrorKind::UnexpectedToken),
@@ -448,7 +448,7 @@ impl Parser {
             return Ok(self.spanned(l, r, Exp_::App(Box::new(fun), vec![arg])));
         }
 
-        if t.token() == TokenKind::Special(Special::Comma) {
+        if t.kind() == TokenKind::Special(Special::Comma) {
             self.skip();
             // Tuple constructor
             let mut n_commas = 1;
