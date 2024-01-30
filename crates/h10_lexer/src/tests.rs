@@ -32,8 +32,10 @@ fn comments() {
     let toks = lex(r#"
 -- test
 --| test
+-- | test
 {- test -}
 {-| test -}
+{- | test -}
 "#);
     let doc = TokenKind::Comment {
         documentation: true,
@@ -41,5 +43,5 @@ fn comments() {
     let not_doc = TokenKind::Comment {
         documentation: false,
     };
-    assert_eq!(toks, vec![not_doc, doc, not_doc, doc]);
+    assert_eq!(toks, vec![not_doc, doc, doc, not_doc, doc, doc]);
 }

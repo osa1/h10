@@ -100,7 +100,7 @@ lexgen::lexer! {
         },
 
         // Comments
-        "--|" (_ # '\n')* > '\n' => |lexer| {
+        "--" ' '* '|' (_ # '\n')* > '\n' => |lexer| {
             let text = SmolStr::new(lexer.match_());
             lexer.return_(Token { kind: TokenKind::Comment { documentation: true }, text })
         },
@@ -110,7 +110,7 @@ lexgen::lexer! {
             lexer.return_(Token { kind: TokenKind::Comment { documentation: false }, text })
         },
 
-        "{-|" => |lexer| {
+        "{-" ' '* "|" => |lexer| {
             lexer.state().comment_depth = 1;
             lexer.state().doc_comment = true;
             lexer.switch(LexerRule::MultiLineComment)
