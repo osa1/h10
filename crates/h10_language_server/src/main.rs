@@ -2,13 +2,12 @@
 
 mod ast;
 mod buffer;
+mod outline;
 mod token;
 
 use ast::Ast;
 use buffer::{Buffer, Token};
 use token::TOKEN_TYPES;
-
-use h10_lexer::{ReservedId, TokenKind};
 
 use std::fs::File;
 use std::io::Write;
@@ -154,63 +153,10 @@ impl LanguageServer for Backend {
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
         writeln!(self.log_file.lock().unwrap(), "{:#?}", params).unwrap();
-
-        let mut symbols: Vec<SymbolInformation> = vec![];
-        let url: Url = self.file_uri.lock().unwrap().clone().unwrap();
-        for decl in self.ast.data.lock().unwrap().iter_decls() {
-            let (kind, name) = match decl.first_token.kind() {
-                TokenKind::VarId => (SymbolKind::FUNCTION, decl.first_token.text().to_owned()),
-
-                TokenKind::ReservedId(ReservedId::Class | ReservedId::Instance) => {
-                    let next_token = match decl.first_token.next().and_then(|t| t.next()) {
-                        None => continue,
-                        Some(next_token) => next_token,
-                    };
-                    match next_token.kind() {
-                        TokenKind::ConId => (SymbolKind::CLASS, next_token.text().to_owned()),
-                        _ => continue,
-                    }
-                }
-
-                TokenKind::ReservedId(
-                    ReservedId::Data | ReservedId::Newtype | ReservedId::Type,
-                ) => {
-                    let next_token = match decl.first_token.next().and_then(|t| t.next()) {
-                        None => continue,
-                        Some(next_token) => next_token,
-                    };
-                    match next_token.kind() {
-                        TokenKind::ConId => (SymbolKind::STRUCT, next_token.text().to_owned()),
-                        _ => continue,
-                    }
-                }
-
-                _ => continue,
-            };
-
-            symbols.push(SymbolInformation {
-                name,
-                kind,
-                tags: None,
-                location: Location::new(
-                    url.clone(),
-                    Range {
-                        start: Position {
-                            line: decl.span_start().line,
-                            character: decl.span_start().char,
-                        },
-                        end: Position {
-                            line: decl.span_end().line,
-                            character: decl.span_end().char,
-                        },
-                    },
-                ),
-                container_name: None,
-                deprecated: None,
-            });
-        }
-
-        Ok(Some(DocumentSymbolResponse::Flat(symbols)))
+        let ast = self.ast.data.lock().unwrap();
+        Ok(Some(outline::generate_symbol_response(
+            &ast.decls, &ast.arena,
+        )))
     }
 
     async fn semantic_tokens_full(

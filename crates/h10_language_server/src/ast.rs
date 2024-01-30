@@ -12,8 +12,8 @@ pub struct Ast {
 }
 
 pub struct AstData {
-    arena: DeclArena,
-    decls: Vec<DeclIdx>,
+    pub arena: DeclArena,
+    pub decls: Vec<DeclIdx>,
 }
 
 impl Ast {

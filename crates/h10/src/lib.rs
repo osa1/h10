@@ -20,7 +20,7 @@ mod parser;
 pub mod pos;
 mod scc;
 mod scope_map;
-mod token;
+pub mod token;
 mod type_inference;
 mod type_scheme;
 mod typing;
