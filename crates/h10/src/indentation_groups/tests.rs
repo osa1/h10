@@ -105,3 +105,30 @@ fn simple_parsing_3() {
 
     token.check_token_str(pgm);
 }
+
+#[test]
+fn comments() {
+    let pgm = indoc! {"
+            --| A documentation comment.
+            data A
+
+            -- A non-documentation comment.
+            data B
+              = X
+              | Y
+
+            -- A trailing comment.
+        "};
+    let mut arena = DeclArena::new();
+    let token = lex_full(pgm, Pos::ZERO);
+    let groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(), Pos::new(0, 0));
+    assert_eq!(group0.span_end(), Pos::new(4, 0));
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(), Pos::new(4, 0));
+    assert_eq!(group1.span_end(), Pos::new(9, 0));
+}

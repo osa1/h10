@@ -414,7 +414,7 @@ fn remove_all_single_group() {
 }
 
 #[test]
-fn remove_all_mutiple_groups() {
+fn remove_all_multiple_groups() {
     let pgm = indoc! {"
         a
         b

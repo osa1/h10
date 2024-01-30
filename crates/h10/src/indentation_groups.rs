@@ -127,21 +127,68 @@ pub(crate) fn reparse_indentation_groups_token(
 }
 
 /// Find the last token of the indentation group of the given token.
-///
-/// Starting with the given token, follow the links until finding a start of an indentation group
-/// and return the token before that.
 fn find_group_end(token: TokenRef) -> TokenRef {
+    // Documentation comments, followed by other tokens.
     let mut last_token = token;
+
+    let mut consumed_documentation = matches!(
+        last_token.kind(),
+        TokenKind::Comment {
+            documentation: true
+        }
+    );
+
+    // Include documentation comments in the group.
+    while let Some(next_token) = last_token.next() {
+        if matches!(
+            next_token.kind(),
+            TokenKind::Comment {
+                documentation: true
+            }
+        ) {
+            last_token = next_token;
+            consumed_documentation = true;
+        } else {
+            break;
+        }
+    }
+
+    // Allow whitespace between the documentation comment and the actual thing.
+    if consumed_documentation {
+        while let Some(next_token) = last_token.next() {
+            if matches!(next_token.kind(), TokenKind::Whitespace) {
+                last_token = next_token;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Finally include the actual definition. If we've seen any documentation comments, then the
+    // next token will probably be a group start, but it should be included in this group.
+    if consumed_documentation {
+        if let Some(next_token) = last_token.next() {
+            last_token = next_token;
+        }
+    }
+
     while let Some(next_token) = last_token.next() {
         if is_group_start(&next_token) {
             break;
         }
         last_token = next_token;
     }
+
     last_token
 }
 
 /// Whether the token is the start of an indentation group.
 fn is_group_start(token: &TokenRef) -> bool {
-    !matches!(token.kind(), TokenKind::Whitespace) && token.span().start.col == 0
+    !matches!(
+        token.kind(),
+        TokenKind::Whitespace
+            | TokenKind::Comment {
+                documentation: false
+            }
+    ) && token.span().start.col == 0
 }
