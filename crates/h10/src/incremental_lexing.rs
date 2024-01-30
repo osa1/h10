@@ -122,7 +122,9 @@ where
     }
 
     if lexer.next().is_none() {
-        tokens.last().unwrap().set_next(None);
+        if let Some(last) = tokens.last() {
+            last.set_next(None);
+        }
     }
 
     link_tokens(tokens)
