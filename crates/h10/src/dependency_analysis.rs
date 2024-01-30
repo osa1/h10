@@ -6,7 +6,11 @@ use crate::scc::strongconnect;
 use crate::type_scheme::Scheme;
 
 pub(crate) struct DependencyGroups<'a> {
+    /// Strongly connected components of implicitly typed bindings, in reverse topological order,
+    /// i.e. definitions come before the use sites.
     pub(crate) implicitly_typed: Vec<Vec<&'a BindingGroup<'a>>>,
+
+    /// Explicitly typed bindings.
     pub(crate) explicitly_typed: Vec<&'a BindingGroup<'a>>,
 }
 

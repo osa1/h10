@@ -2,6 +2,13 @@
 
 use crate::collections::{Map, Set};
 
+/// Tarjan's strongly connected components (SCC) algorithm.
+///
+/// Returns the SCCs in reverse topological order, i.e. a definition comes before its use sites in
+/// the returned list of SCCs.
+///
+/// This means for type checking (and other analyses) we can process the SCCs in the returned
+/// order.
 pub(crate) fn strongconnect(num_nodes: u32, graph: &Map<u32, Set<u32>>) -> Vec<Set<u32>> {
     let mut sccs: Vec<Set<u32>> = vec![];
     let mut states: Map<u32, StrongConnectState> = Default::default();
