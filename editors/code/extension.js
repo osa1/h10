@@ -21,7 +21,7 @@ function activate(context) {
             fileEvents: vscode.workspace.createFileSystemWatcher('**/.clientrc')
         }
     };
-    client = new node.LanguageClient('languageServerExample', 'Language Server Example', serverOptions, clientOptions);
+    client = new node.LanguageClient('h10LanguageServer', 'H10 Language Server', serverOptions, clientOptions);
     client.start();
 }
 
