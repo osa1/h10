@@ -398,9 +398,21 @@ fn append_last_1() {
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
 
+    let group0_old = groups[0];
+    let group1_old = groups[1];
+    let group2_old = groups[2];
+
     insert(&mut arena, &mut groups, Pos::new(4, 3), ":");
 
     assert_eq!(groups.len(), 3);
+
+    let group0_new = groups[0];
+    let group1_new = groups[1];
+    let group2_new = groups[2];
+
+    assert_eq!(group0_old, group0_new);
+    assert_eq!(group1_old, group1_new);
+    assert_ne!(group2_old, group2_new);
 }
 
 #[test]
