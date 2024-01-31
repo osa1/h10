@@ -49,7 +49,7 @@ pub struct Token {
     //
     // TODO: We can move this out of the mutex if we store absolute positions instead of relative
     // to the AST node, as we never really udpate a token's span, we only update its links.
-    pub span: Mutex<Span>,
+    span: Mutex<Span>,
 
     /// The previous token.
     prev: Mutex<Option<TokenRef>>,
