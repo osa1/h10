@@ -721,6 +721,15 @@ pub struct Con_ {
 
 pub type Op = AstNode<Op_>;
 
+impl Op {
+    pub fn id(&self) -> &Id {
+        match &self.node {
+            Op_::Con(id) => id,
+            Op_::Var(id) => id,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Op_ {
     Con(Id),

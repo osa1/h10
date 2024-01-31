@@ -8,6 +8,7 @@ mod class_collector;
 mod class_env;
 mod collections;
 pub mod decl_arena;
+mod decl_info;
 mod dependency_analysis;
 mod id;
 mod incremental_lexing;
