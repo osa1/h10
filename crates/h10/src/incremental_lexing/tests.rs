@@ -267,7 +267,7 @@ fn relex_insertion_new_group() {
         assert_eq!(new_token.text(), old_token.text());
         assert_eq!(new_token.span().start.line, old_token.span().start.line + 1);
         assert_eq!(new_token.span().end.line, old_token.span().end.line + 1);
-        assert_eq!(new_token.span().start.col, old_token.span().start.col);
-        assert_eq!(new_token.span().end.col, old_token.span().end.col);
+        assert_eq!(new_token.span().start.char, old_token.span().start.char);
+        assert_eq!(new_token.span().end.char, old_token.span().end.char);
     }
 }

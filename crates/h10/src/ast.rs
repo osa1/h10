@@ -7,8 +7,6 @@ use h10_lexer::Literal;
 
 use std::fmt;
 
-use lexgen_util::Loc;
-
 #[derive(Debug, Clone)]
 pub struct AstNode<T> {
     pub span: Span,
@@ -24,11 +22,8 @@ impl<T> AstNode<T> {
 /// A span in a file.
 #[derive(Debug, Clone)]
 pub struct Span {
-    // TODO: We should use a line and column type, without the byte index. Byte index is not useful
-    // when we store all text in AST.
-    pub start: Loc,
-
-    pub end: Loc,
+    pub start: Pos,
+    pub end: Pos,
 }
 
 impl fmt::Display for Span {
@@ -37,9 +32,9 @@ impl fmt::Display for Span {
             f,
             "{}:{}-{}:{}",
             self.start.line + 1,
-            self.start.col + 1,
+            self.start.char + 1,
             self.end.line + 1,
-            self.end.col
+            self.end.char
         )
     }
 }
@@ -82,7 +77,7 @@ impl fmt::Debug for TopDecl {
 
 impl TopDecl {
     pub fn span_start(&self) -> Pos {
-        let token_pos = Pos::from_loc(&self.first_token.span().start);
+        let token_pos = self.first_token.span().start;
         Pos {
             line: token_pos.line + self.line_number,
             char: token_pos.char,
@@ -90,7 +85,7 @@ impl TopDecl {
     }
 
     pub fn span_end(&self) -> Pos {
-        let token_pos = Pos::from_loc(&self.last_token.span().end);
+        let token_pos = self.last_token.span().end;
         Pos {
             line: token_pos.line + self.line_number,
             char: token_pos.char,

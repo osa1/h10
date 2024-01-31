@@ -15,8 +15,6 @@ use crate::token::TokenRef;
 use h10_lexer::Token as LexerToken;
 use h10_lexer::TokenKind as LexerTokenKind;
 
-use lexgen_util::Loc;
-
 pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &str) {
     if text.is_empty() {
         return;
@@ -49,11 +47,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
                 text: "".into(),
             },
             Span {
-                start: Loc {
-                    line: 0,
-                    col: 0,
-                    byte_idx: 0,
-                },
+                start: Pos { line: 0, char: 0 },
                 end: first_token.span().start,
             },
         );

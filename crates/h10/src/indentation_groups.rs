@@ -190,5 +190,5 @@ fn is_group_start(token: &TokenRef) -> bool {
             | TokenKind::Comment {
                 documentation: false
             }
-    ) && token.span().start.col == 0
+    ) && token.span().start.char == 0
 }

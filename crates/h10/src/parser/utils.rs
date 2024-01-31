@@ -2,10 +2,9 @@ use crate::ast::{AstNode, Span};
 use crate::layout_token_generator::LayoutError;
 use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::TokenKind;
-
-use lexgen_util::Loc;
 
 impl Parser {
     pub(super) fn in_explicit_layout(&self) -> bool {
@@ -27,7 +26,7 @@ impl Parser {
                     Ok(token)
                 }
                 Some(Err(err)) => Err(err),
-                None => return self.fail(Loc::default(), ErrorKind::UnexpectedEndOfInput),
+                None => return self.fail(Pos::ZERO, ErrorKind::UnexpectedEndOfInput),
             },
         };
         match v {
@@ -43,7 +42,7 @@ impl Parser {
             None => match self.token_gen.next() {
                 Some(Ok(token)) => Ok(token),
                 Some(Err(err)) => Err(err),
-                None => return self.fail(Loc::default(), ErrorKind::UnexpectedEndOfInput),
+                None => return self.fail(Pos::ZERO, ErrorKind::UnexpectedEndOfInput),
             },
         };
         match v {
@@ -57,13 +56,13 @@ impl Parser {
 
     /// Get the next token without incrementing the lexer. This handles indentation/layout and
     /// returns virtual semicolons and braces when necessary.
-    pub(super) fn peek(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
+    pub(super) fn peek(&mut self) -> ParserResult<(Pos, TokenKind, Pos)> {
         self.peek_()
             .map(|t| (t.span().start, t.kind(), t.span().end))
     }
 
     /// Get the next token. This is the same as `peek`, but it increments the lexer.
-    pub(super) fn next(&mut self) -> ParserResult<(Loc, TokenKind, Loc)> {
+    pub(super) fn next(&mut self) -> ParserResult<(Pos, TokenKind, Pos)> {
         self.next_()
             .map(|t| (t.span().start, t.kind(), t.span().end))
     }
@@ -152,7 +151,7 @@ impl Parser {
     pub(super) fn expect_token_string(
         &mut self,
         token: TokenKind,
-    ) -> ParserResult<(Loc, String, Loc)> {
+    ) -> ParserResult<(Pos, String, Pos)> {
         self.expect_token(token)
             .map(|t| (t.span().start, t.text().to_owned(), t.span().end))
     }
@@ -160,7 +159,7 @@ impl Parser {
     pub(super) fn expect_token_pred_string<F>(
         &mut self,
         pred: F,
-    ) -> ParserResult<(Loc, String, Loc)>
+    ) -> ParserResult<(Pos, String, Pos)>
     where
         F: Fn(TokenKind) -> bool,
     {
@@ -173,7 +172,7 @@ impl Parser {
         debug_assert!(ret.is_ok());
     }
 
-    pub(super) fn last_tok_span(&self) -> (Loc, Loc) {
+    pub(super) fn last_tok_span(&self) -> (Pos, Pos) {
         let span = self.last_tok.as_ref().unwrap().span.lock().unwrap();
         (span.start, span.end)
     }
@@ -184,11 +183,11 @@ impl Parser {
 //
 
 impl Parser {
-    pub(super) fn span(&self, l: Loc, r: Loc) -> Span {
+    pub(super) fn span(&self, l: Pos, r: Pos) -> Span {
         Span { start: l, end: r }
     }
 
-    pub(super) fn spanned<T>(&self, l: Loc, r: Loc, node: T) -> AstNode<T> {
+    pub(super) fn spanned<T>(&self, l: Pos, r: Pos, node: T) -> AstNode<T> {
         AstNode {
             span: self.span(l, r),
             node,

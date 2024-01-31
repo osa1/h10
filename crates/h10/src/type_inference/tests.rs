@@ -4,6 +4,7 @@ use crate::class_env::Pred;
 use crate::collections::Set;
 use crate::id::{type_ty_tyref, Id};
 use crate::parser::{parse_module, parse_type};
+use crate::pos::Pos;
 use crate::type_inference::{ti_module, unify};
 use crate::type_scheme::Scheme;
 use crate::typing::TyRef;
@@ -297,8 +298,8 @@ fn check_inferred_ty(pgm: &str, id: &str, expected_ty: &str) {
 
     let expected_ty_scheme = Scheme::from_type_sig(
         ast::Span {
-            start: Default::default(),
-            end: Default::default(),
+            start: Pos::ZERO,
+            end: Pos::ZERO,
         },
         &ty_kinds,
         &Default::default(),

@@ -37,16 +37,8 @@ pub(crate) fn lex_full(s: &str, start_pos: Pos) -> TokenRef {
                 text: "".into(),
             },
             Span {
-                start: Loc {
-                    line: 0,
-                    col: 0,
-                    byte_idx: 0,
-                },
-                end: Loc {
-                    line: 0,
-                    col: 0,
-                    byte_idx: 0,
-                },
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 0 },
             },
         )
     })

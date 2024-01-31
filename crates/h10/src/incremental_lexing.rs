@@ -6,6 +6,8 @@ use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Lexer;
 
+use lexgen_util::Loc;
+
 /// Starting with [`lex_start`], lex until re-lexing [`inserted_text`] when inserted at
 /// [`insertion_pos`], then continue re-lexing until finding an identical token.
 ///
@@ -67,9 +69,16 @@ where
     I: Iterator<Item = char> + Clone,
     F: Fn(Pos) -> Pos,
 {
-    let start_loc = lex_start.absolute_span(arena).start;
+    let start_pos = lex_start.absolute_span(arena).start;
 
-    let mut lexer = Lexer::new_from_iter_with_loc(char_iter, start_loc);
+    let mut lexer = Lexer::new_from_iter_with_loc(
+        char_iter,
+        Loc {
+            line: start_pos.line,
+            col: start_pos.char,
+            byte_idx: 0,
+        },
+    );
 
     // Collect generated tokens in a vector, link them together before returning, to avoid messing
     // with the 'next' pointers while the lexer and `old_token` below holds aliases.
@@ -80,15 +89,15 @@ where
         let token = token.unwrap();
         let new_token = TokenRef::from_lexer_token(token);
 
-        let new_token_start_pos = Pos::from_loc(&new_token.span().start);
-        let new_token_end_pos = Pos::from_loc(&new_token.span().end);
+        let new_token_start_pos = new_token.span().start;
+        let new_token_end_pos = new_token.span().end;
 
-        let after_update = Pos::from_loc(&new_token.span().end) > update_end_pos;
+        let after_update = new_token.span().end > update_end_pos;
 
         // Find the old token at the current position, or after it if there isn't a token starting
         // at the same position.
         while let Some(old_token_) = &old_token {
-            let old_token_start_pos = Pos::from_loc(&old_token_.span().start);
+            let old_token_start_pos = old_token_.span().start;
 
             if adjust_old_token_pos(old_token_start_pos) >= new_token_start_pos {
                 break;
@@ -99,8 +108,8 @@ where
 
         match &old_token {
             Some(old_token_) => {
-                let old_token_start_pos = Pos::from_loc(&old_token_.absolute_span(arena).start);
-                let old_token_end_pos = Pos::from_loc(&old_token_.absolute_span(arena).end);
+                let old_token_start_pos = old_token_.absolute_span(arena).start;
+                let old_token_end_pos = old_token_.absolute_span(arena).end;
 
                 let generated_same_token = old_token_.kind() == new_token.kind()
                     && old_token_start_pos == new_token_start_pos
@@ -184,7 +193,7 @@ impl<'a> TokenCharIteratorWithInsertion<'a> {
     // NB. `insertion_pos` is the absolute position.
     fn new(token: TokenRef, insertion_pos: Pos, inserted_text: &'a str, arena: &DeclArena) -> Self {
         Self {
-            current_pos: Pos::from_loc(&token.absolute_span(arena).start),
+            current_pos: token.absolute_span(arena).start,
             source: TokenCharIterSource::TokenBeforeInsertion,
             token,
             inserted_text,
@@ -293,7 +302,7 @@ struct TokenCharIteratorWithDeletion {
 impl TokenCharIteratorWithDeletion {
     fn new(token: TokenRef, deletion_start: Pos, deletion_end: Pos, arena: &DeclArena) -> Self {
         Self {
-            current_pos: Pos::from_loc(&token.absolute_span(arena).start),
+            current_pos: token.absolute_span(arena).start,
             token,
             byte_idx: 0,
             deletion_start,

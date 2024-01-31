@@ -1,6 +1,6 @@
 use crate::parser::{Parser, ParserResult};
+use crate::pos::Pos;
 
-use lexgen_util::Loc;
 use rpds::List;
 
 // TODO: Should errors have reference to the file/module?
@@ -8,7 +8,7 @@ use rpds::List;
 #[derive(Debug)]
 pub struct Error {
     // Location is not valid when `kind` is `UnexpectedEndOfInput`
-    loc: Loc,
+    loc: Pos,
     #[allow(unused)]
     kind: ErrorKind,
     context: List<Context>,
@@ -26,7 +26,7 @@ pub enum ErrorKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Context {
-    pub loc: Loc,
+    pub loc: Pos,
     pub item: GrammarItem,
 }
 
@@ -56,7 +56,7 @@ impl Parser {
         ret
     }
 
-    pub fn fail<R>(&mut self, loc: Loc, kind: ErrorKind) -> ParserResult<R> {
+    pub fn fail<R>(&mut self, loc: Pos, kind: ErrorKind) -> ParserResult<R> {
         Err(Error {
             loc,
             kind,
@@ -93,11 +93,11 @@ impl fmt::Display for GrammarItem {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Parse error at {}:{}", self.loc.line, self.loc.col)?;
+        writeln!(f, "Parse error at {}:{}", self.loc.line, self.loc.char)?;
         if !self.context.is_empty() {
             writeln!(f, "While parsing:")?;
             for Context { loc, item } in &self.context {
-                writeln!(f, "  - {} at {}:{}", item, loc.line, loc.col)?;
+                writeln!(f, "  - {} at {}:{}", item, loc.line, loc.char)?;
             }
         }
         #[cfg(debug_assertions)]

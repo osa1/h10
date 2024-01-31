@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::ast::Span;
+use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, Special, Token, TokenKind};
 
@@ -37,7 +38,7 @@ pub struct LayoutTokenGenerator {
 
 #[derive(Debug, Clone)]
 pub struct LayoutError {
-    pub loc: Loc,
+    pub loc: Pos,
     pub error: &'static str,
 }
 
@@ -54,11 +55,7 @@ impl LayoutTokenGenerator {
             last_token_line: None,
             context: vec![Context::Implicit(0)],
             do_layout: false,
-            override_next: Some(lbrace(Loc {
-                line: 0,
-                col: 0,
-                byte_idx: 0,
-            })),
+            override_next: Some(lbrace(Pos { line: 0, char: 0 })),
         }
     }
 
@@ -112,10 +109,9 @@ impl Iterator for LayoutTokenGenerator {
                         Some(last_line) => last_line,
                         None => return None, // empty file
                     };
-                    let loc = Loc {
+                    let loc = Pos {
                         line: last_line + 1,
-                        col: 0,
-                        byte_idx: 0,
+                        char: 0,
                     };
                     self.context.push(Context::Explicit);
                     Some(Ok(lbrace(loc)))
@@ -124,10 +120,9 @@ impl Iterator for LayoutTokenGenerator {
                     match self.context.pop() {
                         Some(_) => {
                             let last_line = self.last_token_line.unwrap();
-                            let loc = Loc {
+                            let loc = Pos {
                                 line: last_line + 1,
-                                col: 0,
-                                byte_idx: 0,
+                                char: 0,
                             };
                             Some(Ok(rbrace(loc)))
                         }
@@ -166,7 +161,7 @@ impl Iterator for LayoutTokenGenerator {
             //    Otherwise create an empty context.
 
             // (1)
-            let next_token_indent = start.col;
+            let next_token_indent = start.char;
             if let Some(current_context) = self.context.last() {
                 if Context::Implicit(next_token_indent) > *current_context {
                     self.context.push(Context::Implicit(next_token_indent));
@@ -219,7 +214,7 @@ impl Iterator for LayoutTokenGenerator {
                     self.last_token_line = None;
                 }
                 Some(Context::Implicit(n)) => {
-                    match start.col.cmp(n) {
+                    match start.char.cmp(n) {
                         Ordering::Less => {
                             // Next token indented less, insert `}`, close layout.
                             self.context.pop();
@@ -273,40 +268,39 @@ const SEMIC: Token = Token {
     text: SmolStr::new_inline(";"),
 };
 
-fn lbrace(loc: Loc) -> TokenRef {
+fn lbrace(loc: Pos) -> TokenRef {
     TokenRef::new(
         LBRACE,
         Span {
             start: loc,
-            end: virtual_token_end(&loc),
+            end: virtual_token_end(loc),
         },
     )
 }
 
-fn rbrace(loc: Loc) -> TokenRef {
+fn rbrace(loc: Pos) -> TokenRef {
     TokenRef::new(
         RBRACE,
         Span {
             start: loc,
-            end: virtual_token_end(&loc),
+            end: virtual_token_end(loc),
         },
     )
 }
 
-fn semic(loc: Loc) -> TokenRef {
+fn semic(loc: Pos) -> TokenRef {
     TokenRef::new(
         SEMIC,
         Span {
             start: loc,
-            end: virtual_token_end(&loc),
+            end: virtual_token_end(loc),
         },
     )
 }
 
-fn virtual_token_end(start: &Loc) -> Loc {
-    Loc {
+fn virtual_token_end(start: Pos) -> Pos {
+    Pos {
         line: start.line,
-        col: start.col + 1,
-        byte_idx: start.byte_idx, // not in input
+        char: start.char + 1,
     }
 }

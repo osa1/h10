@@ -10,12 +10,11 @@ use arc_id::ArcId;
 use h10_lexer::Token as LexerToken;
 use h10_lexer::TokenKind as LexerTokenKind;
 
-use lexgen_util::Loc;
-
 use std::fmt;
 use std::ops::Deref;
 use std::sync::Mutex;
 
+use lexgen_util::Loc;
 use smol_str::SmolStr;
 
 /// Wraps lexer tokens in a shared reference to allow various information and linking to other
@@ -90,7 +89,13 @@ impl TokenRef {
     }
 
     pub fn from_lexer_token((start, t, end): (Loc, LexerToken, Loc)) -> Self {
-        Self::new(t, Span { start, end })
+        Self::new(
+            t,
+            Span {
+                start: Pos::from_loc(&start),
+                end: Pos::from_loc(&end),
+            },
+        )
     }
 
     pub fn kind(&self) -> LexerTokenKind {
@@ -203,10 +208,7 @@ impl TokenRef {
     /// Does not search next or previous tokens.
     pub fn contains_location(&self, pos: Pos) -> bool {
         let span = self.span();
-        let start = Pos::from_loc(&span.start);
-        let end = Pos::from_loc(&span.end);
-
-        pos >= start && pos < end
+        pos >= span.start && pos < span.end
     }
 
     pub fn check_loops(&self) {

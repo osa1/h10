@@ -16,7 +16,6 @@ use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
-use lexgen_util::Loc;
 use rpds::List;
 
 pub type ParserResult<A> = Result<A, Error>;
@@ -436,7 +435,7 @@ impl Parser {
     }
 
     // qconop → gconsym | ` qconid `        (qualified constructor operator)
-    fn qconop(&mut self) -> ParserResult<(Loc, String, Loc)> {
+    fn qconop(&mut self) -> ParserResult<(Pos, String, Pos)> {
         // TODO: return value
         if self.gconsym_start() {
             self.gconsym()
@@ -549,7 +548,7 @@ impl Parser {
     }
 
     // gconsym → : | qconsym
-    fn gconsym(&mut self) -> ParserResult<(Loc, String, Loc)> {
+    fn gconsym(&mut self) -> ParserResult<(Pos, String, Pos)> {
         let t = self.next_()?;
         let l = t.span().start;
         let r = t.span().end;
