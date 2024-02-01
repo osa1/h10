@@ -45,8 +45,11 @@ pub(crate) fn module_class_env(module: &[ast::TopDecl], kinds: &Map<Id, TyRef>) 
                 {
                     let mut method_context: Vec<ast::Type> = Vec::with_capacity(context.len() + 1);
 
-                    // Add `C t` as the first predicate to the context.
-                    // TODO: Not sure about the spans.
+                    // Add `C t` as the first predicate to the context. `t` will be seen by the
+                    // converter first and `t` will be the first quantified variable (`Gen 0`) as
+                    // expected.
+                    // TODO: It would be good to avoid creating an `AstNode` as ther's no source
+                    // code (span) for this predicate.
                     method_context.push(ast::AstNode::new(
                         span.clone(),
                         ast::Type_::App(
@@ -67,10 +70,6 @@ pub(crate) fn module_class_env(module: &[ast::TopDecl], kinds: &Map<Id, TyRef>) 
                     ));
 
                     method_context.extend(context.iter().cloned());
-
-                    // Replace `t` with `Gen 0` in the type signature.
-                    let mut bound_tys: TrieMap<Id, TyRef> = Default::default();
-                    bound_tys.insert_mut(ty_arg.clone(), TyRef::new_gen(0));
 
                     for var in vars {
                         let scheme = Scheme::from_type_sig(
