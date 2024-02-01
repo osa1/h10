@@ -13,7 +13,7 @@ mod dependency_analysis;
 mod id;
 mod incremental_lexing;
 pub mod incremental_update;
-mod indentation_groups;
+pub mod indentation_groups;
 mod kind_inference;
 mod layout_token_generator;
 mod lexing;

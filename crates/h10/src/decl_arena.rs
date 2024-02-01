@@ -1,6 +1,4 @@
-#![allow(unused)]
-
-use crate::ast;
+use crate::indentation_groups::IndentationGroup;
 
 #[derive(Debug)]
 pub struct DeclArena {
@@ -31,7 +29,7 @@ impl DeclIdx {
 #[derive(Debug)]
 enum DeclAllocation {
     Free { next_free_slot: Option<DeclIdx> },
-    Used { decl: ast::TopDecl },
+    Used { decl: IndentationGroup },
 }
 
 impl DeclArena {
@@ -42,7 +40,7 @@ impl DeclArena {
         }
     }
 
-    pub fn allocate(&mut self, decl: ast::TopDecl) -> DeclIdx {
+    pub fn allocate(&mut self, decl: IndentationGroup) -> DeclIdx {
         match self.free.take() {
             Some(idx) => {
                 let free_decl = std::mem::replace(
@@ -74,14 +72,14 @@ impl DeclArena {
         self.free = Some(idx);
     }
 
-    pub fn get(&self, idx: DeclIdx) -> &ast::TopDecl {
+    pub fn get(&self, idx: DeclIdx) -> &IndentationGroup {
         match &self.decls[idx.as_usize()] {
             DeclAllocation::Free { .. } => panic!("Declaration index is not in use"),
             DeclAllocation::Used { decl } => decl,
         }
     }
 
-    pub fn get_mut(&mut self, idx: DeclIdx) -> &mut ast::TopDecl {
+    pub fn get_mut(&mut self, idx: DeclIdx) -> &mut IndentationGroup {
         match &mut self.decls[idx.as_usize()] {
             DeclAllocation::Free { .. } => panic!("Declaration index is not in use"),
             DeclAllocation::Used { decl } => decl,

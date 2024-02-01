@@ -125,10 +125,41 @@ fn comments() {
     assert_eq!(groups.len(), 2);
 
     let group0 = arena.get(groups[0]);
-    assert_eq!(group0.span_start(), Pos::new(0, 0));
-    assert_eq!(group0.span_end(), Pos::new(4, 0));
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+    assert_eq!(group0.span_end(&arena), Pos::new(4, 0));
 
     let group1 = arena.get(groups[1]);
-    assert_eq!(group1.span_start(), Pos::new(4, 0));
-    assert_eq!(group1.span_end(), Pos::new(9, 0));
+    assert_eq!(group1.span_start(&arena), Pos::new(4, 0));
+    assert_eq!(group1.span_end(&arena), Pos::new(9, 0));
+}
+
+#[test]
+fn nested_1() {
+    let pgm = indoc! {"
+            class Blah a where
+              x :: a -> Int
+              y :: a -> String
+        "};
+
+    let mut arena = DeclArena::new();
+    let token = lex_full(pgm, Pos::ZERO);
+    let groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 1);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.line_number, 0); // relative to document
+    assert_eq!(group0.span_start(&arena).line, 0); // absolute
+    assert_eq!(group0.span_end(&arena).line, 3); // absolute
+
+    let nested0 = arena.get(group0.nested.unwrap());
+    assert_eq!(nested0.parent, Some(groups[0]));
+
+    // Whitespace after `where` is skipped, so the first group is `x :: ...`.
+    assert_eq!(nested0.line_number, 1);
+    assert_eq!(nested0.span_start(&arena).line, 1);
+    assert_eq!(nested0.span_end(&arena).line, 2);
+
+    let nested1 = arena.get(nested0.next.unwrap());
+    assert_eq!(nested1.span_start(&arena).line, 2);
+    assert_eq!(nested1.span_end(&arena).line, 3);
 }

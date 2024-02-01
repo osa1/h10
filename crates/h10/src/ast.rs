@@ -183,7 +183,6 @@ pub enum TopDeclKind {
     Class(ClassDecl),
     Instance(InstanceDecl),
     Default(DefaultDecl),
-    Unparsed,
 }
 
 pub type ValueDecl = AstNode<ValueDecl_>;

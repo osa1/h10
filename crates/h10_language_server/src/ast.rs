@@ -1,6 +1,6 @@
-use h10::ast;
 use h10::decl_arena::{DeclArena, DeclIdx};
 use h10::incremental_update;
+use h10::indentation_groups::IndentationGroup;
 use h10::pos::Pos;
 
 use std::sync::Mutex;
@@ -40,10 +40,9 @@ impl AstData {
         eprintln!("AST before update:");
         for decl in self.iter_decls() {
             eprintln!(
-                "  {:?} {}-{} {:?}",
-                decl.kind,
-                decl.span_start(),
-                decl.span_end(),
+                "  {}-{} {:?}",
+                decl.span_start(&self.arena),
+                decl.span_end(&self.arena),
                 decl.iter_tokens()
                     .map(|t| t.text().to_owned())
                     .collect::<String>(),
@@ -69,10 +68,9 @@ impl AstData {
         eprintln!("AST after update:");
         for decl in self.iter_decls() {
             eprintln!(
-                "  {:?} {}-{} {:?}",
-                decl.kind,
-                decl.span_start(),
-                decl.span_end(),
+                "  {}-{} {:?}",
+                decl.span_start(&self.arena),
+                decl.span_end(&self.arena),
                 decl.iter_tokens()
                     .map(|t| t.text().to_owned())
                     .collect::<String>(),
@@ -80,7 +78,7 @@ impl AstData {
         }
     }
 
-    pub fn iter_decls(&self) -> impl Iterator<Item = &ast::TopDecl> {
+    pub fn iter_decls(&self) -> impl Iterator<Item = &IndentationGroup> {
         self.decls.iter().map(|decl_idx| self.arena.get(*decl_idx))
     }
 }

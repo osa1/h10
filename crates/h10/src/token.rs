@@ -44,11 +44,7 @@ pub struct Token {
     /// When the token is attached to an AST node (`ast_node`), line number is relative to the AST
     /// node.
     ///
-    /// Column number is also relative, but it's also absolute as top-level groups always start at
-    /// column 0.
-    //
-    // TODO: We can move this out of the mutex if we store absolute positions instead of relative
-    // to the AST node, as we never really udpate a token's span, we only update its links.
+    /// Column number is always absolute.
     span: Mutex<Span>,
 
     /// The previous token.
@@ -106,10 +102,11 @@ impl TokenRef {
         self.text.as_str()
     }
 
-    /// Get the span of the token.
+    /// Get the span of the token, with line number relative to it's ast node.
     ///
-    /// When the token is attached to an AST (i.e. [`ast_node`] is not `None`), the line numbers will
-    /// be relative to the AST node. If you need absolute line numbers, use [`absolute_span`].
+    /// This span is useful to check if a token can be reused, during incremental lexing. When an
+    /// indentation group is moved up or down, spans of the tokens do not change and they can be
+    /// reused.
     pub fn span(&self) -> Span {
         self.node.span.lock().unwrap().clone()
     }
@@ -193,7 +190,7 @@ impl TokenRef {
     pub fn set_ast_node(&self, node_idx: DeclIdx, arena: &DeclArena) {
         let mut new_span = self.absolute_span(arena);
         *self.ast_node.lock().unwrap() = Some(node_idx);
-        let ast_node_line = arena.get(node_idx).line_number;
+        let ast_node_line = arena.get(node_idx).line_number(arena);
         new_span.start.line -= ast_node_line;
         new_span.end.line -= ast_node_line;
         *self.span.lock().unwrap() = new_span;

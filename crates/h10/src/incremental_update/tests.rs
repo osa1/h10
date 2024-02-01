@@ -40,8 +40,8 @@ fn single_group_insert_middle() {
     assert_eq!(arena.get(group_idx).first_token, token);
 
     let group = arena.get(group_idx);
-    assert_eq!(group.span_start().line, 0);
-    assert_eq!(group.span_end().line, 0);
+    assert_eq!(group.span_start(&arena).line, 0);
+    assert_eq!(group.span_end(&arena).line, 0);
 
     insert(&mut arena, &mut groups, Pos { line: 0, char: 6 }, "1 + ");
 
@@ -136,12 +136,12 @@ fn multiple_groups_insert_middle() {
     assert_eq!(groups.len(), 2);
 
     let group0 = arena.get(groups[0]);
-    assert_eq!(group0.span_start(), Pos::new(0, 0));
-    assert_eq!(group0.span_end(), Pos::new(1, 0));
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+    assert_eq!(group0.span_end(&arena), Pos::new(1, 0));
 
     let group1 = arena.get(groups[1]);
-    assert_eq!(group1.span_start(), Pos::new(1, 0));
-    assert_eq!(group1.span_end(), Pos::new(2, 0));
+    assert_eq!(group1.span_start(&arena), Pos::new(1, 0));
+    assert_eq!(group1.span_end(&arena), Pos::new(2, 0));
 
     let old_groups: Vec<DeclIdx> = groups.clone();
 
@@ -300,16 +300,16 @@ fn insert_to_empty_doc() {
     assert_eq!(groups.len(), 3);
 
     let decl0 = arena.get(groups[0]);
-    assert_eq!(decl0.span_start(), Pos::new(0, 0));
-    assert_eq!(decl0.span_end(), Pos::new(2, 0));
+    assert_eq!(decl0.span_start(&arena), Pos::new(0, 0));
+    assert_eq!(decl0.span_end(&arena), Pos::new(2, 0));
 
     let decl1 = arena.get(groups[1]);
-    assert_eq!(decl1.span_start(), Pos::new(2, 0));
-    assert_eq!(decl1.span_end(), Pos::new(4, 0));
+    assert_eq!(decl1.span_start(&arena), Pos::new(2, 0));
+    assert_eq!(decl1.span_end(&arena), Pos::new(4, 0));
 
     let decl2 = arena.get(groups[2]);
-    assert_eq!(decl2.span_start(), Pos::new(4, 0));
-    assert_eq!(decl2.span_end(), Pos::new(5, 0));
+    assert_eq!(decl2.span_start(&arena), Pos::new(4, 0));
+    assert_eq!(decl2.span_end(&arena), Pos::new(5, 0));
 }
 
 #[test]
@@ -319,13 +319,13 @@ fn append_line_no_newline() {
     let mut groups = parse_indentation_groups(token.clone(), &mut arena);
 
     let group0 = arena.get(groups[0]);
-    assert_eq!(group0.span_end(), Pos::new(0, 1));
+    assert_eq!(group0.span_end(&arena), Pos::new(0, 1));
 
     insert(&mut arena, &mut groups, Pos::new(0, 1), "b");
     assert_eq!(groups.len(), 1);
 
     let group0 = arena.get(groups[0]);
-    assert_eq!(group0.span_end(), Pos::new(0, 2));
+    assert_eq!(group0.span_end(&arena), Pos::new(0, 2));
 
     let new_pgm: String = group0.first_token.iter_chars().collect();
     assert_eq!(new_pgm, "ab");
@@ -373,7 +373,7 @@ fn insert_token_spans() {
     assert_eq!(arena.get(groups[2]).prev, Some(groups[1]));
 
     let group2 = arena.get(groups[2]);
-    assert_eq!(group2.span_end(), Pos::new(4, 5));
+    assert_eq!(group2.span_end(&arena), Pos::new(4, 5));
 
     for group_idx in &groups {
         let group = arena.get(*group_idx);

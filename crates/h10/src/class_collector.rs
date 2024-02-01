@@ -1,7 +1,7 @@
 use crate::ast;
 use crate::ast_to_ty::convert_ast_ty;
 use crate::class_env::{Class, ClassEnv, Instance, Pred};
-use crate::collections::{Map, TrieMap};
+use crate::collections::Map;
 use crate::id::Id;
 use crate::kind_inference::infer_fv_kinds;
 use crate::type_scheme::Scheme;

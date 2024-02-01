@@ -60,8 +60,7 @@ fn collect_con_tys(decls: &[ast::TopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id,
             | ast::TopDeclKind::Value(_)
             | ast::TopDeclKind::Class(_)
             | ast::TopDeclKind::Instance(_)
-            | ast::TopDeclKind::Default(_)
-            | ast::TopDeclKind::Unparsed => {}
+            | ast::TopDeclKind::Default(_) => {}
         }
     }
 
@@ -131,8 +130,7 @@ fn collect_con_tys(decls: &[ast::TopDecl], ty_kinds: &Map<Id, TyRef>) -> Map<Id,
             | ast::TopDeclKind::Value(_)
             | ast::TopDeclKind::Class(_)
             | ast::TopDeclKind::Instance(_)
-            | ast::TopDeclKind::Default(_)
-            | ast::TopDeclKind::Unparsed => {}
+            | ast::TopDeclKind::Default(_) => {}
         }
     }
 

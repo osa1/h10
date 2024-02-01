@@ -59,7 +59,6 @@ impl DeclInfo {
             ast::TopDeclKind::Class(class) => analyze_class(class, &mut info),
             ast::TopDeclKind::Instance(instance) => analyze_instance(instance, &mut info),
             ast::TopDeclKind::Default(default) => analyze_default(default, &mut info),
-            ast::TopDeclKind::Unparsed => panic!(),
         }
 
         info

@@ -3,11 +3,12 @@
 #[cfg(test)]
 mod tests;
 
-use crate::ast::{self, Span};
+use crate::ast::Span;
 use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::incremental_lexing::{relex_deletion, relex_insertion};
 use crate::indentation_groups::{
     parse_indentation_groups, reparse_indentation_groups_decl, reparse_indentation_groups_token,
+    IndentationGroup,
 };
 use crate::lexing::lex_full;
 use crate::pos::Pos;
@@ -33,7 +34,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     let n_lines_inserted = text.chars().filter(|c| *c == '\n').count() as u32;
 
     // Insert before the first group.
-    if pos < arena.get(defs[0]).span_start() {
+    if pos < arena.get(defs[0]).span_start(arena) {
         // Update line numbers.
         for decl_idx in defs.iter() {
             arena.get_mut(*decl_idx).line_number += n_lines_inserted;
@@ -82,7 +83,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         }
     }
 
-    let updated_token: TokenRef = find_token(arena.get(decl_idx), pos)
+    let updated_token: TokenRef = find_token(arena.get(decl_idx), pos, arena)
         .unwrap_or_else(|| arena.get(decl_idx).last_token.clone());
     if let Some(decl_idx) = updated_token.ast_node() {
         arena.get_mut(decl_idx).modified = true;
@@ -143,7 +144,7 @@ pub fn remove(
     let decl_idx_idx = find_ast(arena, defs, removal_start);
     let decl_idx = defs[decl_idx_idx];
 
-    let updated_token = find_token(arena.get(decl_idx), removal_start).unwrap();
+    let updated_token = find_token(arena.get(decl_idx), removal_start, arena).unwrap();
     let relex_start_token: TokenRef = updated_token
         .prev()
         .unwrap_or_else(|| updated_token.clone());
@@ -217,19 +218,19 @@ pub fn remove(
 /// index in [`defs`].
 fn find_ast(arena: &DeclArena, defs: &[DeclIdx], pos: Pos) -> usize {
     for (decl_idx_idx, decl_idx) in defs.iter().enumerate() {
-        if arena.get(*decl_idx).contains_location(pos) {
+        if arena.get(*decl_idx).contains_location(pos, arena) {
             return decl_idx_idx;
         }
     }
 
-    assert!(pos >= arena.get(*defs.last().unwrap()).span_end());
+    assert!(pos >= arena.get(*defs.last().unwrap()).span_end(arena));
     defs.len() - 1
 }
 
-fn find_token(node: &ast::TopDecl, pos: Pos) -> Option<TokenRef> {
+fn find_token(node: &IndentationGroup, pos: Pos, arena: &DeclArena) -> Option<TokenRef> {
     // Update `pos` so that the line number is relative to the declaration.
     let pos = Pos {
-        line: pos.line - node.span_start().line,
+        line: pos.line - node.span_start(arena).line,
         char: pos.char,
     };
 

@@ -1,7 +1,7 @@
 //! Implements outline/symbols generation from partially parsed ASTs (indentation groups).
 
-use h10::ast;
 use h10::decl_arena::{DeclArena, DeclIdx};
+use h10::indentation_groups::IndentationGroup;
 use h10::token::TokenRef;
 use h10_lexer::{ReservedId, TokenKind};
 
@@ -20,15 +20,15 @@ pub fn generate_symbol_response(
 fn generate_document_symbols(decls: &[DeclIdx], arena: &DeclArena) -> Vec<lsp::DocumentSymbol> {
     decls
         .iter()
-        .filter_map(|decl_idx| generate_decl_symbol(arena.get(*decl_idx)))
+        .filter_map(|decl_idx| generate_decl_symbol(arena.get(*decl_idx), arena))
         .collect()
 }
 
-fn generate_decl_symbol(decl: &ast::TopDecl) -> Option<lsp::DocumentSymbol> {
+fn generate_decl_symbol(decl: &IndentationGroup, arena: &DeclArena) -> Option<lsp::DocumentSymbol> {
     let mut token_iter = iter_tokens(decl);
 
     let token0 = token_iter.next()?;
-    let decl_range = decl_range(decl);
+    let decl_range = decl_range(decl, arena);
 
     // `name` is used by VSCode in "go to symbol". `detail` is used in the outline view.
     Some(match token0.kind() {
@@ -139,14 +139,14 @@ fn generate_decl_symbol(decl: &ast::TopDecl) -> Option<lsp::DocumentSymbol> {
 }
 
 /// Iterate tokens of a declaration, skipping whitespace and comments.
-fn iter_tokens(decl: &ast::TopDecl) -> impl Iterator<Item = TokenRef> {
+fn iter_tokens(decl: &IndentationGroup) -> impl Iterator<Item = TokenRef> {
     decl.iter_tokens()
         .filter(|t| !matches!(t.kind(), TokenKind::Whitespace | TokenKind::Comment { .. }))
 }
 
-fn decl_range(decl: &ast::TopDecl) -> lsp::Range {
-    let start = decl.span_start();
-    let end = decl.span_end();
+fn decl_range(decl: &IndentationGroup, arena: &DeclArena) -> lsp::Range {
+    let start = decl.span_start(arena);
+    let end = decl.span_end(arena);
     lsp::Range {
         start: lsp::Position {
             line: start.line,
