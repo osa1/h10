@@ -33,10 +33,10 @@ pub struct IndentationGroup {
     /// This includes trailing whitespace before the next declaration starts.
     pub last_token: TokenRef,
 
-    /// Next declaration in the declaration's module.
+    /// Next declaration in the group.
     pub next: Option<DeclIdx>,
 
-    /// Previous declaration in the declaration's module.
+    /// Previous declaration in the group.
     pub prev: Option<DeclIdx>,
 
     /// When the declaration start with the tokens `class` or `instance` (after the trivia), this
