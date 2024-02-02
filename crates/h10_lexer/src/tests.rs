@@ -8,6 +8,14 @@ fn lex(s: &str) -> Vec<TokenKind> {
         .collect()
 }
 
+const DOC: TokenKind = TokenKind::Comment {
+    documentation: true,
+};
+
+const NOT_DOC: TokenKind = TokenKind::Comment {
+    documentation: false,
+};
+
 #[test]
 fn lex_id_sym() {
     assert_eq!(
@@ -37,11 +45,15 @@ fn comments() {
 {-| test -}
 {- | test -}
 "#);
-    let doc = TokenKind::Comment {
-        documentation: true,
-    };
-    let not_doc = TokenKind::Comment {
-        documentation: false,
-    };
-    assert_eq!(toks, vec![not_doc, doc, doc, not_doc, doc, doc]);
+    assert_eq!(toks, vec![NOT_DOC, DOC, DOC, NOT_DOC, DOC, DOC]);
+}
+
+#[test]
+fn comment_termination() {
+    // Check terminating single-line comments at the end of the input.
+    let toks = lex("-- Test");
+    assert_eq!(toks, vec![NOT_DOC]);
+
+    let toks = lex("-- | Test");
+    assert_eq!(toks, vec![DOC]);
 }

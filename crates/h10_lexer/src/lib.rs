@@ -100,12 +100,12 @@ lexgen::lexer! {
         },
 
         // Comments
-        "--" ' '* '|' (_ # '\n')* > '\n' => |lexer| {
+        "--" ' '* '|' (_ # '\n')* > ('\n' | $) => |lexer| {
             let text = SmolStr::new(lexer.match_());
             lexer.return_(Token { kind: TokenKind::Comment { documentation: true }, text })
         },
 
-        "--" (_ # '\n')* > '\n' => |lexer| {
+        "--" (_ # '\n')* > ('\n' | $) => |lexer| {
             let text = SmolStr::new(lexer.match_());
             lexer.return_(Token { kind: TokenKind::Comment { documentation: false }, text })
         },
