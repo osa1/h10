@@ -44,7 +44,10 @@ pub struct Token {
     /// When the token is attached to an AST node (`ast_node`), line number is relative to the AST
     /// node.
     ///
-    /// Column number is always absolute.
+    /// This is to avoid having to update line numbers of every token after inserting a new line.
+    ///
+    /// Column number is always absolute, so it can be obtained without a [`DeclArena`], see
+    /// [`Token::indentation`].
     span: Mutex<Span>,
 
     /// The previous token.
