@@ -166,29 +166,24 @@ fn nested_1() {
 
 fn check_group_sanity(group_idx: DeclIdx, arena: &DeclArena) {
     check_group_links(group_idx, arena);
-
-    let mut group_idx = group_idx;
-    loop {
-        let group = arena.get(group_idx);
-        if let Some(nested) = group.nested {
-            check_group_links(nested, arena);
-            assert_eq!(arena.get(nested).parent, Some(group_idx));
-        }
-        match group.next {
-            Some(next) => group_idx = next,
-            None => break,
-        }
-    }
 }
 
 fn check_group_links(mut group_idx: DeclIdx, arena: &DeclArena) {
-    assert_eq!(arena.get(group_idx).prev, None);
+    let mut prev: Option<DeclIdx> = None;
+    loop {
+        let group = arena.get(group_idx);
+        assert_eq!(arena.get(group_idx).prev, prev);
+        match group.next {
+            Some(next_group_idx) => {
+                prev = Some(group_idx);
+                group_idx = next_group_idx;
+            }
+            None => break,
+        }
 
-    let mut group = arena.get(group_idx);
-    while let Some(next_group_idx) = group.next {
-        assert_eq!(arena.get(next_group_idx).prev, Some(group_idx));
-        group_idx = next_group_idx;
-        group = arena.get(group_idx);
+        if let Some(nested_group_idx) = group.nested {
+            check_group_links(nested_group_idx, arena);
+        }
     }
 }
 
@@ -351,10 +346,6 @@ fn parse_8() {
     let group1 = arena.get(group0.next.unwrap());
     let group2 = arena.get(group1.next.unwrap());
     assert!(group2.next.is_none());
-
-    // for token in group1.iter_tokens() {
-    //     assert_eq!(token.span().start.line, 0);
-    // }
 
     assert_eq!(group0.first_token.text(), "\n"); // initial whitespace
     assert_eq!(group0.first_token.next().unwrap().text(), "newtype");

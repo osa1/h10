@@ -345,7 +345,42 @@ fn is_group_start(current_indentation: u32, token: &TokenRef) -> bool {
 #[allow(unused)]
 pub(crate) fn parse(token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     let mut parser = Parser::new(token);
-    parser.indentation_group(arena, false)
+    let decl_idx = parser.indentation_group(arena, false);
+    update_decl_token_ast_links(decl_idx, arena);
+    decl_idx
+}
+
+fn update_decl_token_ast_links(mut decl_idx: DeclIdx, arena: &DeclArena) {
+    let decl = arena.get(decl_idx);
+    let mut token = decl.first_token.clone();
+
+    if let Some(nested_decl_idx) = decl.nested {
+        let nested_group = arena.get(nested_decl_idx);
+
+        // Update tokens until the nested group.
+        while token != nested_group.first_token {
+            token.set_ast_node(decl_idx, arena);
+            token = match token.next() {
+                Some(next) => next,
+                None => return,
+            };
+        }
+
+        decl_idx = nested_decl_idx;
+    }
+
+    let decl = arena.get(decl_idx);
+    loop {
+        token.set_ast_node(decl_idx, arena);
+        let last_token = token;
+        token = match last_token.next() {
+            Some(next) => next,
+            None => return,
+        };
+        if last_token == decl.last_token {
+            break;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -384,7 +419,6 @@ impl Parser {
         }
     }
 
-    // TODO: Set token ast nodes.
     // TODO: Reuse nodes.
     fn indentation_group(&mut self, arena: &mut DeclArena, nested: bool) -> DeclIdx {
         let token = match self.next() {
