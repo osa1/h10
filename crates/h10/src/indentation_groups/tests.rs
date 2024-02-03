@@ -369,6 +369,44 @@ fn parse_8() {
 }
 
 #[test]
+fn trivia_nodes() {
+    // Check that the initial trivia is assigned to the first AST node and trailing trivia are
+    // assigned to the previous AST node.
+    #[rustfmt::skip]
+    let lines = [
+        "-- Comment 1",
+        "data X",
+        "-- Comment 2",
+        "newtype Y",
+        "-- Comment 3",
+    ];
+    let pgm = lines.join("\n");
+
+    let mut arena = DeclArena::new();
+    let token = lex_full(&pgm, Pos::ZERO);
+
+    let group_idx = parse(token.clone(), &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group0 = arena.get(group_idx);
+    let group1 = arena.get(group0.next.unwrap());
+
+    let mut group0_str = String::new();
+    for token in group0.first_token.iter_until(&group0.last_token) {
+        group0_str.push_str(token.text());
+    }
+
+    assert_eq!(group0_str, lines[0..3].join("\n") + "\n");
+
+    let mut group1_str = String::new();
+    for token in group1.first_token.iter_until(&group1.last_token) {
+        group1_str.push_str(token.text());
+    }
+
+    assert_eq!(group1_str, lines[3..].join("\n"));
+}
+
+#[test]
 fn parse_nested_1() {
     #[rustfmt::skip]
     let lines = [
