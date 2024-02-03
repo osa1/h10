@@ -419,7 +419,6 @@ impl Parser {
         }
     }
 
-    // TODO: Reuse nodes.
     fn indentation_group(&mut self, arena: &mut DeclArena, nested: bool) -> DeclIdx {
         let token = match self.next() {
             Some(token) => token,
@@ -433,6 +432,10 @@ impl Parser {
                 ));
             }
         };
+
+        if let Some(reused_idx) = reuse(&token, arena) {
+            return reused_idx;
+        }
 
         let indentation = token.indentation();
 
@@ -463,15 +466,35 @@ impl Parser {
                     // Start a new group right after `where`.
                     let group_idx = match self.next() {
                         Some(nested_group_start) if nested_group_start.indentation() > 0 => {
-                            let mut nested_group_parser = Parser::new(nested_group_start);
-                            let nested_group_idx =
-                                nested_group_parser.indentation_group(arena, true);
+                            let nested_group_idx = match reuse(&nested_group_start, arena) {
+                                Some(reused_group_idx) => reused_group_idx,
+                                None => {
+                                    let mut nested_group_parser = Parser::new(nested_group_start);
+                                    nested_group_parser.indentation_group(arena, true)
+                                }
+                            };
+
+                            // TODO: This is a bit hacky: since the nested group can be a list of
+                            // groups, we need to walk the list to get the last token.
+                            fn group_last_token(
+                                mut group_idx: DeclIdx,
+                                arena: &DeclArena,
+                            ) -> TokenRef {
+                                loop {
+                                    let group = arena.get(group_idx);
+                                    match group.next {
+                                        Some(next) => group_idx = next,
+                                        None => return group.last_token.clone(),
+                                    }
+                                }
+                            }
+
                             // End of the nested group also ends the parent group.
                             let line_number = self.first.absolute_span(arena).start.line;
                             let mut parent_group = IndentationGroup::new(
                                 line_number,
                                 self.first.clone(),
-                                nested_group_parser.last,
+                                group_last_token(nested_group_idx, arena),
                             );
                             parent_group.nested = Some(nested_group_idx);
                             let parent_group_idx = arena.allocate(parent_group);
@@ -554,4 +577,45 @@ fn is_documentation(token: &TokenRef) -> bool {
             documentation: true
         }
     )
+}
+
+fn reuse(token: &TokenRef, arena: &DeclArena) -> Option<DeclIdx> {
+    let token_ast_node_idx = match token.ast_node() {
+        Some(idx) => idx,
+        None => return None,
+    };
+
+    let token_ast_node = arena.get(token_ast_node_idx);
+
+    if token_ast_node.modified || &token_ast_node.first_token != token {
+        return None;
+    }
+
+    let next_token = match token.next() {
+        Some(next) => next,
+        None => {
+            // Group is the last in the document and not modified, reuse.
+            return Some(token_ast_node_idx);
+        }
+    };
+
+    let next_group_idx = match next_token.ast_node() {
+        Some(next_group_idx) => next_group_idx,
+        None => {
+            // Not sure when this can happen, but the next token doesn't have an AST node. Do the
+            // safe thing and re-parse.
+            return None;
+        }
+    };
+
+    let next_group = arena.get(next_group_idx);
+
+    // TODO: We should just check if some of the next group needs to be merged with the current
+    // group, instead of checking `modified`. For example, maybe only the last token modified and
+    // the indentation of the first token is still 0, in that case we can reuse the current node.
+    if next_group.modified || next_group.first_token != next_token {
+        return None;
+    }
+
+    Some(token_ast_node_idx)
 }

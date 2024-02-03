@@ -418,7 +418,7 @@ fn parse_nested_1() {
 
     let group0 = arena.get(group_idx);
     assert_eq!(group0.first_token.text(), "class");
-    assert_eq!(group0.last_token.text(), "\n");
+    assert_eq!(group0.last_token.text(), "\n"); // newline after "t"
     assert_eq!(group0.last_token.absolute_span(&arena).start.line, 5);
 
     let group1 = arena.get(group0.next.unwrap());
