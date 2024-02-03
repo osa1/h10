@@ -51,6 +51,19 @@ pub struct IndentationGroup {
 }
 
 impl IndentationGroup {
+    fn new(line_number: u32, first_token: TokenRef, last_token: TokenRef) -> Self {
+        IndentationGroup {
+            line_number,
+            first_token,
+            last_token,
+            next: None,
+            prev: None,
+            nested: None,
+            parent: None,
+            modified: false,
+        }
+    }
+
     /// Start location of the group in the document.
     pub fn span_start(&self, arena: &DeclArena) -> Pos {
         self.first_token.absolute_span(arena).start
@@ -101,7 +114,7 @@ pub(crate) fn reparse_indentation_groups_decl(
     arena: &mut DeclArena,
 ) -> DeclIdx {
     let decl = arena.get(decl_idx);
-    let current_indentation = decl.first_token.span().start.char;
+    let current_indentation = decl.first_token.indentation();
 
     // A group can be reused if it's not modified and the next token's indentation was not updated.
     //
@@ -153,9 +166,9 @@ pub(crate) fn reparse_indentation_groups_token(
     prev_decl_idx: Option<DeclIdx>,
     arena: &mut DeclArena,
 ) -> DeclIdx {
-    let current_indentation = new_group_start.span().start.char;
+    let current_indentation = new_group_start.indentation();
 
-    let mut token = skip_initial_trivia(&new_group_start);
+    let mut token = skip_initial_trivia_(&new_group_start);
 
     let mut nested: Option<DeclIdx> = None;
 
@@ -253,7 +266,7 @@ pub(crate) fn reparse_indentation_groups_token(
     new_decl_idx
 }
 
-fn skip_initial_trivia(token: &TokenRef) -> TokenRef {
+fn skip_initial_trivia_(token: &TokenRef) -> TokenRef {
     let current_indentation = token.span().start.line;
 
     let mut last_token = token.clone();
@@ -309,7 +322,7 @@ fn skip_group_and_trailing_trivia(token: &TokenRef, indentation: u32) -> TokenRe
 
 fn next_at_indentation(token: &TokenRef, indentation: u32) -> Option<TokenRef> {
     let next = token.next()?;
-    if matches!(next.kind(), TokenKind::Whitespace) || next.span().start.char >= indentation {
+    if matches!(next.kind(), TokenKind::Whitespace) || next.indentation() >= indentation {
         Some(next)
     } else {
         None
@@ -324,5 +337,187 @@ fn is_group_start(current_indentation: u32, token: &TokenRef) -> bool {
             | TokenKind::Comment {
                 documentation: false
             }
-    ) && token.span().start.char <= current_indentation
+    ) && token.indentation() <= current_indentation
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#[allow(unused)]
+pub(crate) fn parse(token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
+    let mut parser = Parser::new(token);
+    parser.indentation_group(arena, false)
+}
+
+#[derive(Debug)]
+struct Parser {
+    next: Option<TokenRef>,
+    first: TokenRef,
+    last: TokenRef,
+}
+
+impl Parser {
+    fn new(next: TokenRef) -> Self {
+        Parser {
+            next: Some(next.clone()),
+            first: next.clone(),
+            last: next,
+        }
+    }
+
+    fn next(&mut self) -> Option<TokenRef> {
+        let next = self.peek()?;
+        self.next = next.next();
+        self.last = next.clone();
+        Some(next)
+    }
+
+    fn peek(&mut self) -> Option<TokenRef> {
+        loop {
+            let next = self.next.as_ref()?;
+            if is_trivia(next) {
+                self.last = next.clone();
+                self.next = next.next();
+                continue;
+            } else {
+                return Some(next.clone());
+            }
+        }
+    }
+
+    // TODO: Set token ast nodes.
+    // TODO: Reuse nodes.
+    fn indentation_group(&mut self, arena: &mut DeclArena, nested: bool) -> DeclIdx {
+        let token = match self.next() {
+            Some(token) => token,
+            None => {
+                // All whitespace and comments.
+                let line_number = self.first.absolute_span(arena).start.line;
+                return arena.allocate(IndentationGroup::new(
+                    line_number,
+                    self.first.clone(),
+                    self.last.clone(),
+                ));
+            }
+        };
+
+        let indentation = token.indentation();
+
+        // If the first non-trivia token is a documentation comment, include the next non-trivia
+        // token at the same indentation in the group.
+        if is_documentation(&token) {
+            if let Some(next) = self.peek() {
+                if next.indentation() >= indentation {
+                    self.next();
+                }
+            }
+        }
+
+        if indentation == 0
+            && matches!(
+                self.last.kind(),
+                TokenKind::ReservedId(ReservedId::Class | ReservedId::Instance)
+            )
+        {
+            // Skip until `where`, start a nested group. `where` should be indented to avoid
+            // including the whole rest of the document when it's missing.
+            while let Some(next) = self.peek() {
+                if next.indentation() > 0
+                    && matches!(next.kind(), TokenKind::ReservedId(ReservedId::Where))
+                {
+                    // Skip to `where`.
+                    self.next();
+                    // Start a new group right after `where`.
+                    let group_idx = match self.next() {
+                        Some(nested_group_start) if nested_group_start.indentation() > 0 => {
+                            let mut nested_group_parser = Parser::new(nested_group_start);
+                            let nested_group_idx =
+                                nested_group_parser.indentation_group(arena, true);
+                            // End of the nested group also ends the parent group.
+                            let line_number = self.first.absolute_span(arena).start.line;
+                            let mut parent_group = IndentationGroup::new(
+                                line_number,
+                                self.first.clone(),
+                                nested_group_parser.last,
+                            );
+                            parent_group.nested = Some(nested_group_idx);
+                            let parent_group_idx = arena.allocate(parent_group);
+                            arena.get_mut(nested_group_idx).parent = Some(parent_group_idx);
+                            parent_group_idx
+                        }
+                        _ => {
+                            let line_number = self.first.absolute_span(arena).start.line;
+                            let group = IndentationGroup::new(
+                                line_number,
+                                self.first.clone(),
+                                self.last.clone(),
+                            );
+                            arena.allocate(group)
+                        }
+                    };
+
+                    if let Some(next) = arena.get(group_idx).last_token.next() {
+                        let mut parser = Parser::new(next);
+                        let next_group_idx = parser.indentation_group(arena, nested);
+                        arena.get_mut(group_idx).next = Some(next_group_idx);
+                        arena.get_mut(next_group_idx).prev = Some(group_idx);
+                        self.last = parser.last;
+                    }
+
+                    return group_idx;
+                }
+
+                if next.indentation() == 0 {
+                    break;
+                }
+
+                self.next();
+            }
+        }
+
+        // No nested groups parsed. Continue as normal.
+        // Include indented tokens, then trailing trivia.
+        while let Some(next) = self.peek() {
+            if next.indentation() > indentation {
+                self.next();
+            } else {
+                break;
+            }
+        }
+
+        let line_number = self.first.absolute_span(arena).start.line;
+        let group = IndentationGroup::new(line_number, self.first.clone(), self.last.clone());
+        let next_token = group.last_token.next();
+        let group_idx = arena.allocate(group);
+
+        if let Some(next) = next_token {
+            if !nested || next.indentation() > 0 {
+                let mut parser = Parser::new(next);
+                let next_group_idx = parser.indentation_group(arena, nested);
+                arena.get_mut(group_idx).next = Some(next_group_idx);
+                arena.get_mut(next_group_idx).prev = Some(group_idx);
+                self.last = parser.last;
+            }
+        }
+
+        group_idx
+    }
+}
+
+fn is_trivia(token: &TokenRef) -> bool {
+    matches!(
+        token.kind(),
+        TokenKind::Whitespace
+            | TokenKind::Comment {
+                documentation: false
+            }
+    )
+}
+
+fn is_documentation(token: &TokenRef) -> bool {
+    matches!(
+        token.kind(),
+        TokenKind::Comment {
+            documentation: true
+        }
+    )
 }

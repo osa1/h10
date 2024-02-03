@@ -450,8 +450,8 @@ fn insert_insert() {
 
     insert(&mut arena, &mut groups, Pos::new(1, 0), "a");
     assert_eq!(groups.len(), 2);
-    assert_eq!(arena.get(groups[0]).line_number, 0);
-    assert_eq!(arena.get(groups[1]).line_number, 1);
+    assert_eq!(arena.get(groups[0]).line_number(&arena), 0);
+    assert_eq!(arena.get(groups[1]).line_number(&arena), 1);
 }
 
 #[test]
@@ -464,5 +464,5 @@ fn insert_crash_1() {
 
     insert(&mut arena, &mut groups, Pos::new(1, 1), "a");
     assert_eq!(groups.len(), 2);
-    assert_eq!(arena.get(groups[1]).line_number, 1);
+    assert_eq!(arena.get(groups[1]).line_number(&arena), 1);
 }

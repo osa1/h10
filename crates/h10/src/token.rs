@@ -117,10 +117,14 @@ impl TokenRef {
         let mut span = self.span();
         if let Some(ast_idx) = self.ast_node() {
             let ast = arena.get(ast_idx);
-            span.start.line += ast.line_number;
-            span.end.line += ast.line_number;
+            span.start.line += ast.line_number(arena);
+            span.end.line += ast.line_number(arena);
         }
         span
+    }
+
+    pub fn indentation(&self) -> u32 {
+        self.span().start.char
     }
 
     /// Whether the token is the first token of a top-level declaration.

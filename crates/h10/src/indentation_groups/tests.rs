@@ -163,3 +163,242 @@ fn nested_1() {
     assert_eq!(nested1.span_start(&arena).line, 2);
     assert_eq!(nested1.span_end(&arena).line, 3);
 }
+
+fn check_group_sanity(group_idx: DeclIdx, arena: &DeclArena) {
+    check_group_links(group_idx, arena);
+
+    let mut group_idx = group_idx;
+    loop {
+        let group = arena.get(group_idx);
+        if let Some(nested) = group.nested {
+            check_group_links(nested, arena);
+            assert_eq!(arena.get(nested).parent, Some(group_idx));
+        }
+        match group.next {
+            Some(next) => group_idx = next,
+            None => break,
+        }
+    }
+}
+
+fn check_group_links(mut group_idx: DeclIdx, arena: &DeclArena) {
+    assert_eq!(arena.get(group_idx).prev, None);
+
+    let mut group = arena.get(group_idx);
+    while let Some(next_group_idx) = group.next {
+        assert_eq!(arena.get(next_group_idx).prev, Some(group_idx));
+        group_idx = next_group_idx;
+        group = arena.get(group_idx);
+    }
+}
+
+#[test]
+fn parse_1() {
+    let pgm = "";
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token, group.last_token);
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_2() {
+    let pgm = "a";
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token, group.last_token);
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_3() {
+    #[rustfmt::skip]
+    let lines = [
+        "a",
+        " b"
+    ];
+    let pgm = lines.join("\n");
+    let token = lex_full(&pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token.text(), "a");
+    assert_eq!(group.last_token.text(), "b");
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_4() {
+    #[rustfmt::skip]
+    let lines = [
+        "  ",
+        "a",
+        " b"
+    ];
+    let pgm = lines.join("\n");
+    let token = lex_full(&pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token.text(), "  \n");
+    assert_eq!(group.last_token.text(), "b");
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_5() {
+    #[rustfmt::skip]
+    let lines = [
+        "  -- a comment",
+        "a",
+        " b"
+    ];
+    let pgm = lines.join("\n");
+    let token = lex_full(&pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token.text(), "  ");
+    assert_eq!(group.last_token.text(), "b");
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_6() {
+    let lines = [
+        "  -- a comment",
+        "-- | A doc comment",
+        "  -- another indented comment",
+        "a",
+        "-- a",
+        " ",
+        " b",
+    ];
+    let pgm = lines.join("\n");
+    let token = lex_full(&pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group = arena.get(group_idx);
+    assert_eq!(group.first_token.text(), "  ");
+    assert_eq!(group.last_token.text(), "b");
+    assert_eq!(group.line_number, 0);
+}
+
+#[test]
+fn parse_7() {
+    let pgm = indoc! {"
+            data A
+            data B
+        "};
+
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group0 = arena.get(group_idx);
+    let group1 = arena.get(group0.next.unwrap());
+    assert_eq!(group0.first_token.text(), "data");
+    assert_eq!(group1.first_token.text(), "data");
+}
+
+#[test]
+fn parse_8() {
+    let pgm = indoc! {"
+
+            newtype A       -- 1
+
+            data B          -- 3
+              = X
+              | Y
+
+            f x y =         -- 7
+              x
+
+              where
+                t = 5       -- 11
+        "};
+    let mut arena = DeclArena::new();
+    let token = lex_full(pgm, Pos::ZERO);
+
+    let group_idx = parse(token.clone(), &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group0 = arena.get(group_idx);
+    let group1 = arena.get(group0.next.unwrap());
+    let group2 = arena.get(group1.next.unwrap());
+    assert!(group2.next.is_none());
+
+    // for token in group1.iter_tokens() {
+    //     assert_eq!(token.span().start.line, 0);
+    // }
+
+    assert_eq!(group0.first_token.text(), "\n"); // initial whitespace
+    assert_eq!(group0.first_token.next().unwrap().text(), "newtype");
+    assert_eq!(group1.first_token.text(), "data");
+    assert_eq!(group2.first_token.text(), "f");
+
+    assert_eq!(group0.line_number, 0);
+    assert_eq!(group1.line_number, 3);
+    assert_eq!(group2.line_number, 7);
+
+    token.check_token_str(pgm);
+}
+
+#[test]
+fn parse_nested_1() {
+    #[rustfmt::skip]
+    let lines = [
+        "class A b c",
+        " where",
+        "-- a",
+        "  x",
+        "   z",
+        "  t",
+        "b"
+    ];
+    let pgm = lines.join("\n");
+    let token = lex_full(&pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+
+    let group_idx = parse(token, &mut arena);
+    check_group_sanity(group_idx, &arena);
+
+    let group0 = arena.get(group_idx);
+    assert_eq!(group0.first_token.text(), "class");
+    assert_eq!(group0.last_token.text(), "\n");
+    assert_eq!(group0.last_token.absolute_span(&arena).start.line, 5);
+
+    let group1 = arena.get(group0.next.unwrap());
+    assert_eq!(group1.first_token.text(), "b");
+    assert_eq!(group1.first_token, group1.last_token);
+
+    let nested0 = arena.get(group0.nested.unwrap());
+    assert_eq!(nested0.first_token.text(), "x");
+
+    let nested1 = arena.get(nested0.next.unwrap());
+    assert_eq!(nested1.first_token.text(), "t");
+}
