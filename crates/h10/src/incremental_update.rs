@@ -228,11 +228,5 @@ fn find_ast(arena: &DeclArena, defs: &[DeclIdx], pos: Pos) -> usize {
 }
 
 fn find_token(node: &IndentationGroup, pos: Pos, arena: &DeclArena) -> Option<TokenRef> {
-    // Update `pos` so that the line number is relative to the declaration.
-    let pos = Pos {
-        line: pos.line - node.span_start(arena).line,
-        char: pos.char,
-    };
-
-    node.iter_tokens().find(|t| t.contains_location(pos))
+    node.iter_tokens().find(|t| t.contains_location(pos, arena))
 }

@@ -207,11 +207,13 @@ impl TokenRef {
         *self.ast_node.lock().unwrap()
     }
 
-    /// Whether the token contains the given location.
+    /// Whether the token contains the given location in the document.
+    ///
+    /// Note: [`pos`] is a position in the document, not in the token's AST node!
     ///
     /// Does not search next or previous tokens.
-    pub fn contains_location(&self, pos: Pos) -> bool {
-        let span = self.span();
+    pub fn contains_location(&self, pos: Pos, arena: &DeclArena) -> bool {
+        let span = self.absolute_span(arena);
         pos >= span.start && pos < span.end
     }
 
