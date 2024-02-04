@@ -465,3 +465,29 @@ fn insert_crash_1() {
     assert_eq!(groups.len(), 1);
     assert_eq!(arena.get(groups[0]).line_number(&arena), 0);
 }
+
+#[test]
+fn insert_bug_1() {
+    let pgm = indoc! {"
+        class Test a where
+          a :: a -> Int
+
+        b = 1
+    "};
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+
+    insert(&mut arena, &mut groups, Pos::new(1, 15), "\n  ");
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(&arena), Pos::new(4, 0));
+}
