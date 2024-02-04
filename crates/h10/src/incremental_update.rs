@@ -89,12 +89,17 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
         arena.get_mut(decl_idx).modified = true;
     }
 
+    // Start lexing with the previous token of the modified token.
     let relex_start_token: TokenRef = updated_token
         .prev()
         .unwrap_or_else(|| updated_token.clone());
+
+    // Token before where re-lexing starts, to be able to update the link.
     let token_before_start: Option<TokenRef> = relex_start_token.prev();
+
     let new_token = relex_insertion(relex_start_token.clone(), pos, text, arena);
 
+    // Add links from the previous token and the AST node.
     if let Some(prev_token) = token_before_start {
         prev_token.set_next(Some(new_token.clone()));
     }
@@ -102,13 +107,22 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
     if relex_start_token.is_first_token(arena) {
         arena
             .get_mut(relex_start_token.ast_node().unwrap())
-            .first_token = new_token;
+            .first_token = new_token.clone();
+    }
+
+    if relex_start_token.is_last_token(arena) {
+        arena
+            .get_mut(relex_start_token.ast_node().unwrap())
+            .last_token = new_token;
     }
 
     let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
     arena.get_mut(modified_ast_node).modified = true;
 
+    // Start parsing from the previous node to handle the case where the modified AST node's first
+    // token was indented.
     let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
+
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
 
     defs.drain(decl_idx_idx..);
