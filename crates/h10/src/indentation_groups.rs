@@ -268,7 +268,18 @@ impl Parser {
                             arena
                                 .get(parent_group_idx)
                                 .set_token_ast_nodes(parent_group_idx, arena);
-                            arena.get_mut(nested_group_idx).parent = Some(parent_group_idx);
+
+                            {
+                                let mut nested_group_idx = nested_group_idx;
+                                loop {
+                                    arena.get_mut(nested_group_idx).parent = Some(parent_group_idx);
+                                    match arena.get(nested_group_idx).next {
+                                        Some(next) => nested_group_idx = next,
+                                        None => break,
+                                    }
+                                }
+                            }
+
                             parent_group_idx
                         }
                         _ => {
