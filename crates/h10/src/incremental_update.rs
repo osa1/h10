@@ -116,8 +116,14 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
             .last_token = new_token;
     }
 
-    let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
+    let mut modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
     arena.get_mut(modified_ast_node).modified = true;
+
+    // If modified AST node is nested in another, re-parse the parent node to handle flattening.
+    if let Some(parent) = arena.get(modified_ast_node).parent {
+        modified_ast_node = parent;
+        arena.get_mut(modified_ast_node).modified = true;
+    }
 
     // Start parsing from the previous node to handle the case where the modified AST node's first
     // token was indented.
@@ -209,8 +215,14 @@ pub fn remove(
         }
     }
 
-    let modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
+    let mut modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
     arena.get_mut(modified_ast_node).modified = true;
+
+    // If modified AST node is nested in another, re-parse the parent node to handle flattening.
+    if let Some(parent) = arena.get(modified_ast_node).parent {
+        modified_ast_node = parent;
+        arena.get_mut(modified_ast_node).modified = true;
+    }
 
     let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);

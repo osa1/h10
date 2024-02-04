@@ -76,6 +76,15 @@ impl AstData {
                     .collect::<String>(),
             );
         }
+
+        // First declaration shoudl always start at (0, 0).
+        #[cfg(debug_assertions)]
+        if let Some(first_decl) = self.decls.first() {
+            assert_eq!(
+                self.arena.get(*first_decl).span_start(&self.arena),
+                Pos::new(0, 0)
+            );
+        }
     }
 
     pub fn iter_decls(&self) -> impl Iterator<Item = &IndentationGroup> {

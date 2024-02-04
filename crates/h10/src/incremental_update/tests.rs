@@ -491,3 +491,33 @@ fn insert_bug_1() {
     let group1 = arena.get(groups[1]);
     assert_eq!(group1.span_start(&arena), Pos::new(4, 0));
 }
+
+#[test]
+fn remove_bug_1() {
+    let pgm = indoc! {"
+        class Test a where
+          a :: a -> Int
+
+
+        b = 1
+    "};
+    let token = lex_full(pgm, Pos::ZERO);
+    let mut arena = DeclArena::new();
+    let mut groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(&arena), Pos::new(4, 0));
+
+    remove(&mut arena, &mut groups, Pos::new(2, 0), Pos::new(3, 0));
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena), Pos::new(0, 0));
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(&arena), Pos::new(3, 0));
+}
