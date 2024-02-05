@@ -51,7 +51,9 @@ impl DeclInfo {
         };
 
         match top_decl {
-            ast::TopDeclKind::Value(value) => analyze_value(value, &mut info),
+            ast::TopDeclKind::Value(value) => {
+                analyze_value(value, &mut info, &mut Default::default())
+            }
             ast::TopDeclKind::Type(ty) => analyze_ty_syn(ty, &mut info),
             ast::TopDeclKind::KindSig(kind_sig) => analyze_kind_sig(kind_sig, &mut info),
             ast::TopDeclKind::Data(data) => analyze_data(data, &mut info),
@@ -83,7 +85,11 @@ impl Uses {
     }
 }
 
-fn analyze_value<'a, 'b>(value: &'a ast::ValueDecl, info: &'b mut DeclInfo) {
+fn analyze_value<'a, 'b, 'c>(
+    value: &'a ast::ValueDecl,
+    info: &'b mut DeclInfo,
+    bound_ty_vars: &'c mut ScopeSet<&'a Id>,
+) {
     match &value.node {
         ast::ValueDecl_::TypeSig {
             vars,
@@ -91,15 +97,27 @@ fn analyze_value<'a, 'b>(value: &'a ast::ValueDecl, info: &'b mut DeclInfo) {
             context,
             ty,
         } => {
-            let bound_ty_vars: Set<&'a Id> = foralls.iter().map(|forall| &forall.node.id).collect();
+            bound_ty_vars.enter();
+
+            for ast::TypeBinder_ { id, ty: _ } in foralls.iter().map(|binder| &binder.node) {
+                bound_ty_vars.bind(id);
+            }
+
+            for ast::TypeBinder_ { id: _, ty } in foralls.iter().map(|binder| &binder.node) {
+                if let Some(ty) = ty {
+                    analyze_ty(ty, info, bound_ty_vars)
+                }
+            }
 
             info.defines.values.extend(vars.iter().cloned());
 
             for ty in context {
-                analyze_ty(ty, info, &bound_ty_vars);
+                analyze_ty(ty, info, bound_ty_vars);
             }
 
-            analyze_ty(ty, info, &bound_ty_vars);
+            analyze_ty(ty, info, bound_ty_vars);
+
+            bound_ty_vars.exit();
         }
 
         ast::ValueDecl_::Fixity {
@@ -113,6 +131,7 @@ fn analyze_value<'a, 'b>(value: &'a ast::ValueDecl, info: &'b mut DeclInfo) {
         }
 
         ast::ValueDecl_::Value { lhs, rhs } => {
+            // TODO: Pass bound type vars with scoped type vars.
             let mut local_bound_vars: ScopeSet<&'a Id> = Default::default();
             analyze_lhs(lhs, info, &mut local_bound_vars);
             analyze_rhs(rhs, info, &mut local_bound_vars);
@@ -120,7 +139,7 @@ fn analyze_value<'a, 'b>(value: &'a ast::ValueDecl, info: &'b mut DeclInfo) {
     }
 }
 
-fn analyze_ty(ty: &ast::Type, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
+fn analyze_ty(ty: &ast::Type, info: &mut DeclInfo, bound_ty_vars: &ScopeSet<&Id>) {
     match &ty.node {
         ast::Type_::Tuple(tys) => tys
             .iter()
@@ -142,17 +161,17 @@ fn analyze_ty(ty: &ast::Type, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
         ast::Type_::Con(ty_con) => analyze_ty_con(ty_con, info, bound_ty_vars),
 
         ast::Type_::Var(var) => {
-            if !bound_ty_vars.contains(var) {
+            if !bound_ty_vars.is_bound(var) {
                 info.uses.tys.insert(var.clone());
             }
         }
     }
 }
 
-fn analyze_ty_con(ty_con: &ast::TyCon, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
+fn analyze_ty_con(ty_con: &ast::TyCon, info: &mut DeclInfo, bound_ty_vars: &ScopeSet<&Id>) {
     match &ty_con.node {
         ast::TyCon_::Id(id) => {
-            if !bound_ty_vars.contains(id) {
+            if !bound_ty_vars.is_bound(id) {
                 info.uses.tys.insert(id.clone());
             }
         }
@@ -225,9 +244,39 @@ fn analyze_rhs<'a>(
     let where_decls = rhs.node.where_decls();
     collect_local_binders(where_decls, info, local_bound_vars);
 
-    todo!();
+    match &rhs.node {
+        ast::Rhs_::GuardedRhs {
+            rhss,
+            where_decls: _,
+        } => {
+            for rhs in rhss {
+                analyze_guarded_rhs(rhs, info, local_bound_vars);
+            }
+        }
 
-    // local_bound_vars.exit();
+        ast::Rhs_::Rhs {
+            rhs,
+            where_decls: _,
+        } => analyze_exp(rhs, info, local_bound_vars),
+    }
+
+    local_bound_vars.exit();
+}
+
+fn analyze_exp<'a>(
+    _exp: &'a ast::Exp,
+    _info: &mut DeclInfo,
+    _local_bound_vars: &mut ScopeSet<&'a Id>,
+) {
+    todo!()
+}
+
+fn analyze_guarded_rhs<'a>(
+    _rhs: &'a ast::GuardedRhs,
+    _info: &mut DeclInfo,
+    _local_bound_vars: &mut ScopeSet<&'a Id>,
+) {
+    todo!()
 }
 
 /// Bind left-hand side variables as locally bound (in [`local_bound_vars`]) and used types (in
@@ -273,7 +322,10 @@ fn collect_local_binders<'a>(
 fn analyze_ty_syn<'a, 'b>(ty_decl: &'a ast::TypeDecl, info: &'b mut DeclInfo) {
     let ast::TypeDecl_ { ty, vars, rhs } = &ty_decl.node;
     info.defines.tys.insert(ty.clone());
-    let bound_ty_vars: Set<&'a Id> = vars.iter().collect();
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+    for var in vars {
+        bound_ty_vars.bind(var);
+    }
     analyze_ty(rhs, info, &bound_ty_vars);
 }
 
@@ -281,13 +333,13 @@ fn analyze_kind_sig<'a, 'b>(kind_sig: &'a ast::KindSigDecl, info: &'b mut DeclIn
     let ast::KindSigDecl_ { ty, foralls, sig } = &kind_sig.node;
     info.defines.tys.insert(ty.clone());
 
-    let mut bound_ty_vars: Set<&'a Id> = Default::default();
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
     for ast::AstNode {
         node: ast::TypeBinder_ { id, ty },
         ..
     } in foralls
     {
-        bound_ty_vars.insert(id);
+        bound_ty_vars.bind(id);
 
         // NB. Type of a binder can refer to previous binders.
         if let Some(ty) = ty {
@@ -311,13 +363,16 @@ fn analyze_data<'a, 'b>(data: &'a ast::DataDecl, info: &'b mut DeclInfo) {
 
     info.defines.tys.insert(ty_con.clone());
 
-    let bound_ty_vars: Set<&'a Id> = ty_args.iter().collect();
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+    for ty_arg in ty_args {
+        bound_ty_vars.bind(ty_arg);
+    }
 
     cons.iter()
         .for_each(|con| analyze_con(con, info, &bound_ty_vars));
 }
 
-fn analyze_con(con: &ast::Con, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
+fn analyze_con(con: &ast::Con, info: &mut DeclInfo, bound_ty_vars: &ScopeSet<&Id>) {
     let ast::Con_ { con, fields } = &con.node;
     info.defines.values.insert(con.clone());
     fields
@@ -325,7 +380,7 @@ fn analyze_con(con: &ast::Con, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
         .for_each(|field| analyze_field(field, info, bound_ty_vars));
 }
 
-fn analyze_field(field: &ast::FieldDecl, info: &mut DeclInfo, bound_ty_vars: &Set<&Id>) {
+fn analyze_field(field: &ast::FieldDecl, info: &mut DeclInfo, bound_ty_vars: &ScopeSet<&Id>) {
     let ast::FieldDecl_ { vars, ty } = &field.node;
     vars.iter().for_each(|field_var| {
         info.defines.values.insert(field_var.clone());
@@ -345,17 +400,74 @@ fn analyze_newtype<'a, 'b>(newty: &'a ast::NewtypeDecl, info: &'b mut DeclInfo) 
 
     info.defines.tys.insert(ty_con.clone());
 
-    let bound_ty_vars: Set<&'a Id> = ty_args.iter().collect();
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+    for ty_arg in ty_args {
+        bound_ty_vars.bind(ty_arg);
+    }
 
     analyze_con(con, info, &bound_ty_vars);
 }
 
-fn analyze_class(_value: &ast::ClassDecl, _info: &mut DeclInfo) {
-    todo!()
+fn analyze_class<'a, 'b>(class: &'a ast::ClassDecl, info: &'b mut DeclInfo) {
+    let ast::ClassDecl_ {
+        context,
+        ty_con,
+        ty_arg,
+        decls,
+    } = &class.node;
+
+    info.defines.tys.insert(ty_con.clone());
+
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+    bound_ty_vars.bind(ty_con);
+    bound_ty_vars.bind(ty_arg);
+
+    // Bind type variables in context.
+    for ty in context {
+        for var in ty.node.vars_borrowed() {
+            bound_ty_vars.bind(var);
+        }
+    }
+
+    // Add other types in context as dependencies.
+    for ty in context {
+        analyze_ty(ty, info, &bound_ty_vars);
+    }
+
+    for decl in decls {
+        analyze_value(decl, info, &mut bound_ty_vars);
+    }
 }
 
-fn analyze_instance(_value: &ast::InstanceDecl, _info: &mut DeclInfo) {
-    todo!()
+fn analyze_instance<'a, 'b>(instance: &'a ast::InstanceDecl, info: &'b mut DeclInfo) {
+    let ast::InstanceDecl_ {
+        context,
+        ty_con,
+        ty,
+        decls,
+    } = &instance.node;
+
+    let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+
+    // Bind type variables in context.
+    for ty in context {
+        for var in ty.node.vars_borrowed() {
+            bound_ty_vars.bind(var);
+        }
+    }
+
+    // Add other types in context as dependencies.
+    for ty in context {
+        analyze_ty(ty, info, &bound_ty_vars);
+    }
+
+    info.uses.tys.insert(ty_con.clone());
+
+    analyze_ty(ty, info, &bound_ty_vars);
+
+    for decl in decls {
+        analyze_value(decl, info, &mut bound_ty_vars);
+    }
 }
 
 fn analyze_default(_value: &ast::DefaultDecl, _info: &mut DeclInfo) {

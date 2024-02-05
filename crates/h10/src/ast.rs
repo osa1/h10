@@ -293,6 +293,44 @@ pub enum Type_ {
 }
 
 impl Type_ {
+    pub fn vars_borrowed(&self) -> Set<&Id> {
+        let mut vars: Set<&Id> = Default::default();
+        self.vars_borrowed_(&mut vars);
+        vars
+    }
+
+    fn vars_borrowed_<'a>(&'a self, vars: &mut Set<&'a Id>) {
+        match self {
+            Type_::Tuple(tys) => {
+                for ty in tys {
+                    ty.node.vars_borrowed_(vars);
+                }
+            }
+
+            Type_::List(ty) => {
+                ty.node.vars_borrowed_(vars);
+            }
+
+            Type_::Arrow(ty1, ty2) => {
+                ty1.node.vars_borrowed_(vars);
+                ty2.node.vars_borrowed_(vars);
+            }
+
+            Type_::App(ty1, tys) => {
+                ty1.node.vars_borrowed_(vars);
+                for ty in tys {
+                    ty.node.vars_borrowed_(vars);
+                }
+            }
+
+            Type_::Con(_) => {}
+
+            Type_::Var(id) => {
+                vars.insert(id);
+            }
+        }
+    }
+
     pub fn vars(&self) -> Set<Id> {
         let mut vars: Set<Id> = Default::default();
         self.vars_(&mut vars);
