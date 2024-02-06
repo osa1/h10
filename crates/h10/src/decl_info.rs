@@ -97,6 +97,9 @@ fn analyze_value<'a, 'b, 'c>(
             context,
             ty,
         } => {
+            // TODO: When `foralls` is not given we should collect type variables in the entire
+            // signature first as bound.
+
             bound_ty_vars.enter();
 
             for ast::TypeBinder_ { id, ty: _ } in foralls.iter().map(|binder| &binder.node) {
@@ -263,16 +266,106 @@ fn analyze_rhs<'a>(
     local_bound_vars.exit();
 }
 
+// TODO: With scoped type variables we should pass bound type vars here.
 fn analyze_exp<'a>(
-    _exp: &'a ast::Exp,
+    exp: &'a ast::Exp,
+    info: &mut DeclInfo,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
+) {
+    match &exp.node {
+        ast::Exp_::Var(var) | ast::Exp_::Con(var) => {
+            info.uses.values.insert(var.clone());
+        }
+
+        ast::Exp_::Lit(_) => {}
+
+        ast::Exp_::Lam(args, body) => {
+            local_bound_vars.enter();
+            for arg in args {
+                analyze_pat(arg, info, local_bound_vars);
+            }
+            analyze_exp(body, info, local_bound_vars);
+            local_bound_vars.exit();
+        }
+
+        ast::Exp_::App(e1, es) => {
+            analyze_exp(e1, info, local_bound_vars);
+            for e in es {
+                analyze_exp(e, info, local_bound_vars);
+            }
+        }
+
+        ast::Exp_::Tuple(es) | ast::Exp_::List(es) => {
+            for e in es {
+                analyze_exp(e, info, local_bound_vars);
+            }
+        }
+
+        ast::Exp_::Do(stmts) => {
+            for stmt in stmts {
+                analyze_stmt(stmt, info, local_bound_vars);
+            }
+        }
+
+        ast::Exp_::TypeAnnotation {
+            exp,
+            context,
+            type_,
+        } => {
+            analyze_exp(exp, info, local_bound_vars);
+            let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
+
+            for ty in context {
+                for var in ty.node.vars_borrowed() {
+                    bound_ty_vars.bind(var);
+                }
+            }
+
+            for ty in context {
+                analyze_ty(ty, info, &bound_ty_vars);
+            }
+
+            analyze_ty(type_, info, &bound_ty_vars);
+        }
+
+        ast::Exp_::ArithmeticSeq { exp1, exp2, exp3 } => {
+            analyze_exp(exp1, info, local_bound_vars);
+            if let Some(exp2) = exp2 {
+                analyze_exp(exp2, info, local_bound_vars);
+            }
+            if let Some(exp3) = exp3 {
+                analyze_exp(exp3, info, local_bound_vars);
+            }
+        }
+
+        ast::Exp_::ListComp { exp: _, quals: _ } => todo!(),
+
+        ast::Exp_::Case(_, _) => todo!(),
+
+        ast::Exp_::If(e1, e2, e3) => {
+            analyze_exp(e1, info, local_bound_vars);
+            analyze_exp(e2, info, local_bound_vars);
+            analyze_exp(e3, info, local_bound_vars);
+        }
+
+        ast::Exp_::Let(_, _) => todo!(),
+
+        ast::Exp_::Update { exp: _, updates: _ } => todo!(),
+
+        ast::Exp_::ReAssoc(_, _, _) => todo!(),
+    }
+}
+
+fn analyze_guarded_rhs<'a>(
+    _rhs: &'a ast::GuardedRhs,
     _info: &mut DeclInfo,
     _local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
     todo!()
 }
 
-fn analyze_guarded_rhs<'a>(
-    _rhs: &'a ast::GuardedRhs,
+fn analyze_stmt<'a>(
+    _stmt: &'a ast::Stmt,
     _info: &mut DeclInfo,
     _local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
