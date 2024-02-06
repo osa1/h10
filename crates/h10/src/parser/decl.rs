@@ -247,9 +247,9 @@ impl Parser {
                 self.spanned(l, r, Lhs_::Fun { var, pats })
             })
             .or_else(|_| {
-                let (_, r) = self.last_tok_span();
                 let pat = self.pat_try()?;
-                Ok(self.spanned(l, r, Lhs_::Pat(pat)))
+                let pat_span = pat.span.clone();
+                Ok(self.spanned(pat_span.start, pat_span.end, Lhs_::Pat(pat)))
             })
             .or_else(|_: Error| self.fail_with_next(ErrorKind::UnexpectedToken))?;
 
