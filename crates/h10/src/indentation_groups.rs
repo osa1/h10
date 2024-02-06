@@ -231,8 +231,9 @@ impl Parser {
                     // Skip to `where`.
                     self.next();
                     // Start a new group right after `where`.
-                    let group_idx = match self.next() {
+                    let group_idx = match self.peek() {
                         Some(nested_group_start) if nested_group_start.indentation() > 0 => {
+                            self.next();
                             let nested_group_idx = match reuse(&nested_group_start, arena) {
                                 Some(reused_group_idx) => reused_group_idx,
                                 None => {

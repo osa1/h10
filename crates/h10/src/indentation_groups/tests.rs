@@ -357,6 +357,62 @@ fn parse_8() {
 }
 
 #[test]
+fn parse_9() {
+    #[rustfmt::skip]
+    let lines = [
+        "",
+        "class X a where",
+        "x = 1",
+        ""
+    ];
+    let pgm = lines.join("\n");
+
+    let mut arena = DeclArena::new();
+    let token = lex_full(&pgm, Pos::ZERO);
+    let groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena).line, 0);
+    assert_eq!(group0.span_end(&arena).line, 2);
+    assert_eq!(group0.span_end(&arena).char, 0);
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(&arena).line, 2);
+    assert_eq!(group1.span_start(&arena).char, 0);
+    assert_eq!(group1.span_end(&arena).line, 3);
+    assert_eq!(group1.span_end(&arena).char, 0);
+}
+
+#[test]
+fn parse_10() {
+    #[rustfmt::skip]
+    let lines = [
+        "",
+        "class X a",
+        "x = 1",
+        ""
+    ];
+    let pgm = lines.join("\n");
+
+    let mut arena = DeclArena::new();
+    let token = lex_full(&pgm, Pos::ZERO);
+    let groups = parse_indentation_groups(token.clone(), &mut arena);
+    assert_eq!(groups.len(), 2);
+
+    let group0 = arena.get(groups[0]);
+    assert_eq!(group0.span_start(&arena).line, 0);
+    assert_eq!(group0.span_end(&arena).line, 2);
+    assert_eq!(group0.span_end(&arena).char, 0);
+
+    let group1 = arena.get(groups[1]);
+    assert_eq!(group1.span_start(&arena).line, 2);
+    assert_eq!(group1.span_start(&arena).char, 0);
+    assert_eq!(group1.span_end(&arena).line, 3);
+    assert_eq!(group1.span_end(&arena).char, 0);
+}
+
+#[test]
 fn trivia_nodes() {
     // Check that the initial trivia is assigned to the first AST node and trailing trivia are
     // assigned to the previous AST node.
