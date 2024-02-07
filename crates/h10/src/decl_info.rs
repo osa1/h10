@@ -1,5 +1,8 @@
 //! Implements geneartion of defined and used values and types of top-level bindings.
 
+#[cfg(test)]
+mod tests;
+
 use crate::ast;
 use crate::collections::Set;
 use crate::id::Id;
@@ -56,6 +59,7 @@ impl DeclInfo {
                 &mut info,
                 &mut Default::default(),
                 &mut Default::default(),
+                true,
             ),
             ast::TopDeclKind::Type(ty) => analyze_ty_syn(ty, &mut info),
             ast::TopDeclKind::KindSig(kind_sig) => analyze_kind_sig(kind_sig, &mut info),
@@ -93,6 +97,7 @@ fn analyze_value_decl<'a, 'b, 'c, 'd>(
     info: &'b mut DeclInfo,
     bound_ty_vars: &'c mut ScopeSet<&'a Id>,
     local_bound_vars: &'d mut ScopeSet<&'a Id>,
+    top_level: bool,
 ) {
     match &value.node {
         ast::ValueDecl_::TypeSig {
@@ -138,7 +143,7 @@ fn analyze_value_decl<'a, 'b, 'c, 'd>(
         }
 
         ast::ValueDecl_::Value { lhs, rhs } => {
-            analyze_lhs(lhs, info, local_bound_vars);
+            analyze_lhs(lhs, info, local_bound_vars, top_level);
             analyze_rhs(rhs, info, local_bound_vars);
         }
     }
@@ -189,6 +194,7 @@ fn analyze_lhs<'a>(
     lhs: &'a ast::Lhs,
     info: &mut DeclInfo,
     local_bound_vars: &mut ScopeSet<&'a Id>,
+    top_level: bool,
 ) {
     match &lhs.node {
         ast::Lhs_::Pat(pat) => analyze_pat(pat, info, local_bound_vars),
@@ -197,6 +203,10 @@ fn analyze_lhs<'a>(
             local_bound_vars.bind(var);
             pats.iter()
                 .for_each(|pat| analyze_pat(pat, info, local_bound_vars));
+
+            if top_level {
+                info.defines.values.insert(var.clone());
+            }
         }
     }
 }
@@ -276,7 +286,9 @@ fn analyze_exp<'a>(
 ) {
     match &exp.node {
         ast::Exp_::Var(var) | ast::Exp_::Con(var) => {
-            info.uses.values.insert(var.clone());
+            if !local_bound_vars.is_bound(var) {
+                info.uses.values.insert(var.clone());
+            }
         }
 
         ast::Exp_::Lit(_) => {}
@@ -389,7 +401,7 @@ fn analyze_stmt<'a>(
         ast::Stmt_::Let(decls) => {
             collect_local_binders(decls, info, local_bound_vars);
             for decl in decls {
-                analyze_value_decl(decl, info, &mut Default::default(), local_bound_vars);
+                analyze_value_decl(decl, info, &mut Default::default(), local_bound_vars, false);
             }
         }
     }
@@ -548,7 +560,13 @@ fn analyze_class<'a, 'b>(class: &'a ast::ClassDecl, info: &'b mut DeclInfo) {
     }
 
     for decl in decls {
-        analyze_value_decl(decl, info, &mut bound_ty_vars, &mut Default::default());
+        analyze_value_decl(
+            decl,
+            info,
+            &mut bound_ty_vars,
+            &mut Default::default(),
+            true,
+        );
     }
 }
 
@@ -579,7 +597,13 @@ fn analyze_instance<'a, 'b>(instance: &'a ast::InstanceDecl, info: &'b mut DeclI
     analyze_ty(ty, info, &bound_ty_vars);
 
     for decl in decls {
-        analyze_value_decl(decl, info, &mut bound_ty_vars, &mut Default::default());
+        analyze_value_decl(
+            decl,
+            info,
+            &mut bound_ty_vars,
+            &mut Default::default(),
+            true,
+        );
     }
 }
 
