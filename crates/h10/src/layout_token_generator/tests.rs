@@ -1,3 +1,4 @@
+use crate::decl_arena::DeclArena;
 use crate::layout_token_generator::LayoutTokenGenerator;
 use crate::lexing::lex_full;
 use crate::pos::Pos;
@@ -32,12 +33,14 @@ use h10_lexer::{Lexer, Literal, ReservedId, ReservedOp, Special, TokenKind};
 // not a problem for this test.
 #[test]
 fn class_where_no_indent() {
-    let input = r#"
+    let pgm = r#"
 class X where
 a = 1"#;
-    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new_top_level(lex_full(input, Pos::ZERO))
-        .map(|t| t.unwrap().kind())
-        .collect();
+    let arena = DeclArena::new();
+    let tokens: Vec<TokenKind> =
+        LayoutTokenGenerator::new_top_level(&arena, lex_full(pgm, Pos::ZERO))
+            .map(|t| t.unwrap().kind())
+            .collect();
     assert_eq!(
         tokens,
         vec![
@@ -60,8 +63,9 @@ a = 1"#;
 fn record_literal() {
     // Test that the layout lexer handles `{` and `}` in a context where an implicit layout is not
     // expected (i.e. after a `let`, `where`, `of`, `do`).
-    let input = "data A = A { x :: Int }";
-    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(lex_full(input, Pos::ZERO))
+    let pgm = "data A = A { x :: Int }";
+    let arena = DeclArena::new();
+    let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(&arena, lex_full(pgm, Pos::ZERO))
         .map(|t| t.unwrap().kind())
         .collect();
     assert_eq!(

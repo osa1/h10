@@ -9,6 +9,8 @@ mod utils;
 mod tests;
 
 use crate::ast::*;
+use crate::decl_arena::DeclArena;
+use crate::indentation_groups::parse_indentation_groups;
 use crate::layout_token_generator::{LayoutError, LayoutTokenGenerator};
 use crate::lexing::lex_full;
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
@@ -23,26 +25,48 @@ pub type ParserResult<A> = Result<A, Error>;
 /// Parse a module.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
     let token = lex_full(module_str, Pos::ZERO);
-    Parser::new(LayoutTokenGenerator::new_top_level(token)).module()
+    let mut arena = DeclArena::new();
+    let indentation_groups = parse_indentation_groups(token.clone(), &mut arena);
+    let mut decls: Vec<TopDecl> = vec![];
+
+    for group_idx in indentation_groups {
+        let group = arena.get(group_idx);
+
+        // HACK: Because the layout token generator won't be generationg `;`s after a top-level
+        // group, for now remove the link from the last token to the next.
+        let next_token = group.last_token.next();
+        group.last_token.set_next(None);
+
+        let top_decl =
+            Parser::new(LayoutTokenGenerator::new(&arena, group.first_token.clone())).topdecl()?;
+
+        decls.push(top_decl);
+
+        group.last_token.set_next(next_token);
+    }
+
+    Ok(decls)
 }
 
 /// Parse a type with predicates.
 #[cfg(test)]
 pub fn parse_type(type_str: &str) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, Type)> {
     let token = lex_full(type_str, Pos::ZERO);
-    Parser::new(LayoutTokenGenerator::new(token)).type_with_context()
+    let arena = DeclArena::new();
+    Parser::new(LayoutTokenGenerator::new(&arena, token)).type_with_context()
 }
 
 /// Parse an expression.
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<Exp> {
     let token = lex_full(exp_str, Pos::ZERO);
-    Parser::new(LayoutTokenGenerator::new(token)).exp()
+    let arena = DeclArena::new();
+    Parser::new(LayoutTokenGenerator::new(&arena, token)).exp()
 }
 
 #[derive(Clone)]
-struct Parser {
-    token_gen: LayoutTokenGenerator,
+struct Parser<'a> {
+    token_gen: LayoutTokenGenerator<'a>,
 
     /// Next peeked token. We can't use std `Peekable` as we need to be able to pop current layout
     /// on parse error and `Peekable` doesn't give access to the inner iterator.
@@ -57,8 +81,8 @@ struct Parser {
     context: List<Context>,
 }
 
-impl Parser {
-    fn new(token_gen: LayoutTokenGenerator) -> Self {
+impl<'a> Parser<'a> {
+    fn new(token_gen: LayoutTokenGenerator<'a>) -> Self {
         Parser {
             token_gen,
             peeked: None,
@@ -71,6 +95,9 @@ impl Parser {
     module → module modid [exports] where body
            | body
     */
+    // TODO: Not used since we split the module into indentation groups now and parse each
+    // indentation group seaprately. We can probably remove this.
+    #[allow(unused)]
     fn module(&mut self) -> ParserResult<Vec<TopDecl>> {
         self.in_context(GrammarItem::Module, |self_| {
             if self_.skip_token(TokenKind::ReservedId(ReservedId::Module)) {

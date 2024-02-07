@@ -3,7 +3,7 @@ use crate::parser::error::ErrorKind;
 use crate::parser::{Parser, ParserResult};
 use h10_lexer::{ReservedId, ReservedOp, Special, TokenKind};
 
-impl Parser {
+impl<'a> Parser<'a> {
     /*
     exp → infixexp :: [context =>] type    (expression type signature)
         | infixexp

@@ -6,7 +6,7 @@ use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
 use h10_lexer::{Literal, ReservedId, ReservedOp, Special, TokenKind};
 
-impl Parser {
+impl<'a> Parser<'a> {
     /*
     impdecls → impdecl1 ; … ; impdecln                      (n ≥ 1)
 
@@ -101,7 +101,7 @@ impl Parser {
             | foreign fdecl
             | decl
     */
-    fn topdecl(&mut self) -> ParserResult<TopDecl> {
+    pub(crate) fn topdecl(&mut self) -> ParserResult<TopDecl> {
         let t = self.peek_()?;
         let top_decl_kind: TopDeclKind = match t.kind() {
             TokenKind::ReservedId(ReservedId::Kind) => {

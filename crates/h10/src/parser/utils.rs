@@ -6,7 +6,7 @@ use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::TokenKind;
 
-impl Parser {
+impl<'a> Parser<'a> {
     pub(super) fn in_explicit_layout(&self) -> bool {
         self.token_gen.in_explicit_layout()
     }
@@ -182,7 +182,7 @@ impl Parser {
 // Utilities to generate AST nodes.
 //
 
-impl Parser {
+impl<'a> Parser<'a> {
     pub(super) fn span(&self, l: Pos, r: Pos) -> Span {
         Span { start: l, end: r }
     }

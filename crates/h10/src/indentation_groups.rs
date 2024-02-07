@@ -108,15 +108,8 @@ impl IndentationGroup {
 /// Parse top-level declarations starting with [`token`] and return the indices of parsed
 /// declarations.
 pub(crate) fn parse_indentation_groups(token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
-    let mut decl_idx = parse(token, arena);
-    let mut decls: Vec<DeclIdx> = vec![decl_idx];
-
-    while let Some(next) = arena.get(decl_idx).next {
-        decls.push(next);
-        decl_idx = next;
-    }
-
-    decls
+    let decl_idx = parse(token, arena);
+    collect_groups(decl_idx, arena)
 }
 
 pub(crate) fn reparse_indentation_groups_decl(
@@ -146,6 +139,17 @@ pub(crate) fn reparse_indentation_groups_token(
 pub(crate) fn parse(token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
     let mut parser = Parser::new(token);
     parser.indentation_group(arena, false)
+}
+
+pub(crate) fn collect_groups(mut decl_idx: DeclIdx, arena: &DeclArena) -> Vec<DeclIdx> {
+    let mut groups = vec![decl_idx];
+
+    while let Some(next) = arena.get(decl_idx).next {
+        groups.push(next);
+        decl_idx = next;
+    }
+
+    groups
 }
 
 #[derive(Debug)]

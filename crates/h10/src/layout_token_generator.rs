@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::ast::Span;
+use crate::decl_arena::DeclArena;
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, Special, Token, TokenKind};
@@ -17,7 +18,10 @@ use smol_str::SmolStr;
 ///
 /// The arugment [`TokenRef`] list is not modified; layout tokens are not added to the list.
 #[derive(Clone)]
-pub struct LayoutTokenGenerator {
+pub struct LayoutTokenGenerator<'a> {
+    /// AST arena used to get aboslute spans of tokens added to AST nodes.
+    arena: &'a DeclArena,
+
     /// The next token in the token list.
     token: Option<TokenRef>,
 
@@ -48,9 +52,10 @@ enum Context {
     Implicit(u32),
 }
 
-impl LayoutTokenGenerator {
-    pub fn new_top_level(token: TokenRef) -> Self {
+impl<'a> LayoutTokenGenerator<'a> {
+    pub fn new_top_level(arena: &'a DeclArena, token: TokenRef) -> Self {
         LayoutTokenGenerator {
+            arena,
             token: Some(token),
             last_token_line: None,
             context: vec![Context::Implicit(0)],
@@ -59,8 +64,9 @@ impl LayoutTokenGenerator {
         }
     }
 
-    pub fn new(token: TokenRef) -> Self {
+    pub fn new(arena: &'a DeclArena, token: TokenRef) -> Self {
         LayoutTokenGenerator {
+            arena,
             token: Some(token),
             last_token_line: None,
             context: vec![],
@@ -81,7 +87,7 @@ impl LayoutTokenGenerator {
     }
 }
 
-impl Iterator for LayoutTokenGenerator {
+impl<'a> Iterator for LayoutTokenGenerator<'a> {
     type Item = Result<TokenRef, LayoutError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -141,7 +147,7 @@ impl Iterator for LayoutTokenGenerator {
             return Some(Ok(token));
         }
 
-        let start = token.span().start;
+        let start = token.absolute_span(self.arena).start;
 
         if self.do_layout {
             self.do_layout = false;
