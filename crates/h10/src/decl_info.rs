@@ -51,9 +51,12 @@ impl DeclInfo {
         };
 
         match top_decl {
-            ast::TopDeclKind::Value(value) => {
-                analyze_value(value, &mut info, &mut Default::default())
-            }
+            ast::TopDeclKind::Value(value) => analyze_value_decl(
+                value,
+                &mut info,
+                &mut Default::default(),
+                &mut Default::default(),
+            ),
             ast::TopDeclKind::Type(ty) => analyze_ty_syn(ty, &mut info),
             ast::TopDeclKind::KindSig(kind_sig) => analyze_kind_sig(kind_sig, &mut info),
             ast::TopDeclKind::Data(data) => analyze_data(data, &mut info),
@@ -85,10 +88,11 @@ impl Uses {
     }
 }
 
-fn analyze_value<'a, 'b, 'c>(
+fn analyze_value_decl<'a, 'b, 'c, 'd>(
     value: &'a ast::ValueDecl,
     info: &'b mut DeclInfo,
     bound_ty_vars: &'c mut ScopeSet<&'a Id>,
+    local_bound_vars: &'d mut ScopeSet<&'a Id>,
 ) {
     match &value.node {
         ast::ValueDecl_::TypeSig {
@@ -134,10 +138,8 @@ fn analyze_value<'a, 'b, 'c>(
         }
 
         ast::ValueDecl_::Value { lhs, rhs } => {
-            // TODO: Pass bound type vars with scoped type vars.
-            let mut local_bound_vars: ScopeSet<&'a Id> = Default::default();
-            analyze_lhs(lhs, info, &mut local_bound_vars);
-            analyze_rhs(rhs, info, &mut local_bound_vars);
+            analyze_lhs(lhs, info, local_bound_vars);
+            analyze_rhs(rhs, info, local_bound_vars);
         }
     }
 }
@@ -357,19 +359,40 @@ fn analyze_exp<'a>(
 }
 
 fn analyze_guarded_rhs<'a>(
-    _rhs: &'a ast::GuardedRhs,
-    _info: &mut DeclInfo,
-    _local_bound_vars: &mut ScopeSet<&'a Id>,
+    rhs: &'a ast::GuardedRhs,
+    info: &mut DeclInfo,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
-    todo!()
+    let ast::GuardedRhs_ { guards, rhs } = &rhs.node;
+
+    for guard in guards {
+        // NB. Guards can bind variables.
+        analyze_stmt(guard, info, local_bound_vars);
+    }
+
+    analyze_exp(rhs, info, local_bound_vars);
 }
 
 fn analyze_stmt<'a>(
-    _stmt: &'a ast::Stmt,
-    _info: &mut DeclInfo,
-    _local_bound_vars: &mut ScopeSet<&'a Id>,
+    stmt: &'a ast::Stmt,
+    info: &mut DeclInfo,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
-    todo!()
+    match &stmt.node {
+        ast::Stmt_::Exp(exp) => analyze_exp(exp, info, local_bound_vars),
+
+        ast::Stmt_::Bind(pat, exp) => {
+            analyze_pat(pat, info, local_bound_vars);
+            analyze_exp(exp, info, local_bound_vars);
+        }
+
+        ast::Stmt_::Let(decls) => {
+            collect_local_binders(decls, info, local_bound_vars);
+            for decl in decls {
+                analyze_value_decl(decl, info, &mut Default::default(), local_bound_vars);
+            }
+        }
+    }
 }
 
 /// Bind left-hand side variables as locally bound (in [`local_bound_vars`]) and used types (in
@@ -388,9 +411,7 @@ fn collect_local_binders<'a>(
                 foralls: _,
                 context: _,
                 ty: _,
-            } => {
-                todo!()
-            }
+            } => {}
 
             ast::ValueDecl_::Fixity {
                 fixity: _,
@@ -409,7 +430,6 @@ fn collect_local_binders<'a>(
             },
         }
     }
-    todo!()
 }
 
 fn analyze_ty_syn<'a, 'b>(ty_decl: &'a ast::TypeDecl, info: &'b mut DeclInfo) {
@@ -528,7 +548,7 @@ fn analyze_class<'a, 'b>(class: &'a ast::ClassDecl, info: &'b mut DeclInfo) {
     }
 
     for decl in decls {
-        analyze_value(decl, info, &mut bound_ty_vars);
+        analyze_value_decl(decl, info, &mut bound_ty_vars, &mut Default::default());
     }
 }
 
@@ -559,7 +579,7 @@ fn analyze_instance<'a, 'b>(instance: &'a ast::InstanceDecl, info: &'b mut DeclI
     analyze_ty(ty, info, &bound_ty_vars);
 
     for decl in decls {
-        analyze_value(decl, info, &mut bound_ty_vars);
+        analyze_value_decl(decl, info, &mut bound_ty_vars, &mut Default::default());
     }
 }
 
