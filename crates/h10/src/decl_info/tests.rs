@@ -95,7 +95,7 @@ fn program_decl_infos(pgm: &str) -> Vec<DeclInfo> {
     let mut decl_infos: Vec<DeclInfo> = Vec::with_capacity(decls.len());
 
     for decl in decls {
-        decl_infos.push(DeclInfo::new(&decl.kind));
+        decl_infos.push(DeclInfo::new_from_top_decl(&decl.kind));
     }
 
     decl_infos

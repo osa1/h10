@@ -1,5 +1,6 @@
 use crate::collections::Set;
 use crate::decl_arena::DeclIdx;
+use crate::decl_info::DeclInfo;
 use crate::id::Id;
 use crate::pos::Pos;
 use crate::token::TokenRef;
@@ -66,6 +67,9 @@ pub struct TopDecl {
 
     /// Whether this declaration was modified after the last time it was parsed.
     pub modified: bool,
+
+    /// Defined and used ids in the decl.
+    pub info: DeclInfo,
 }
 
 impl fmt::Debug for TopDecl {

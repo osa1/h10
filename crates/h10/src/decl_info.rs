@@ -46,12 +46,8 @@ pub struct Uses {
 }
 
 impl DeclInfo {
-    #[allow(unused)]
-    pub fn new(top_decl: &ast::TopDeclKind) -> Self {
-        let mut info = DeclInfo {
-            defines: Defs::new(),
-            uses: Uses::new(),
-        };
+    pub fn new_from_top_decl(top_decl: &ast::TopDeclKind) -> Self {
+        let mut info = DeclInfo::new_empty();
 
         match top_decl {
             ast::TopDeclKind::Value(value) => analyze_value_decl(
@@ -71,6 +67,26 @@ impl DeclInfo {
         }
 
         info
+    }
+
+    #[allow(unused)]
+    pub fn new_from_value_decl(value_decl: &ast::ValueDecl) -> Self {
+        let mut info = DeclInfo::new_empty();
+        analyze_value_decl(
+            value_decl,
+            &mut info,
+            &mut Default::default(),
+            &mut Default::default(),
+            true,
+        );
+        info
+    }
+
+    fn new_empty() -> Self {
+        DeclInfo {
+            defines: Defs::new(),
+            uses: Uses::new(),
+        }
     }
 }
 
@@ -92,11 +108,29 @@ impl Uses {
     }
 }
 
-fn analyze_value_decl<'a, 'b, 'c, 'd>(
+/*
+fn analyze_value_decls<'a>(
+    values: &'a [ast::ValueDecl],
+    info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
+    top_level: bool,
+) {
+    collect_local_binders(values, info, local_bound_vars);
+    for value_decl in values {
+        analyze_value_decl(value_decl, info, bound_ty_vars, local_bound_vars, top_level);
+    }
+}
+*/
+
+/// Analyze a single value declaration.
+///
+/// Make sure to bind values defined by the decl list (in a `let` or `where`) before calling this.
+fn analyze_value_decl<'a>(
     value: &'a ast::ValueDecl,
-    info: &'b mut DeclInfo,
-    bound_ty_vars: &'c mut ScopeSet<&'a Id>,
-    local_bound_vars: &'d mut ScopeSet<&'a Id>,
+    info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
     top_level: bool,
 ) {
     match &value.node {
@@ -144,7 +178,7 @@ fn analyze_value_decl<'a, 'b, 'c, 'd>(
 
         ast::ValueDecl_::Value { lhs, rhs } => {
             analyze_lhs(lhs, info, local_bound_vars, top_level);
-            analyze_rhs(rhs, info, local_bound_vars);
+            analyze_rhs(rhs, info, bound_ty_vars, local_bound_vars);
         }
     }
 }
@@ -252,6 +286,7 @@ fn analyze_pat<'a>(
 fn analyze_rhs<'a>(
     rhs: &'a ast::Rhs,
     info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
     local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
     local_bound_vars.enter();
@@ -265,14 +300,18 @@ fn analyze_rhs<'a>(
             where_decls: _,
         } => {
             for rhs in rhss {
-                analyze_guarded_rhs(rhs, info, local_bound_vars);
+                analyze_guarded_rhs(rhs, info, bound_ty_vars, local_bound_vars);
             }
         }
 
         ast::Rhs_::Rhs {
             rhs,
             where_decls: _,
-        } => analyze_exp(rhs, info, local_bound_vars),
+        } => analyze_exp(rhs, info, bound_ty_vars, local_bound_vars),
+    }
+
+    for value_decl in where_decls {
+        analyze_value_decl(value_decl, info, bound_ty_vars, local_bound_vars, false);
     }
 
     local_bound_vars.exit();
@@ -282,6 +321,7 @@ fn analyze_rhs<'a>(
 fn analyze_exp<'a>(
     exp: &'a ast::Exp,
     info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
     local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
     match &exp.node {
@@ -298,26 +338,26 @@ fn analyze_exp<'a>(
             for arg in args {
                 analyze_pat(arg, info, local_bound_vars);
             }
-            analyze_exp(body, info, local_bound_vars);
+            analyze_exp(body, info, bound_ty_vars, local_bound_vars);
             local_bound_vars.exit();
         }
 
         ast::Exp_::App(e1, es) => {
-            analyze_exp(e1, info, local_bound_vars);
+            analyze_exp(e1, info, bound_ty_vars, local_bound_vars);
             for e in es {
-                analyze_exp(e, info, local_bound_vars);
+                analyze_exp(e, info, bound_ty_vars, local_bound_vars);
             }
         }
 
         ast::Exp_::Tuple(es) | ast::Exp_::List(es) => {
             for e in es {
-                analyze_exp(e, info, local_bound_vars);
+                analyze_exp(e, info, bound_ty_vars, local_bound_vars);
             }
         }
 
         ast::Exp_::Do(stmts) => {
             for stmt in stmts {
-                analyze_stmt(stmt, info, local_bound_vars);
+                analyze_stmt(stmt, info, bound_ty_vars, local_bound_vars);
             }
         }
 
@@ -326,7 +366,7 @@ fn analyze_exp<'a>(
             context,
             type_,
         } => {
-            analyze_exp(exp, info, local_bound_vars);
+            analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
             let mut bound_ty_vars: ScopeSet<&'a Id> = Default::default();
 
             for ty in context {
@@ -343,59 +383,121 @@ fn analyze_exp<'a>(
         }
 
         ast::Exp_::ArithmeticSeq { exp1, exp2, exp3 } => {
-            analyze_exp(exp1, info, local_bound_vars);
+            analyze_exp(exp1, info, bound_ty_vars, local_bound_vars);
             if let Some(exp2) = exp2 {
-                analyze_exp(exp2, info, local_bound_vars);
+                analyze_exp(exp2, info, bound_ty_vars, local_bound_vars);
             }
             if let Some(exp3) = exp3 {
-                analyze_exp(exp3, info, local_bound_vars);
+                analyze_exp(exp3, info, bound_ty_vars, local_bound_vars);
             }
         }
 
-        ast::Exp_::ListComp { exp: _, quals: _ } => todo!(),
-
-        ast::Exp_::Case(_, _) => todo!(),
-
-        ast::Exp_::If(e1, e2, e3) => {
-            analyze_exp(e1, info, local_bound_vars);
-            analyze_exp(e2, info, local_bound_vars);
-            analyze_exp(e3, info, local_bound_vars);
+        ast::Exp_::ListComp { exp, quals } => {
+            local_bound_vars.enter();
+            for stmt in quals {
+                analyze_stmt(stmt, info, bound_ty_vars, local_bound_vars);
+            }
+            analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
+            local_bound_vars.exit();
         }
 
-        ast::Exp_::Let(_, _) => todo!(),
+        ast::Exp_::Case(scrut, alts) => {
+            analyze_exp(scrut, info, bound_ty_vars, local_bound_vars);
+            for alt in alts {
+                analyze_alt(alt, info, bound_ty_vars, local_bound_vars);
+            }
+        }
 
-        ast::Exp_::Update { exp: _, updates: _ } => todo!(),
+        ast::Exp_::If(e1, e2, e3) => {
+            analyze_exp(e1, info, bound_ty_vars, local_bound_vars);
+            analyze_exp(e2, info, bound_ty_vars, local_bound_vars);
+            analyze_exp(e3, info, bound_ty_vars, local_bound_vars);
+        }
+
+        ast::Exp_::Let(value_decls, exp) => {
+            local_bound_vars.enter();
+            collect_local_binders(value_decls, info, local_bound_vars);
+            for value_decl in value_decls {
+                analyze_value_decl(value_decl, info, bound_ty_vars, local_bound_vars, false);
+            }
+            analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
+            local_bound_vars.exit();
+        }
+
+        ast::Exp_::Update { exp, updates } => {
+            analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
+            for (field, exp) in updates {
+                // Fields have to be defined at the top-level.
+                info.uses.values.insert(field.clone());
+                analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
+            }
+        }
 
         ast::Exp_::ReAssoc(_, _, _) => todo!(),
     }
 }
 
+fn analyze_alt<'a>(
+    alt: &'a ast::Alt,
+    info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
+    local_bound_vars: &mut ScopeSet<&'a Id>,
+) {
+    let ast::Alt_ {
+        pat,
+        guarded_rhss,
+        where_decls,
+    } = &alt.node;
+
+    local_bound_vars.enter();
+
+    // `where` decls are bound in `pat`.
+    collect_local_binders(where_decls, info, local_bound_vars);
+
+    analyze_pat(pat, info, local_bound_vars);
+
+    for (stmts, exp) in guarded_rhss {
+        for stmt in stmts {
+            analyze_stmt(stmt, info, bound_ty_vars, local_bound_vars);
+        }
+        analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
+    }
+
+    for value_decl in where_decls {
+        analyze_value_decl(value_decl, info, bound_ty_vars, local_bound_vars, false);
+    }
+
+    local_bound_vars.exit();
+}
+
 fn analyze_guarded_rhs<'a>(
     rhs: &'a ast::GuardedRhs,
     info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
     local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
     let ast::GuardedRhs_ { guards, rhs } = &rhs.node;
 
     for guard in guards {
         // NB. Guards can bind variables.
-        analyze_stmt(guard, info, local_bound_vars);
+        analyze_stmt(guard, info, bound_ty_vars, local_bound_vars);
     }
 
-    analyze_exp(rhs, info, local_bound_vars);
+    analyze_exp(rhs, info, bound_ty_vars, local_bound_vars);
 }
 
 fn analyze_stmt<'a>(
     stmt: &'a ast::Stmt,
     info: &mut DeclInfo,
+    bound_ty_vars: &mut ScopeSet<&'a Id>,
     local_bound_vars: &mut ScopeSet<&'a Id>,
 ) {
     match &stmt.node {
-        ast::Stmt_::Exp(exp) => analyze_exp(exp, info, local_bound_vars),
+        ast::Stmt_::Exp(exp) => analyze_exp(exp, info, bound_ty_vars, local_bound_vars),
 
         ast::Stmt_::Bind(pat, exp) => {
             analyze_pat(pat, info, local_bound_vars);
-            analyze_exp(exp, info, local_bound_vars);
+            analyze_exp(exp, info, bound_ty_vars, local_bound_vars);
         }
 
         ast::Stmt_::Let(decls) => {

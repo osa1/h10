@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use crate::ast::*;
+use crate::decl_info::DeclInfo;
 use crate::parser::error::{Error, ErrorKind, GrammarItem};
 use crate::parser::{Parser, ParserResult};
 use crate::token::TokenRef;
@@ -132,6 +133,7 @@ impl<'a> Parser<'a> {
         }?;
         let (_, r) = self.last_tok_span();
         let line_number = t.span().start.line;
+        let info = DeclInfo::new_from_top_decl(&top_decl_kind);
         Ok(TopDecl {
             kind: top_decl_kind,
             line_number,
@@ -140,6 +142,7 @@ impl<'a> Parser<'a> {
             next: None,
             prev: None,
             modified: false,
+            info,
         })
     }
 
