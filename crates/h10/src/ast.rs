@@ -1,5 +1,4 @@
 use crate::collections::Set;
-use crate::decl_arena::DeclIdx;
 use crate::decl_info::DeclInfo;
 use crate::id::Id;
 use crate::pos::Pos;
@@ -47,26 +46,25 @@ pub struct TopDecl {
     /// Line number of the `first_token` in the source file.
     ///
     /// Line numbers of tokens attached to this declaration will be relative to this number.
+    ///
+    /// TODO: For this to hold, `first_token` should be the same token as the declaration's
+    /// indentation group's first token. Is this really the case?
     pub line_number: u32,
 
     /// The first token where this top-level declaration starts. This token will always be at
     /// column 0.
+    ///
+    /// TODO: Clarify whether this is the same as the declaration's indentation group's first
+    /// token.
     pub first_token: TokenRef,
 
     /// The last token (inclusive) where this top-level declaration ends.
     ///
     /// This will almost always be a whitespace token as there needs to be at least one new line
     /// between top-level declarations, and files usually end with a new line.
+    ///
+    /// TODO: Clarify whether this is the same as the declaration's indentation group's last token.
     pub last_token: TokenRef,
-
-    /// Next declaration in the declaration's module.
-    pub next: Option<DeclIdx>,
-
-    /// Previous declaration in the declaration's module.
-    pub prev: Option<DeclIdx>,
-
-    /// Whether this declaration was modified after the last time it was parsed.
-    pub modified: bool,
 
     /// Defined and used ids in the decl.
     pub info: DeclInfo,
