@@ -1,4 +1,4 @@
-use h10::decl_arena::{DeclArena, DeclIdx};
+use h10::arena::{Arena, Idx};
 use h10::incremental_update;
 use h10::indentation_groups::IndentationGroup;
 use h10::pos::Pos;
@@ -12,8 +12,8 @@ pub struct Ast {
 }
 
 pub struct AstData {
-    pub arena: DeclArena,
-    pub decls: Vec<DeclIdx>,
+    pub arena: Arena<IndentationGroup>,
+    pub decls: Vec<Idx<IndentationGroup>>,
 }
 
 impl Ast {
@@ -31,7 +31,7 @@ impl Ast {
 impl AstData {
     fn new() -> Self {
         Self {
-            arena: DeclArena::new(),
+            arena: Arena::new(),
             decls: vec![],
         }
     }

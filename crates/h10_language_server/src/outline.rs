@@ -1,6 +1,6 @@
 //! Implements outline/symbols generation from partially parsed ASTs (indentation groups).
 
-use h10::decl_arena::{DeclArena, DeclIdx};
+use h10::arena::{Arena, Idx};
 use h10::indentation_groups::IndentationGroup;
 use h10::token::TokenRef;
 use h10_lexer::{ReservedId, TokenKind};
@@ -8,8 +8,8 @@ use h10_lexer::{ReservedId, TokenKind};
 use tower_lsp::lsp_types as lsp;
 
 pub fn generate_symbol_response(
-    decls: &[DeclIdx],
-    arena: &DeclArena,
+    decls: &[Idx<IndentationGroup>],
+    arena: &Arena<IndentationGroup>,
 ) -> lsp::DocumentSymbolResponse {
     // NB. LSP spec says we should return `DocumentSymbol[]` (`DocumentSymbolResponse::Nested` in
     // `lsp_types`) instead of `SymbolInformation[]` (`DocumentSymbolResponse::Flat` in
@@ -17,14 +17,20 @@ pub fn generate_symbol_response(
     lsp::DocumentSymbolResponse::Nested(generate_document_symbols(decls, arena))
 }
 
-fn generate_document_symbols(decls: &[DeclIdx], arena: &DeclArena) -> Vec<lsp::DocumentSymbol> {
+fn generate_document_symbols(
+    decls: &[Idx<IndentationGroup>],
+    arena: &Arena<IndentationGroup>,
+) -> Vec<lsp::DocumentSymbol> {
     decls
         .iter()
         .filter_map(|decl_idx| generate_decl_symbol(arena.get(*decl_idx), arena))
         .collect()
 }
 
-fn generate_decl_symbol(decl: &IndentationGroup, arena: &DeclArena) -> Option<lsp::DocumentSymbol> {
+fn generate_decl_symbol(
+    decl: &IndentationGroup,
+    arena: &Arena<IndentationGroup>,
+) -> Option<lsp::DocumentSymbol> {
     let mut token_iter = iter_tokens(decl);
 
     let token0 = token_iter.next()?;
@@ -144,7 +150,7 @@ fn iter_tokens(decl: &IndentationGroup) -> impl Iterator<Item = TokenRef> {
         .filter(|t| !matches!(t.kind(), TokenKind::Whitespace | TokenKind::Comment { .. }))
 }
 
-fn decl_range(decl: &IndentationGroup, arena: &DeclArena) -> lsp::Range {
+fn decl_range(decl: &IndentationGroup, arena: &Arena<IndentationGroup>) -> lsp::Range {
     let start = decl.span_start(arena);
     let end = decl.span_end(arena);
     lsp::Range {

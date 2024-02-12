@@ -19,7 +19,7 @@ fn insertion_iteration_0() {
         token.clone(),
         insertion_pos,
         inserted_text,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -40,7 +40,7 @@ fn insertion_iteration_1() {
         token.clone(),
         insertion_pos,
         inserted_text,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -68,7 +68,7 @@ fn insertion_iteration_2() {
         token.clone(),
         insertion_pos,
         inserted_text,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -96,7 +96,7 @@ fn insertion_iteration_3() {
         token.clone(),
         insertion_pos,
         inserted_text,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -125,7 +125,7 @@ fn deletion_iteration_0() {
         token.clone(),
         deletion_start,
         deletion_end,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -147,7 +147,7 @@ fn deletion_iteration_1() {
         token.clone(),
         deletion_start,
         deletion_end,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -166,7 +166,7 @@ fn deletion_iteration_2() {
         token.clone(),
         deletion_start,
         deletion_end,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -185,7 +185,7 @@ fn deletion_iteration_3() {
         token.clone(),
         deletion_start,
         deletion_end,
-        &DeclArena::new(),
+        &Arena::new(),
     )
     .collect();
 
@@ -203,7 +203,7 @@ fn relex_insertion_same_group() {
     let token = lex_full(pgm, Pos::ZERO);
     let initial_token_list: Vec<TokenRef> = token.iter().collect();
 
-    let arena = DeclArena::new();
+    let arena = Arena::new();
 
     let relex_start_token = token.iter().nth(8).unwrap();
     assert_eq!(relex_start_token.text(), "x");
@@ -243,7 +243,7 @@ fn relex_insertion_new_group() {
     let token = lex_full(pgm, Pos::ZERO);
     let initial_token_list: Vec<TokenRef> = token.iter().collect();
 
-    let arena = DeclArena::new();
+    let arena = Arena::new();
 
     let relex_start_token = token.iter().nth(7).unwrap();
     assert_eq!(relex_start_token.text(), "\n");

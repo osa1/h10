@@ -3,8 +3,9 @@
 #[cfg(test)]
 mod tests;
 
+use crate::arena::Arena;
 use crate::ast::Span;
-use crate::decl_arena::DeclArena;
+use crate::indentation_groups::IndentationGroup;
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, Special, Token, TokenKind};
@@ -20,7 +21,7 @@ use smol_str::SmolStr;
 #[derive(Clone)]
 pub struct LayoutTokenGenerator<'a> {
     /// AST arena used to get aboslute spans of tokens added to AST nodes.
-    arena: &'a DeclArena,
+    arena: &'a Arena<IndentationGroup>,
 
     /// The next token in the token list.
     token: Option<TokenRef>,
@@ -53,7 +54,7 @@ enum Context {
 }
 
 impl<'a> LayoutTokenGenerator<'a> {
-    pub fn new_top_level(arena: &'a DeclArena, token: TokenRef) -> Self {
+    pub fn new_top_level(arena: &'a Arena<IndentationGroup>, token: TokenRef) -> Self {
         LayoutTokenGenerator {
             arena,
             token: Some(token),
@@ -64,7 +65,7 @@ impl<'a> LayoutTokenGenerator<'a> {
         }
     }
 
-    pub fn new(arena: &'a DeclArena, token: TokenRef) -> Self {
+    pub fn new(arena: &'a Arena<IndentationGroup>, token: TokenRef) -> Self {
         LayoutTokenGenerator {
             arena,
             token: Some(token),

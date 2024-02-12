@@ -8,9 +8,9 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
+use crate::arena::Arena;
 use crate::ast::*;
-use crate::decl_arena::DeclArena;
-use crate::indentation_groups::parse_indentation_groups;
+use crate::indentation_groups::{parse_indentation_groups, IndentationGroup};
 use crate::layout_token_generator::{LayoutError, LayoutTokenGenerator};
 use crate::lexing::lex_full;
 use crate::parser::error::{Context, Error, ErrorKind, GrammarItem};
@@ -25,7 +25,7 @@ pub type ParserResult<A> = Result<A, Error>;
 /// Parse a module.
 pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
     let token = lex_full(module_str, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena: Arena<IndentationGroup> = Arena::new();
     let indentation_groups = parse_indentation_groups(token.clone(), &mut arena);
     let mut decls: Vec<TopDecl> = vec![];
 
@@ -52,7 +52,7 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
 #[cfg(test)]
 pub fn parse_type(type_str: &str) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, Type)> {
     let token = lex_full(type_str, Pos::ZERO);
-    let arena = DeclArena::new();
+    let arena: Arena<IndentationGroup> = Arena::new();
     Parser::new(LayoutTokenGenerator::new(&arena, token)).type_with_context()
 }
 
@@ -60,7 +60,7 @@ pub fn parse_type(type_str: &str) -> ParserResult<(Vec<TypeBinder>, Vec<Type>, T
 #[cfg(test)]
 pub fn parse_exp(exp_str: &str) -> ParserResult<Exp> {
     let token = lex_full(exp_str, Pos::ZERO);
-    let arena = DeclArena::new();
+    let arena: Arena<IndentationGroup> = Arena::new();
     Parser::new(LayoutTokenGenerator::new(&arena, token)).exp()
 }
 

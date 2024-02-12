@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::decl_arena::{DeclArena, DeclIdx};
+use crate::arena::{Arena, Idx};
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::{ReservedId, TokenKind};
@@ -34,17 +34,17 @@ pub struct IndentationGroup {
     pub last_token: TokenRef,
 
     /// Next declaration in the group.
-    pub next: Option<DeclIdx>,
+    pub next: Option<Idx<IndentationGroup>>,
 
     /// Previous declaration in the group.
-    pub prev: Option<DeclIdx>,
+    pub prev: Option<Idx<IndentationGroup>>,
 
     /// When the declaration start with the tokens `class` or `instance` (after the trivia), this
     /// holds the nested declaration after the token `where`.
-    pub nested: Option<DeclIdx>,
+    pub nested: Option<Idx<IndentationGroup>>,
 
     /// When the declaration is nested, this is the parent's index.
-    pub parent: Option<DeclIdx>,
+    pub parent: Option<Idx<IndentationGroup>>,
 
     /// Whether the declaration was modified since the last time it was parsed.
     pub modified: bool,
@@ -65,17 +65,17 @@ impl IndentationGroup {
     }
 
     /// Start location of the group in the document.
-    pub fn span_start(&self, arena: &DeclArena) -> Pos {
+    pub fn span_start(&self, arena: &Arena<IndentationGroup>) -> Pos {
         self.first_token.absolute_span(arena).start
     }
 
     /// End location of the group in the document.
-    pub fn span_end(&self, arena: &DeclArena) -> Pos {
+    pub fn span_end(&self, arena: &Arena<IndentationGroup>) -> Pos {
         self.last_token.absolute_span(arena).end
     }
 
     /// Whether the given position is spanned by the current group.
-    pub fn contains_location(&self, pos: Pos, arena: &DeclArena) -> bool {
+    pub fn contains_location(&self, pos: Pos, arena: &Arena<IndentationGroup>) -> bool {
         pos >= self.span_start(arena) && pos < self.span_end(arena)
     }
 
@@ -84,7 +84,7 @@ impl IndentationGroup {
     }
 
     /// Line number of the group in the document.
-    pub fn line_number(&self, arena: &DeclArena) -> u32 {
+    pub fn line_number(&self, arena: &Arena<IndentationGroup>) -> u32 {
         let mut line = self.line_number;
         if let Some(parent) = self.parent {
             line += arena.get(parent).line_number(arena);
@@ -93,7 +93,11 @@ impl IndentationGroup {
     }
 
     // NB. Does not update nested group token.
-    fn set_token_ast_nodes(&self, decl_idx: DeclIdx, arena: &DeclArena) {
+    fn set_token_ast_nodes(
+        &self,
+        decl_idx: Idx<IndentationGroup>,
+        arena: &Arena<IndentationGroup>,
+    ) {
         let first_token = self.first_token.clone();
         let last_token = match self.nested {
             Some(nested_group) => arena.get(nested_group).first_token.prev().unwrap(),
@@ -107,25 +111,28 @@ impl IndentationGroup {
 
 /// Parse top-level declarations starting with [`token`] and return the indices of parsed
 /// declarations.
-pub(crate) fn parse_indentation_groups(token: TokenRef, arena: &mut DeclArena) -> Vec<DeclIdx> {
+pub(crate) fn parse_indentation_groups(
+    token: TokenRef,
+    arena: &mut Arena<IndentationGroup>,
+) -> Vec<Idx<IndentationGroup>> {
     let decl_idx = parse(token, arena);
     collect_groups(decl_idx, arena)
 }
 
 pub(crate) fn reparse_indentation_groups_decl(
-    decl_idx: DeclIdx,
-    prev_decl_idx: Option<DeclIdx>,
-    arena: &mut DeclArena,
-) -> DeclIdx {
+    decl_idx: Idx<IndentationGroup>,
+    prev_decl_idx: Option<Idx<IndentationGroup>>,
+    arena: &mut Arena<IndentationGroup>,
+) -> Idx<IndentationGroup> {
     let token = arena.get(decl_idx).first_token.clone();
     reparse_indentation_groups_token(token, prev_decl_idx, arena)
 }
 
 pub(crate) fn reparse_indentation_groups_token(
     new_group_start: TokenRef,
-    prev_decl_idx: Option<DeclIdx>,
-    arena: &mut DeclArena,
-) -> DeclIdx {
+    prev_decl_idx: Option<Idx<IndentationGroup>>,
+    arena: &mut Arena<IndentationGroup>,
+) -> Idx<IndentationGroup> {
     let decl_idx = parse(new_group_start, arena);
 
     if let Some(prev_decl_idx) = prev_decl_idx {
@@ -136,12 +143,15 @@ pub(crate) fn reparse_indentation_groups_token(
     decl_idx
 }
 
-pub(crate) fn parse(token: TokenRef, arena: &mut DeclArena) -> DeclIdx {
+pub(crate) fn parse(token: TokenRef, arena: &mut Arena<IndentationGroup>) -> Idx<IndentationGroup> {
     let mut parser = Parser::new(token);
     parser.indentation_group(arena, false)
 }
 
-pub(crate) fn collect_groups(mut decl_idx: DeclIdx, arena: &DeclArena) -> Vec<DeclIdx> {
+pub(crate) fn collect_groups(
+    mut decl_idx: Idx<IndentationGroup>,
+    arena: &Arena<IndentationGroup>,
+) -> Vec<Idx<IndentationGroup>> {
     let mut groups = vec![decl_idx];
 
     while let Some(next) = arena.get(decl_idx).next {
@@ -188,7 +198,11 @@ impl Parser {
         }
     }
 
-    fn indentation_group(&mut self, arena: &mut DeclArena, nested: bool) -> DeclIdx {
+    fn indentation_group(
+        &mut self,
+        arena: &mut Arena<IndentationGroup>,
+        nested: bool,
+    ) -> Idx<IndentationGroup> {
         let token = match self.next() {
             Some(token) => token,
             None => {
@@ -249,8 +263,8 @@ impl Parser {
                             // TODO: This is a bit hacky: since the nested group can be a list of
                             // groups, we need to walk the list to get the last token.
                             fn group_last_token(
-                                mut group_idx: DeclIdx,
-                                arena: &DeclArena,
+                                mut group_idx: Idx<IndentationGroup>,
+                                arena: &Arena<IndentationGroup>,
                             ) -> TokenRef {
                                 loop {
                                     let group = arena.get(group_idx);
@@ -368,7 +382,7 @@ fn is_documentation(token: &TokenRef) -> bool {
     )
 }
 
-fn reuse(token: &TokenRef, arena: &DeclArena) -> Option<DeclIdx> {
+fn reuse(token: &TokenRef, arena: &Arena<IndentationGroup>) -> Option<Idx<IndentationGroup>> {
     let token_ast_node_idx = match token.ast_node() {
         Some(idx) => idx,
         None => return None,

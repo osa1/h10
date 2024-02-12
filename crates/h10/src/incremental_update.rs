@@ -3,8 +3,8 @@
 #[cfg(test)]
 mod tests;
 
+use crate::arena::{Arena, Idx};
 use crate::ast::Span;
-use crate::decl_arena::{DeclArena, DeclIdx};
 use crate::incremental_lexing::{relex_deletion, relex_insertion};
 use crate::indentation_groups::{
     parse_indentation_groups, reparse_indentation_groups_decl, reparse_indentation_groups_token,
@@ -16,7 +16,12 @@ use crate::token::TokenRef;
 use h10_lexer::Token as LexerToken;
 use h10_lexer::TokenKind as LexerTokenKind;
 
-pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &str) {
+pub fn insert(
+    arena: &mut Arena<IndentationGroup>,
+    defs: &mut Vec<Idx<IndentationGroup>>,
+    pos: Pos,
+    text: &str,
+) {
     if text.is_empty() {
         return;
     }
@@ -116,7 +121,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
             .last_token = new_token;
     }
 
-    let mut modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
+    let mut modified_ast_node: Idx<IndentationGroup> = relex_start_token.ast_node().unwrap();
     arena.get_mut(modified_ast_node).modified = true;
 
     // If modified AST node is nested in another, re-parse the parent node to handle flattening.
@@ -127,7 +132,7 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
 
     // Start parsing from the previous node to handle the case where the modified AST node's first
     // token was indented.
-    let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
+    let prev_ast_node: Option<Idx<IndentationGroup>> = arena.get(modified_ast_node).prev;
 
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
 
@@ -145,8 +150,8 @@ pub fn insert(arena: &mut DeclArena, defs: &mut Vec<DeclIdx>, pos: Pos, text: &s
 }
 
 pub fn remove(
-    arena: &mut DeclArena,
-    defs: &mut Vec<DeclIdx>,
+    arena: &mut Arena<IndentationGroup>,
+    defs: &mut Vec<Idx<IndentationGroup>>,
     removal_start: Pos,
     removal_end: Pos,
 ) {
@@ -215,7 +220,7 @@ pub fn remove(
         }
     }
 
-    let mut modified_ast_node: DeclIdx = relex_start_token.ast_node().unwrap();
+    let mut modified_ast_node: Idx<IndentationGroup> = relex_start_token.ast_node().unwrap();
     arena.get_mut(modified_ast_node).modified = true;
 
     // If modified AST node is nested in another, re-parse the parent node to handle flattening.
@@ -224,7 +229,7 @@ pub fn remove(
         arena.get_mut(modified_ast_node).modified = true;
     }
 
-    let prev_ast_node: Option<DeclIdx> = arena.get(modified_ast_node).prev;
+    let prev_ast_node: Option<Idx<IndentationGroup>> = arena.get(modified_ast_node).prev;
     let mut decl = reparse_indentation_groups_decl(modified_ast_node, prev_ast_node, arena);
 
     defs.drain(decl_idx_idx..);
@@ -242,7 +247,7 @@ pub fn remove(
 
 /// Find the declaration for the change applied to [`pos`]. Returns the index of the declaration's
 /// index in [`defs`].
-fn find_ast(arena: &DeclArena, defs: &[DeclIdx], pos: Pos) -> usize {
+fn find_ast(arena: &Arena<IndentationGroup>, defs: &[Idx<IndentationGroup>], pos: Pos) -> usize {
     for (decl_idx_idx, decl_idx) in defs.iter().enumerate() {
         if arena.get(*decl_idx).contains_location(pos, arena) {
             return decl_idx_idx;
@@ -253,6 +258,10 @@ fn find_ast(arena: &DeclArena, defs: &[DeclIdx], pos: Pos) -> usize {
     defs.len() - 1
 }
 
-fn find_token(node: &IndentationGroup, pos: Pos, arena: &DeclArena) -> Option<TokenRef> {
+fn find_token(
+    node: &IndentationGroup,
+    pos: Pos,
+    arena: &Arena<IndentationGroup>,
+) -> Option<TokenRef> {
     node.iter_tokens().find(|t| t.contains_location(pos, arena))
 }

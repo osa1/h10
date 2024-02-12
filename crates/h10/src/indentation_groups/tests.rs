@@ -1,4 +1,5 @@
 use super::*;
+use crate::arena::Arena;
 use crate::lexing::lex_full;
 use crate::pos::Pos;
 
@@ -11,7 +12,7 @@ fn simple_parsing_1() {
             data B
         "};
 
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -44,7 +45,7 @@ fn simple_parsing_2() {
 
             data B
         "};
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -87,7 +88,7 @@ fn simple_parsing_3() {
               where
                 t = 5       -- 11
         "};
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 3);
@@ -116,7 +117,7 @@ fn comments() {
 
             -- A trailing comment.
         "};
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -138,7 +139,7 @@ fn nested_1() {
               y :: a -> String
         "};
 
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 1);
@@ -161,12 +162,12 @@ fn nested_1() {
     assert_eq!(nested1.span_end(&arena).line, 3);
 }
 
-fn check_group_sanity(group_idx: DeclIdx, arena: &DeclArena) {
+fn check_group_sanity(group_idx: Idx<IndentationGroup>, arena: &Arena<IndentationGroup>) {
     check_group_links(group_idx, arena);
 }
 
-fn check_group_links(mut group_idx: DeclIdx, arena: &DeclArena) {
-    let mut prev: Option<DeclIdx> = None;
+fn check_group_links(mut group_idx: Idx<IndentationGroup>, arena: &Arena<IndentationGroup>) {
+    let mut prev: Option<Idx<IndentationGroup>> = None;
     loop {
         let group = arena.get(group_idx);
         assert_eq!(arena.get(group_idx).prev, prev);
@@ -188,7 +189,7 @@ fn check_group_links(mut group_idx: DeclIdx, arena: &DeclArena) {
 fn parse_1() {
     let pgm = "";
     let token = lex_full(pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -202,7 +203,7 @@ fn parse_1() {
 fn parse_2() {
     let pgm = "a";
     let token = lex_full(pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -221,7 +222,7 @@ fn parse_3() {
     ];
     let pgm = lines.join("\n");
     let token = lex_full(&pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -242,7 +243,7 @@ fn parse_4() {
     ];
     let pgm = lines.join("\n");
     let token = lex_full(&pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -263,7 +264,7 @@ fn parse_5() {
     ];
     let pgm = lines.join("\n");
     let token = lex_full(&pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -287,7 +288,7 @@ fn parse_6() {
     ];
     let pgm = lines.join("\n");
     let token = lex_full(&pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -306,7 +307,7 @@ fn parse_7() {
         "};
 
     let token = lex_full(pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);
@@ -333,7 +334,7 @@ fn parse_8() {
               where
                 t = 5       -- 11
         "};
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(pgm, Pos::ZERO);
 
     let group_idx = parse(token.clone(), &mut arena);
@@ -367,7 +368,7 @@ fn parse_9() {
     ];
     let pgm = lines.join("\n");
 
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(&pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -395,7 +396,7 @@ fn parse_10() {
     ];
     let pgm = lines.join("\n");
 
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(&pgm, Pos::ZERO);
     let groups = parse_indentation_groups(token.clone(), &mut arena);
     assert_eq!(groups.len(), 2);
@@ -426,7 +427,7 @@ fn trivia_nodes() {
     ];
     let pgm = lines.join("\n");
 
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
     let token = lex_full(&pgm, Pos::ZERO);
 
     let group_idx = parse(token.clone(), &mut arena);
@@ -464,7 +465,7 @@ fn parse_nested_1() {
     ];
     let pgm = lines.join("\n");
     let token = lex_full(&pgm, Pos::ZERO);
-    let mut arena = DeclArena::new();
+    let mut arena = Arena::new();
 
     let group_idx = parse(token, &mut arena);
     check_group_sanity(group_idx, &arena);

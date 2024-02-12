@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-use crate::decl_arena::DeclArena;
+use crate::arena::Arena;
+use crate::indentation_groups::IndentationGroup;
 use crate::pos::Pos;
 use crate::token::TokenRef;
 use h10_lexer::Lexer;
@@ -13,7 +14,7 @@ use lexgen_util::Loc;
 ///
 /// [`inserted_text`] should not be empty.
 ///
-/// [`DeclArena`] argument is needed to be able to get absolute spans of tokens, to be able to
+/// [`Arena<IndentationGroup>`] argument is needed to be able to get absolute spans of tokens, to be able to
 /// check if we've generated an identical token and stop.
 ///
 /// The returned token is the replacement for [`lex_start`]. The caller should update:
@@ -24,7 +25,7 @@ pub(crate) fn relex_insertion(
     lex_start: TokenRef,
     insertion_pos: Pos,
     inserted_text: &str,
-    arena: &DeclArena,
+    arena: &Arena<IndentationGroup>,
 ) -> TokenRef {
     debug_assert!(!inserted_text.is_empty());
 
@@ -48,7 +49,7 @@ pub(crate) fn relex_deletion(
     lex_start: TokenRef,
     deletion_start: Pos,
     deletion_end: Pos,
-    arena: &DeclArena,
+    arena: &Arena<IndentationGroup>,
 ) -> Option<TokenRef> {
     let chars =
         TokenCharIteratorWithDeletion::new(lex_start.clone(), deletion_start, deletion_end, arena);
@@ -62,7 +63,7 @@ fn relex<I, F>(
     lex_start: TokenRef,
     char_iter: I,
     update_end_pos: Pos,
-    arena: &DeclArena,
+    arena: &Arena<IndentationGroup>,
     adjust_old_token_pos: F,
 ) -> Option<TokenRef>
 where
@@ -191,7 +192,12 @@ enum TokenCharIterSource {
 
 impl<'a> TokenCharIteratorWithInsertion<'a> {
     // NB. `insertion_pos` is the absolute position.
-    fn new(token: TokenRef, insertion_pos: Pos, inserted_text: &'a str, arena: &DeclArena) -> Self {
+    fn new(
+        token: TokenRef,
+        insertion_pos: Pos,
+        inserted_text: &'a str,
+        arena: &Arena<IndentationGroup>,
+    ) -> Self {
         Self {
             current_pos: token.absolute_span(arena).start,
             source: TokenCharIterSource::TokenBeforeInsertion,
@@ -300,7 +306,12 @@ struct TokenCharIteratorWithDeletion {
 }
 
 impl TokenCharIteratorWithDeletion {
-    fn new(token: TokenRef, deletion_start: Pos, deletion_end: Pos, arena: &DeclArena) -> Self {
+    fn new(
+        token: TokenRef,
+        deletion_start: Pos,
+        deletion_end: Pos,
+        arena: &Arena<IndentationGroup>,
+    ) -> Self {
         Self {
             current_pos: token.absolute_span(arena).start,
             token,

@@ -1,13 +1,13 @@
 #![allow(clippy::new_without_default, clippy::manual_range_contains)]
 
 pub mod alloc;
+pub mod arena;
 pub mod ast;
 mod ast_to_ty;
 mod bind_groups;
 mod class_collector;
 mod class_env;
 mod collections;
-pub mod decl_arena;
 mod decl_info;
 mod dependency_analysis;
 mod id;

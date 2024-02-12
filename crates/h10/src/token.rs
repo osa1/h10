@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests;
 
+use crate::arena::{Arena, Idx};
 use crate::ast::Span;
 use crate::collections::Set;
-use crate::decl_arena::{DeclArena, DeclIdx};
+use crate::indentation_groups::IndentationGroup;
 use crate::pos::Pos;
 
 use arc_id::ArcId;
@@ -46,7 +47,7 @@ pub struct Token {
     ///
     /// This is to avoid having to update line numbers of every token after inserting a new line.
     ///
-    /// Column number is always absolute, so it can be obtained without a [`DeclArena`], see
+    /// Column number is always absolute, so it can be obtained without a [`Arena<IndentationGroup>`], see
     /// [`Token::indentation`].
     span: Mutex<Span>,
 
@@ -61,7 +62,7 @@ pub struct Token {
     /// Currently only update top-level declarations when re-parsing, so this holds an index to a
     /// top-level declaration. In the future we may want to hold references to arbitrary AST nodes
     /// to allow more fine-grained incremental updates.
-    ast_node: Mutex<Option<DeclIdx>>,
+    ast_node: Mutex<Option<Idx<IndentationGroup>>>,
 
     /// The token text.
     text: SmolStr,
@@ -116,7 +117,7 @@ impl TokenRef {
 
     /// Similar to [`span`], but the returned span will have absolute line numbers even when the
     /// token is a part of an AST.
-    pub fn absolute_span(&self, arena: &DeclArena) -> Span {
+    pub fn absolute_span(&self, arena: &Arena<IndentationGroup>) -> Span {
         let mut span = self.span();
         if let Some(ast_idx) = self.ast_node() {
             let ast = arena.get(ast_idx);
@@ -131,7 +132,7 @@ impl TokenRef {
     }
 
     /// Whether the token is the first token of a top-level declaration.
-    pub fn is_first_token(&self, arena: &DeclArena) -> bool {
+    pub fn is_first_token(&self, arena: &Arena<IndentationGroup>) -> bool {
         match self.ast_node() {
             Some(decl_idx) => &arena.get(decl_idx).first_token == self,
             None => false,
@@ -139,7 +140,7 @@ impl TokenRef {
     }
 
     /// Whether the token is the last token of a top-level declaration.
-    pub fn is_last_token(&self, arena: &DeclArena) -> bool {
+    pub fn is_last_token(&self, arena: &Arena<IndentationGroup>) -> bool {
         match self.ast_node() {
             Some(decl_idx) => &arena.get(decl_idx).last_token == self,
             None => false,
@@ -194,7 +195,7 @@ impl TokenRef {
 
     /// Set the AST node of the token and update span line numbers to make them relative to the AST
     /// node.
-    pub fn set_ast_node(&self, node_idx: DeclIdx, arena: &DeclArena) {
+    pub fn set_ast_node(&self, node_idx: Idx<IndentationGroup>, arena: &Arena<IndentationGroup>) {
         let mut new_span = self.absolute_span(arena);
         *self.ast_node.lock().unwrap() = Some(node_idx);
         let ast_node_line = arena.get(node_idx).line_number(arena);
@@ -203,7 +204,7 @@ impl TokenRef {
         *self.span.lock().unwrap() = new_span;
     }
 
-    pub fn ast_node(&self) -> Option<DeclIdx> {
+    pub fn ast_node(&self) -> Option<Idx<IndentationGroup>> {
         *self.ast_node.lock().unwrap()
     }
 
@@ -212,7 +213,7 @@ impl TokenRef {
     /// Note: [`pos`] is a position in the document, not in the token's AST node!
     ///
     /// Does not search next or previous tokens.
-    pub fn contains_location(&self, pos: Pos, arena: &DeclArena) -> bool {
+    pub fn contains_location(&self, pos: Pos, arena: &Arena<IndentationGroup>) -> bool {
         let span = self.absolute_span(arena);
         pos >= span.start && pos < span.end
     }

@@ -1,4 +1,5 @@
-use crate::decl_arena::DeclArena;
+use crate::arena::Arena;
+use crate::indentation_groups::IndentationGroup;
 use crate::layout_token_generator::LayoutTokenGenerator;
 use crate::lexing::lex_full;
 use crate::pos::Pos;
@@ -36,7 +37,7 @@ fn class_where_no_indent() {
     let pgm = r#"
 class X where
 a = 1"#;
-    let arena = DeclArena::new();
+    let arena: Arena<IndentationGroup> = Arena::new();
     let tokens: Vec<TokenKind> =
         LayoutTokenGenerator::new_top_level(&arena, lex_full(pgm, Pos::ZERO))
             .map(|t| t.unwrap().kind())
@@ -64,7 +65,7 @@ fn record_literal() {
     // Test that the layout lexer handles `{` and `}` in a context where an implicit layout is not
     // expected (i.e. after a `let`, `where`, `of`, `do`).
     let pgm = "data A = A { x :: Int }";
-    let arena = DeclArena::new();
+    let arena: Arena<IndentationGroup> = Arena::new();
     let tokens: Vec<TokenKind> = LayoutTokenGenerator::new(&arena, lex_full(pgm, Pos::ZERO))
         .map(|t| t.unwrap().kind())
         .collect();
