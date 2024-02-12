@@ -1,6 +1,7 @@
 use std::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::mem::replace;
 
 #[derive(Debug)]
 pub struct Arena<T> {
@@ -78,7 +79,7 @@ impl<T> Arena<T> {
         match self.free.take() {
             Some(idx) => {
                 let free_decl =
-                    std::mem::replace(&mut self.allocs[idx.as_usize()], Allocation::Used { elem });
+                    replace(&mut self.allocs[idx.as_usize()], Allocation::Used { elem });
                 match free_decl {
                     Allocation::Free { next_free_slot } => {
                         self.free = next_free_slot;
@@ -97,11 +98,18 @@ impl<T> Arena<T> {
         }
     }
 
-    pub fn free(&mut self, idx: Idx<T>) {
-        self.allocs[idx.as_usize()] = Allocation::Free {
-            next_free_slot: self.free,
-        };
+    pub fn free(&mut self, idx: Idx<T>) -> T {
+        let elem = replace(
+            &mut self.allocs[idx.as_usize()],
+            Allocation::Free {
+                next_free_slot: self.free,
+            },
+        );
         self.free = Some(idx);
+        match elem {
+            Allocation::Free { .. } => panic!("Freed an already free slot"),
+            Allocation::Used { elem } => elem,
+        }
     }
 
     pub fn get(&self, idx: Idx<T>) -> &T {
