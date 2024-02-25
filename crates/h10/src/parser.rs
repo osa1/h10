@@ -32,7 +32,7 @@ pub fn parse_module(module_str: &str) -> ParserResult<Vec<TopDecl>> {
     for group_idx in indentation_groups {
         let group = arena.get(group_idx);
 
-        // HACK: Because the layout token generator won't be generationg `;`s after a top-level
+        // HACK: Because the layout token generator won't be generating `;`s after a top-level
         // group, for now remove the link from the last token to the next.
         let next_token = group.last_token.next();
         group.last_token.set_next(None);

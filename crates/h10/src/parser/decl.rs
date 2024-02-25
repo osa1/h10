@@ -132,11 +132,9 @@ impl<'a> Parser<'a> {
             _ => self.value_decl().map(TopDeclKind::Value),
         }?;
         let (_, r) = self.last_tok_span();
-        let line_number = t.span().start.line;
         let info = DeclInfo::new_from_top_decl(&top_decl_kind);
         Ok(TopDecl {
             kind: top_decl_kind,
-            line_number,
             first_token: t,
             last_token: self.last_tok.clone().unwrap(),
             info,

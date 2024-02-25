@@ -43,27 +43,20 @@ pub struct TopDecl {
     // NB. We don't need the span (`AstNode`) here as we have access to the tokens.
     pub kind: TopDeclKind,
 
-    /// Line number of the `first_token` in the source file.
+    /// First token of the top-level declaration.
     ///
-    /// Line numbers of tokens attached to this declaration will be relative to this number.
+    /// This token will always be at column 0.
     ///
-    /// TODO: For this to hold, `first_token` should be the same token as the declaration's
-    /// indentation group's first token. Is this really the case?
-    pub line_number: u32,
-
-    /// The first token where this top-level declaration starts. This token will always be at
-    /// column 0.
-    ///
-    /// TODO: Clarify whether this is the same as the declaration's indentation group's first
+    /// Note: initial trivia (whitespace, comments, documentation) are not a part of the
+    /// declaration, so this token can be different than the declaration's indentation group's first
     /// token.
     pub first_token: TokenRef,
 
-    /// The last token (inclusive) where this top-level declaration ends.
+    /// The last token (inclusive) of this top-level declaration.
     ///
-    /// This will almost always be a whitespace token as there needs to be at least one new line
-    /// between top-level declarations, and files usually end with a new line.
-    ///
-    /// TODO: Clarify whether this is the same as the declaration's indentation group's last token.
+    /// Note: trailing trivia (whitespace, comments, documentation) are not a part of the
+    /// declaration, so this token can be different than the declaration's indentation group's last
+    /// token.
     pub last_token: TokenRef,
 
     /// Defined and used ids in the decl.
@@ -74,32 +67,6 @@ impl fmt::Debug for TopDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Skip tokens as they form a double linked list.
         <TopDeclKind as fmt::Debug>::fmt(&self.kind, f)
-    }
-}
-
-impl TopDecl {
-    pub fn span_start(&self) -> Pos {
-        let token_pos = self.first_token.span().start;
-        Pos {
-            line: token_pos.line + self.line_number,
-            char: token_pos.char,
-        }
-    }
-
-    pub fn span_end(&self) -> Pos {
-        let token_pos = self.last_token.span().end;
-        Pos {
-            line: token_pos.line + self.line_number,
-            char: token_pos.char,
-        }
-    }
-
-    pub fn contains_location(&self, pos: Pos) -> bool {
-        pos >= self.span_start() && pos < self.span_end()
-    }
-
-    pub fn iter_tokens(&self) -> impl Iterator<Item = TokenRef> {
-        self.first_token.iter_until(&self.last_token)
     }
 }
 
